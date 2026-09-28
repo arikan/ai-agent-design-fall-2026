@@ -1,0 +1,8 @@
+# Each student's own runs and reports: personal, and they would conflict on git pull
+runs/
+report*.md
+
+# Python and macOS clutter
+__pycache__/
+*.pyc
+.DS_Store
