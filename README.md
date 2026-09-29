@@ -2,18 +2,18 @@
 
 Code and instructions for the course labs, one folder per week. Each folder has its own README: start there.
 
-| Week | Folder | Topic |
-|---|---|---|
-| 4 | [week4-agent-runs](week4-agent-runs/) | Run the same task with three agents and compare harness against model |
-| 5 | [week5-minimal-agent](week5-minimal-agent/) | A minimal working agent |
-| 6 | week6-evals | Evaluating agents (coming) |
+| Folder | Topic |
+|---|---|
+| [week4-agent-runs](week4-agent-runs/) | Run the same task with three agents and compare harness against model |
+| [week5-minimal-agent](week5-minimal-agent/) | Workflows and agents on one small harness |
+| week6-evals | Evaluating agents (coming) |
 
 ## Getting the labs
 
 Clone once:
 
 ```sh
-git clone <repo URL>
+git clone https://github.com/arikan/ai-agent-design-fall-2026.git
 cd ai-agent-design-fall-2026
 ```
 
