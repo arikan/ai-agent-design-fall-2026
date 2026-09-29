@@ -140,6 +140,16 @@ After any run, `python3 mva.py board` shows the tokens and time for each agent's
 
 An agent is two files, so making your own means copying a folder and rewriting `spec.md` for your job and `harness.toml` for what it may touch; `mva.py` stays the same.
 
+What an agent can reach:
+
+- Reads: images (jpg, png, gif, webp), text (txt, md, csv, log, json, toml), and PDFs with an `anthropic/` model, from the folders `harness.toml` lets it read.
+- Writes: creates, appends, moves and deletes files, only in the folders `harness.toml` allows.
+- Asks a person, and notifies you in the terminal and `notifications.log`.
+- Starts by you, a timer, or a new file.
+- Cannot reach the web, email, other apps, or run code. To add that, see [Inside mva.py](#inside-mvapy).
+
+Example jobs: a pipeline that writes alt text for every image in a folder (set `output_lines = "all"` to keep answers longer than one line), a task agent that summarizes a folder of interview notes, a standing agent that files whatever lands in its `screenshots/` folder.
+
 1. Copy a folder: `cp -r agents/task agents/mine`
 2. In `agents/mine/harness.toml`, set `fresh = false`. Every run otherwise deletes everything in the folder except `spec.md`, `harness.toml` and `traces/`, including your files and the agent's memory.
 3. Rewrite `spec.md` for your step.

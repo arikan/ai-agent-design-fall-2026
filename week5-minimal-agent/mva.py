@@ -111,18 +111,24 @@ class Trace:
 
 
 # ---------------------------------------------------------------- content blocks
-# Inside the harness, content is a list of blocks: {"type": "text", "text": ...}
-# or {"type": "image", "media_type": ..., "data": <base64>}. Each backend converts.
+# Inside the harness, content is a list of blocks: {"type": "text", "text": ...},
+# {"type": "image", "media_type": ..., "data": <base64>}, or the same shape with
+# "type": "document" for a PDF. Each backend converts.
 
 def text(s):
     return {"type": "text", "text": s}
 
 
-def file_blocks(p):
+def file_blocks(agent, p):
     ext = p.suffix.lower()
     if ext in IMAGE_TYPES:
         return [text(f"[image: {p.name}]"),
                 {"type": "image", "media_type": IMAGE_TYPES[ext], "data": base64.b64encode(p.read_bytes()).decode()}]
+    if ext == ".pdf":  # only the Anthropic API reads PDFs here
+        if route(agent.model)[0] != "anthropic":
+            return [text(f"{p.name}: this model cannot read PDFs. Use an anthropic/ model, or convert the PDF to text.")]
+        return [text(f"[pdf: {p.name}]"),
+                {"type": "document", "media_type": "application/pdf", "data": base64.b64encode(p.read_bytes()).decode()}]
     if ext in TEXT_TYPES:
         return [text(p.read_text()[:20000])]
     return [text(f"{p.name}: this harness cannot read {ext} files.")]
@@ -240,8 +246,8 @@ def to_anthropic(messages, native):
 
 
 def a_block(b):
-    if b["type"] == "image":
-        return {"type": "image", "source": {"type": "base64", "media_type": b["media_type"], "data": b["data"]}}
+    if b["type"] in ("image", "document"):
+        return {"type": b["type"], "source": {"type": "base64", "media_type": b["media_type"], "data": b["data"]}}
     return {"type": "text", "text": b["text"]}
 
 
@@ -349,7 +355,7 @@ def t_list_dir(agent, path="."):
 
 def t_read_file(agent, path):
     p = agent.file(path)
-    return file_blocks(p) if p.is_file() else [text(f"{path} does not exist")]
+    return file_blocks(agent, p) if p.is_file() else [text(f"{path} does not exist")]
 
 
 def t_write_file(agent, path, content):
@@ -482,7 +488,7 @@ def run_tool(agent, trace, call):
         out = TOOLS[name]["fn"](agent, **{k: str(args[k]) for k in TOOLS[name]["args"]})
     except Exception as e:  # a failed tool is a result the model can see
         out = [text(f"error: {e}")]
-    trace.log("tool", tool=name, args=args, result=[b.get("text", "[image]") for b in out])
+    trace.log("tool", tool=name, args=args, result=[b.get("text", f"[{b['type']}]") for b in out])
     return out
 
 
@@ -521,12 +527,15 @@ def run_steps(agent, items, label, fresh):
         out.write_text(agent.cfg.get("header", "") + "\n" if agent.cfg.get("header") else "")
     for p in items:  # step 1: take the next file
         rel = p.relative_to(agent.dir)
-        system, messages = assemble_context(agent, trace, [text(f"File: {rel}")] + file_blocks(p))
+        system, messages = assemble_context(agent, trace, [text(f"File: {rel}")] + file_blocks(agent, p))
         result = call_model(agent, trace, system, messages, None)  # step 2: one model call, no tools
-        line = next((l.strip() for l in result["text"].splitlines() if l.strip() and not l.startswith("```")), "")
-        buf = io.StringIO()
-        csv.writer(buf).writerow([p.name])
-        row = buf.getvalue().strip() + "," + line
+        if agent.cfg.get("output_lines", "first") == "all":  # the whole answer, under the file's name
+            row = f"{p.name}\n{result['text'].strip()}\n"
+        else:  # first: one CSV row, the file's name and the answer's first line
+            line = next((l.strip() for l in result["text"].splitlines() if l.strip() and not l.startswith("```")), "")
+            buf = io.StringIO()
+            csv.writer(buf).writerow([p.name])
+            row = buf.getvalue().strip() + "," + line
         with out.open("a") as f:  # step 3: code writes the row
             f.write(row + "\n")
         say("tool", f"  · row: {row}")
