@@ -134,8 +134,13 @@ def assemble_context(agent, trace, first_message):
     parts = [agent.spec]
     if agent.memory:
         mem = agent.file(agent.memory)
-        notes = mem.read_text() if mem.exists() else "(empty)"
-        parts.append(f"# Your memory ({agent.memory}), written by your earlier runs\n\n{notes}")
+        if mem.exists():
+            parts.append(f"# Your memory ({agent.memory}), written by your earlier runs\n\n{mem.read_text()}")
+        else:  # no run has written it yet: start from memory.start.md
+            start = agent.dir / "memory.start.md"
+            notes = start.read_text() if start.exists() else "(empty)"
+            parts.append(f"# Your memory at the start, before any run\n\n{agent.memory} does not exist yet. "
+                         f"To save your memory, write all of it to {agent.memory} with write_file.\n\n{notes}")
     tools = offered_tools(agent)
     if agent.path == "goal" and tool_mode(agent) == "text":
         parts.append(text_protocol(tools))
@@ -586,7 +591,7 @@ KEEP = {"spec.md", "harness.toml", "policy.md", "memory.start.md"}
 
 
 def reset(agent):
-    """Back to a clean folder: delete outputs, refill the inbox if seed = true, restart memory."""
+    """Back to a clean folder: delete outputs and memory.md, refill the inbox if seed = true."""
     for p in agent.dir.iterdir():
         if p.name in KEEP:
             continue
@@ -597,8 +602,6 @@ def reset(agent):
         for p in RECEIPTS.iterdir():
             if p.is_file():
                 shutil.copy(p, inbox / p.name)
-    if agent.memory and (agent.dir / "memory.start.md").exists():
-        shutil.copy(agent.dir / "memory.start.md", agent.file(agent.memory))
     say("done", f"reset {agent.name}: {len(list(inbox.iterdir()))} file(s) in {inbox.relative_to(agent.dir)}/")
 
 
