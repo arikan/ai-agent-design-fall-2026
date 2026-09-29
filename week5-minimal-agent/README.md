@@ -7,10 +7,12 @@ A folder of receipts has to become an expense claim: a mix of café slips, a hot
 
 The four setups in this lab sit on the Autonomy Grid from the lecture. Two questions place each one: who picks the next step (the rows), and what begins each run (the columns).
 
-| | You start it | It starts itself |
+| | You start it<br>`trigger = "manual"` | It starts itself<br>`trigger = "every"` or `"on_new_file"` |
 |---|---|---|
-| **Open path**: the model picks each next step<br>*agent* | **Task agent** · `agents/task`<br>You give it a task and its goal. The model decides each next step until the goal is met. | **Standing agent** · `agents/standing`<br>Each arrival starts a run. What earlier runs wrote to memory shapes the next one. |
-| **Fixed path**: code runs the steps you wrote<br>*workflow* | **Pipeline** · `agents/pipeline`<br>Code runs fixed steps. The model does the work inside each step. | **Scheduled pipeline** · `agents/scheduled`<br>The same pipeline, started by a timer or an arrival. Here, a timer every 30 seconds. |
+| **Open path**: the model picks each next step<br>*agent*<br>`path = "goal"` | **Task agent** · `agents/task`<br>You give it a task and its goal. The model decides each next step until the goal is met. | **Standing agent** · `agents/standing`<br>Each arrival starts a run. What earlier runs wrote to memory shapes the next one. |
+| **Fixed path**: code runs the steps you wrote<br>*workflow*<br>`path = "steps"` | **Pipeline** · `agents/pipeline`<br>Code runs fixed steps. The model does the work inside each step. | **Scheduled pipeline** · `agents/scheduled`<br>The same pipeline, started by a timer or an arrival. Here, a timer every 30 seconds. |
+
+Each setup is a folder in `agents/` with two files. `spec.md` is what the model reads: Task, Why, Done, Boundaries and Sources, plus Steps for a pipeline. `harness.toml` is what `mva.py` enforces: the two settings in the table, and which tools the agent has, which folders it may read and write, what is denied, and how long it may run. With `path = "goal"`, the model gets tools and loops until it calls `finish` or the harness stops it. With `path = "steps"`, the code calls the model once per file, with no tools.
 
 Run all four, then compare what they got right, what they asked you, and what they cost.
 
@@ -36,14 +38,14 @@ cd week5-minimal-agent
   ```
   ollama pull gemma3
   ```
-  Then change the model line to `model = "ollama/gemma3"` in each agent's `harness.toml` (see step 4).
+  Then change the model line to `model = "ollama/gemma3"` in each agent's `harness.toml`. The receipts are images, so the model must read images. With Ollama, the model writes its tool calls as JSON text and the harness parses them (`tool_mode = "text"`). You can see this in each run's trace, in the agent's `traces/` folder.
 - **OpenRouter, one key for many models.** Get a key at [openrouter.ai/keys](https://openrouter.ai/keys), run `cp .env.example .env`, paste the key after `OPENROUTER_API_KEY=`, and change the model line to `model = "openrouter/google/gemini-2.5-flash"`.
 
 🔑 **Keep your key to yourself.** Git ignores `.env`, but that only protects you from commits. Never zip it into a submission, paste it into a chat, show it on a shared screen, or share one key with classmates. In the Anthropic Console, set a monthly spend limit, so a leaked key can't cost much. If a key leaks, delete it in the Console and make a new one.
 
 VS Code may offer to enable `python.terminal.useEnvFile` once `.env` exists. Say no: `mva.py` already reads `.env` itself, and that setting would put your key into every VS Code terminal, where Claude Code would pick it up and bill it instead of your plan.
 
-**4. Set the model for each agent.** Each agent folder has its own `harness.toml` with its own `model` line: `agents/task/`, `agents/pipeline/`, `agents/scheduled/` and `agents/standing/`. With Anthropic, leave them as they are. Otherwise, in each one, put `#` in front of the `anthropic/` line and add or uncomment your model's line.
+**4. Set the model for each agent.** Each agent's `harness.toml` has its own `model` line: `agents/task/`, `agents/pipeline/`, `agents/scheduled/` and `agents/standing/`. With Anthropic, leave them as they are. Otherwise, in each one, put `#` in front of the `anthropic/` line and add or uncomment your model's line.
 
 ## Run each agent
 
@@ -112,32 +114,6 @@ Drag in one file at a time, and wait for each run to finish before the next:
 
 Press Ctrl-C in the terminal to stop it.
 
-## An agent is a folder
-
-```
-agents/task/
-  spec.md        what the model reads     (requested)
-  harness.toml   what mva.py enforces     (enforced)
-  policy.md      a source the spec points to
-  inbox/         the files it works on
-  traces/        one file per run
-```
-
-**spec.md** has five parts: Task, Why, Done, Boundaries, Sources. A workflow adds Steps.
-
-**harness.toml** holds everything the model cannot change: which tools it has, which folders it may read and write, what is denied, how long it may run, and what starts it.
-
-## The grid is two settings
-
-Each agent's `harness.toml` places it on the grid with two lines:
-
-| Grid | Setting |
-|---|---|
-| Open path | `path = "goal"`: the model gets tools and loops until it calls `finish`, or the harness stops it. |
-| Fixed path | `path = "steps"`: code loops over the files and calls the model once per file, with no tools. |
-| You start it | `trigger = "manual"` |
-| It starts itself | `trigger = "every"` (a timer) or `trigger = "on_new_file"` (an arrival) |
-
 ## Where each box of the architecture lives in mva.py
 
 | Box | Section |
@@ -160,18 +136,6 @@ Each agent's `harness.toml` places it on the grid with two lines:
 4. Put your files in `agents/mine/inbox/` and run it.
 
 Start from `agents/task`. Move to another cell only when the work forces you.
-
-## Models
-
-Set `model` in `harness.toml`:
-
-```
-model = "anthropic/claude-sonnet-5"
-model = "ollama/gemma3"
-model = "openrouter/google/gemini-2.5-flash"
-```
-
-The receipts are images, so the model must read images. With Ollama, the model writes its tool calls as JSON text and the harness parses them (`tool_mode = "text"`). You can see this in the trace.
 
 ## Safety
 
