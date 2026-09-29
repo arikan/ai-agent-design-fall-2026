@@ -6,4 +6,3 @@
 agents/*/*
 !agents/*/spec.md
 !agents/*/harness.toml
-!agents/*/memory.start.md

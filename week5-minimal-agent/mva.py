@@ -134,13 +134,8 @@ def assemble_context(agent, trace, first_message):
     parts = [agent.spec]
     if agent.memory:
         mem = agent.file(agent.memory)
-        if mem.exists():
-            parts.append(f"# Your memory ({agent.memory}), written by your earlier runs\n\n{mem.read_text()}")
-        else:  # no run has written it yet: start from memory.start.md
-            start = agent.dir / "memory.start.md"
-            notes = start.read_text() if start.exists() else "(empty)"
-            parts.append(f"# Your memory at the start, before any run\n\n{agent.memory} does not exist yet. "
-                         f"To save your memory, write all of it to {agent.memory} with write_file.\n\n{notes}")
+        notes = mem.read_text() if mem.exists() else "(empty: this is the first run)"
+        parts.append(f"# Your memory ({agent.memory}), written by your earlier runs\n\n{notes}")
     tools = offered_tools(agent)
     if agent.path == "goal" and tool_mode(agent) == "text":
         parts.append(text_protocol(tools))
@@ -587,7 +582,7 @@ def run(agent, message=None):
 
 
 # ---------------------------------------------------------------- commands
-KEEP = {"spec.md", "harness.toml", "memory.start.md"}
+KEEP = {"spec.md", "harness.toml"}
 
 
 def reset(agent):

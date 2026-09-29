@@ -6,6 +6,7 @@ The school reimburses only business expenses with a matching receipt. A wrong fi
 
 # Done
 The new file is in filed/ or review/, a one-line reason is appended to actions.log, and the running total in memory.md matches filed/.
+memory.md has exactly these sections: ## Vendors, ## Corrections, ## Running total. If it does not exist, create it with them.
 
 # Boundaries
 ✅ Always file clear business receipts to filed/; move unclear ones and non-receipts to review/; record new vendors and my corrections in memory.md.
