@@ -78,7 +78,7 @@ In the terminal:
 python3 mva.py run setups/scheduled-pipeline
 ```
 
-Every 30 seconds it checks `setups/scheduled-pipeline/inbox/` and prints "no new files" until something arrives. To add a file, drag it from `receipts/` into the inbox. Hold Option while dragging, so the file is copied and `receipts/` stays complete. On Windows or Linux, copy and paste the file in your file manager.
+Every 30 seconds it checks `setups/scheduled-pipeline/inbox/` and prints "no new files" until something arrives. Between checks, it counts down to the next one. To add a file, drag it from `receipts/` into the inbox. Hold Option while dragging, so the file is copied and `receipts/` stays complete. On Windows or Linux, copy and paste the file in your file manager.
 
 Drag in one file at a time:
 

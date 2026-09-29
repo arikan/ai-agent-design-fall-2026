@@ -544,6 +544,16 @@ def run_steps(agent, items, label, fresh):
 
 
 # ---------------------------------------------------------------- triggers
+def countdown(seconds):
+    """Wait for the next tick, showing the seconds left on one line, rewritten in place."""
+    if not sys.stdout.isatty():  # piped or logged: no line per second
+        return time.sleep(seconds)
+    for left in range(round(seconds), 0, -1):
+        print(f"\r\033[2m  next check in {left}s\033[0m\033[K", end="", flush=True)
+        time.sleep(1)
+    print("\r\033[K", end="", flush=True)  # clear it before the next check prints
+
+
 def inbox_files(agent):
     folder = agent.file(agent.cfg.get("input", "inbox"))
     folder.mkdir(exist_ok=True)
@@ -587,7 +597,7 @@ def run(agent, message=None):
                     done_log.write_text("\n".join(sorted(seen)) + "\n")  # bookkeeping, not judgment
                 else:
                     say("tick", f"  tick {tick} · {datetime.now():%H:%M:%S} · no new files")
-            time.sleep(every)
+            countdown(every) if agent.trigger == "every" else time.sleep(every)
     except KeyboardInterrupt:
         say("info", "\nstopped")
 
