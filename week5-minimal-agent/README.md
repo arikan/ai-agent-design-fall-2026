@@ -9,8 +9,8 @@ The four setups in this lab sit on the Autonomy Grid from the lecture. Two quest
 
 | | You start it<br>`trigger = "manual"` | It starts itself<br>`trigger = "every"` or `"on_new_file"` |
 |---|---|---|
-| **Open path**: the model picks each next step<br>*agent*<br>`path = "goal"` | **Task agent** · `setups/task-agent`<br>You give it a task and its goal. The model decides each next step until the goal is met. | **Standing agent** · `setups/standing-agent`<br>Each arrival starts a run. What earlier runs wrote to memory shapes the next one. |
 | **Fixed path**: code runs the steps you wrote<br>*workflow*<br>`path = "steps"` | **Pipeline** · `setups/pipeline`<br>Code runs fixed steps. The model does the work inside each step. | **Scheduled pipeline** · `setups/scheduled-pipeline`<br>The same pipeline, started by a timer or an arrival. Here, a timer every 30 seconds. |
+| **Open path**: the model picks each next step<br>*agent*<br>`path = "goal"` | **Task agent** · `setups/task-agent`<br>You give it a task and its goal. The model decides each next step until the goal is met. | **Standing agent** · `setups/standing-agent`<br>Each arrival starts a run. What earlier runs wrote to memory shapes the next one. |
 
 Each setup is a folder in `setups/`. Two files define it: `spec.md` is requested, and `harness.toml` is enforced.
 
