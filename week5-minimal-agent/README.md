@@ -18,7 +18,7 @@ Each setup is a folder in `agents/`. Two files define it: `spec.md` is requested
 agents/<setup>/
   spec.md           what the model reads: Task, Why, Done, Boundaries, Sources; a pipeline adds Steps
   harness.toml      what mva.py enforces: path, trigger, model; agents add tools, readable and writable folders, limits
-  inbox/            the files it works on; reset makes it, and fills it for the pipeline and the task agent
+  inbox/            the files it works on; each run makes it fresh, and fills it for the pipeline and the task agent
 ```
 
 The spec is always in the model's context, and so is the standing agent's memory. A pipeline's code hands the model each file; for an agent, any other file reaches the model only if the agent decides to open it.
@@ -58,13 +58,12 @@ VS Code may offer to enable `python.terminal.useEnvFile` once `.env` exists. Say
 
 ## Run each agent
 
-Always `reset` an agent before you run it. `reset` keeps the files in the tree above, deletes everything else, and makes a fresh `inbox/`, so keep your own notes outside the agent folder. For the standing agent, it deletes `memory.md`, so the next run starts with no memory.
+Each run starts clean: it deletes everything the last run made, including the standing agent's memory, and keeps the traces of earlier runs. Keep your own notes outside the agent folder.
 
 ### 1. Pipeline: fixed path, you start it
 
 ```
-python3 mva.py reset agents/pipeline
-python3 mva.py run   agents/pipeline
+python3 mva.py run agents/pipeline
 ```
 
 The code goes through the receipts one by one and asks the model for one line per receipt. It never asks you anything. When it finishes, open `agents/pipeline/expenses.csv`.
@@ -76,8 +75,7 @@ This one starts with an empty inbox and keeps running. Keep a Finder window open
 In the terminal:
 
 ```
-python3 mva.py reset agents/scheduled
-python3 mva.py run   agents/scheduled
+python3 mva.py run agents/scheduled
 ```
 
 Every 30 seconds it checks `agents/scheduled/inbox/` and prints "no new files" until something arrives. To add a file, drag it from `receipts/` into the inbox. Hold Option while dragging, so the file is copied and `receipts/` stays complete. On Windows or Linux, copy and paste the file in your file manager.
@@ -92,8 +90,7 @@ At the next tick, each file becomes a row in `agents/scheduled/expenses.csv`. Th
 ### 3. Task agent: open path, you start it
 
 ```
-python3 mva.py reset agents/task
-python3 mva.py run   agents/task
+python3 mva.py run agents/task
 ```
 
 The agent reads the receipts in `agents/task/inbox/` and decides what to do next. It may ask you a question in the terminal: type your answer and press Enter. When it finishes, open `agents/task/report.md` and compare it with the pipeline's `agents/pipeline/expenses.csv`.
@@ -105,8 +102,7 @@ This one also starts with an empty inbox and keeps running, and it keeps a memor
 In the terminal:
 
 ```
-python3 mva.py reset agents/standing
-python3 mva.py run   agents/standing
+python3 mva.py run agents/standing
 ```
 
 It watches `agents/standing/inbox/`, and each new file starts one run.
@@ -138,7 +134,7 @@ agents/<setup>/
   notifications.log   standing agent: messages it sent you
 ```
 
-After any run, `python3 mva.py board` shows the tokens and time for every agent.
+After any run, `python3 mva.py board` shows the tokens and time for each agent's latest run. For the scheduled pipeline and the standing agent, that is every run since you started it.
 
 ## Where each box of the architecture lives in mva.py
 
@@ -157,9 +153,12 @@ After any run, `python3 mva.py board` shows the tokens and time for every agent.
 ## Make your own agent
 
 1. Copy a folder: `cp -r agents/task agents/mine`
+
+   Every run deletes everything in the agent's folder except `spec.md`, `harness.toml` and `traces/`, then starts clean. Set `fresh = false` in `harness.toml` if your agent should keep its memory between sessions, or works on files you put in its inbox.
+
 2. Rewrite `spec.md` for your step.
 3. Edit `harness.toml` for your agent.
-4. Put your files in `agents/mine/inbox/` and run it.
+4. Put your files in `agents/mine/inbox/`, set `fresh = false`, and run it.
 
 Start from `agents/task`. Move to another cell only when the work forces you.
 

@@ -9,8 +9,8 @@ Week 5 of the course repo (`ai-agent-design-fall-2026`): `mva.py`, a minimum via
 ## Commands
 
 ```sh
-python3 mva.py reset agents/task      # wipe outputs and memory.md, re-seed inbox/
-python3 mva.py run   agents/task      # optional trailing words replace the harness.toml `start` message
+python3 mva.py run   agents/task      # resets first (fresh = true); trailing words replace the harness.toml `start` message
+python3 mva.py reset agents/task      # by hand: wipe outputs and memory.md, re-seed inbox/, clear summary.jsonl
 python3 mva.py board                  # tokens/time per agent, from traces/summary.jsonl
 python3 -m py_compile mva.py          # the only offline check
 ```
@@ -25,10 +25,10 @@ Every `run` makes real model calls. Pick the model with `model = "anthropic/…"
 - **Tool modes.** `tool_mode` is `native` (API tool calling) or `text`. Ollama models default to `text`: `text_protocol` adds a JSON calling convention to the system prompt, and `parse_text_call` pulls out the first `{…}` object, one call per reply. It can be overridden with `tool_mode` in `harness.toml`.
 - **Tools and guardrail.** `TOOLS` is the registry: `fn`, `args` (every arg is a required string, and `schema()` is generated from it) and `about`. A tool is offered only if it is listed in the agent's `tools`. `guard` runs before every call and checks: the tool exists, it is offered, it isn't denied, all args are present, `READS` args are under `read + write`, and `WRITES` args are under `write`. All paths go through `Agent.file`, which rejects anything outside the agent folder. A new tool needs a `TOOLS` entry and, if it touches paths, `READS`/`WRITES` entries, or the guard won't check its paths. Tool exceptions and denials go back to the model as results; they don't crash the run.
 - **`ask` depends on the trigger.** With `manual` it blocks on `input()`. Otherwise it writes the question to `ask_queue/` (default `pending/`) and tells the model not to act.
-- **Traces.** Each run appends JSONL events (`context`, `result`, `tool`, `denied`, `step`, `end`) to `traces/<stamp>-<label>.jsonl`, plus one line to `traces/summary.jsonl`, which is all `board` reads. Later weeks (evals) read these, so treat event names and summary fields as an interface.
+- **Traces.** Each run appends JSONL events (`context`, `result`, `tool`, `denied`, `step`, `end`) to `traces/<stamp>-<label>.jsonl`, plus one line to `traces/summary.jsonl`, which is all `board` reads. `reset` keeps the trace files but deletes `summary.jsonl`, so `board` shows one session. Later weeks (evals) read these, so treat event names and summary fields as an interface.
 
 ## Gotchas
 
-- `reset` deletes everything in the agent folder except `KEEP` (`spec.md`, `harness.toml`). A new hand-written file in an agent folder is lost on the next reset unless it's added to `KEEP`. `seed = true` copies every file directly in `receipts/` (not `extras/`) into the inbox. `memory.md` is deleted too: the next run's context says its memory is empty, and the standing spec tells the agent to create the file with its three sections.
+- `fresh` (default true) makes `run()` call `reset` first: before every manual run, and once when a timer or watcher starts, so memory carries across one session. `reset` deletes everything in the agent folder except `KEEP` (`spec.md`, `harness.toml`, `traces`). A new hand-written file in an agent folder is lost on the next reset unless it's added to `KEEP`. `seed = true` copies every file directly in `receipts/` (not `extras/`) into the inbox. `memory.md` is deleted too: the next run's context says its memory is empty, and the standing spec tells the agent to create the file with its three sections.
 - `receipts/` holds deliberate test cases: a duplicate (`cafe_luna_0914 (1).jpg`), a menu that isn't a receipt, foreign currency, a blurry photo, a rotated one, a handwritten one, an over-$200 hotel. Don't "clean them up". They are invented businesses with a specimen footer.
 - `tools/make_receipts.py` regenerates them. It is the one script that needs Pillow, and it hardcodes Linux DejaVu font paths (`/usr/share/fonts/truetype/dejavu/`), so it won't run on macOS as-is.

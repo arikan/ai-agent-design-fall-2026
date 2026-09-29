@@ -543,6 +543,8 @@ def inbox_files(agent):
 
 def run(agent, message=None):
     """What begins each run: you, a timer, or a new file."""
+    if agent.cfg.get("fresh", True):  # a timer or watcher starts clean once, so memory carries across its runs
+        reset(agent)
     if agent.trigger == "manual":
         if agent.path == "steps":
             return run_steps(agent, inbox_files(agent), "manual", fresh=True)
@@ -582,11 +584,12 @@ def run(agent, message=None):
 
 
 # ---------------------------------------------------------------- commands
-KEEP = {"spec.md", "harness.toml"}
+KEEP = {"spec.md", "harness.toml", "traces"}
 
 
 def reset(agent):
-    """Back to a clean folder: delete outputs and memory.md, refill the inbox if seed = true."""
+    """Back to a clean folder: delete outputs and memory.md, refill the inbox if seed = true.
+    Trace files stay; a new session starts, so board counts only the runs after this."""
     for p in agent.dir.iterdir():
         if p.name in KEEP:
             continue
@@ -597,6 +600,7 @@ def reset(agent):
         for p in RECEIPTS.iterdir():
             if p.is_file():
                 shutil.copy(p, inbox / p.name)
+    (agent.dir / "traces" / "summary.jsonl").unlink(missing_ok=True)
     say("done", f"reset {agent.name}: {len(list(inbox.iterdir()))} file(s) in {inbox.relative_to(agent.dir)}/")
 
 
