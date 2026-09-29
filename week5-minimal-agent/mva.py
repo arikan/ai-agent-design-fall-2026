@@ -41,10 +41,21 @@ TEXT_TYPES = {".txt", ".md", ".csv", ".log", ".json", ".toml"}
 
 
 # ---------------------------------------------------------------- terminal
+# Bold, dim and plain red, plus two fixed 256-palette colors: themes redraw the basic colors, so
+# bright ones vanish on a light background and dark ones on a dark background. Jade #00875f and
+# rust #af5f5f keep about 4.5:1 contrast on both white and black. The leading symbol carries the meaning.
+STYLES = {"run": "1", "done": "1", "ask": "1", "notify": "1", "denied": "31", "model": "2", "tick": "2",
+          "ok": "1;38;5;29", "failed": "1;38;5;131"}
+
+
+def styled():
+    """Escape codes only in a terminal, and never when NO_COLOR is set."""
+    return sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+
+
 def say(kind, text):
-    colors = {"model": "2", "tool": "36", "denied": "31;1", "ask": "33;1", "notify": "35;1",
-              "done": "32;1", "info": "0", "tick": "2", "run": "1"}
-    print(f"\033[{colors.get(kind, '0')}m{text}\033[0m", flush=True)
+    style = STYLES.get(kind)
+    print(f"\033[{style}m{text}\033[0m" if style and styled() else text, flush=True)
 
 
 # ---------------------------------------------------------------- 0. the agent
@@ -114,7 +125,7 @@ class Trace:
         with (self.agent.dir / "traces" / "summary.jsonl").open("a") as f:
             f.write(json.dumps(summary) + "\n")
         dollars = cost(self.agent.model, self.tokens_in, self.tokens_out)
-        say("done", f"■ {outcome} · {self.calls} model calls · {self.tokens_in:,} tokens in · "
+        say("ok" if mark(outcome) == "✓" else "failed", f"{mark(outcome)} {outcome} · {self.calls} model calls · {self.tokens_in:,} tokens in · "
                     f"{self.tokens_out:,} out · {secs}s · {money(dollars)} · trace: {self.path.relative_to(ROOT)}")
 
 
@@ -557,7 +568,8 @@ def countdown(seconds):
     if not sys.stdout.isatty():  # piped or logged: no line per second
         return time.sleep(seconds)
     for left in range(round(seconds), 0, -1):
-        print(f"\r\033[2m  next check in {left}s\033[0m\033[K", end="", flush=True)
+        line = f"  next check in {left}s"
+        print(f"\r\033[2m{line}\033[0m\033[K" if styled() else f"\r{line}\033[K", end="", flush=True)
         time.sleep(1)
     print("\r\033[K", end="", flush=True)  # clear it before the next check prints
 
@@ -656,6 +668,11 @@ def cost(model, tokens_in, tokens_out):
     return (tokens_in * price_in + tokens_out * price_out) / 1_000_000
 
 
+def mark(outcome):
+    """✓ when a run ended as planned, ✗ when the harness, an error or Ctrl-C stopped it."""
+    return "✓" if str(outcome).startswith("done") else "✗"
+
+
 def money(dollars):
     return "?" if dollars is None else f"${dollars:.4f}"
 
@@ -694,22 +711,25 @@ def summary_rows(folder):
 
 def show_usage(folders, per_run=False):
     """Tokens, time and cost for each setup since its last reset; per_run lists every run."""
-    print(f"{'setup':<20}{'path':<7}{'trigger':<13}{'model':<28}{'runs':>5}{'calls':>7}{'tokens in':>11}"
+    print(f"{'setup':<20}{'path':<7}{'trigger':<13}{'model':<28}{'runs':>5}{'ok':>5}{'calls':>7}{'tokens in':>11}"
           f"{'out':>8}{'seconds':>9}{'cost':>10}")
     for folder in folders:
         rows, broken = summary_rows(folder)
         if not rows:
             continue
         runs, calls, tokens_in, tokens_out, seconds, dollars = totals(rows)
+        failed = sum(mark(r.get("outcome", "")) == "✗" for r in rows)
+        ok = "✓" if not failed else f"✗{failed}"
         last = rows[-1]
         print(f"{str(last.get('agent', Path(folder).name)):<20}{str(last.get('path', '?')):<7}"
-              f"{str(last.get('trigger', '?')):<13}{str(last.get('model', '?'))[:27]:<28}{runs:>5}"
+              f"{str(last.get('trigger', '?')):<13}{str(last.get('model', '?'))[:27]:<28}{runs:>5}{ok:>5}"
               f"{calls:>7}{tokens_in:>11,}{tokens_out:>8,}{seconds:>9}{money(dollars):>10}")
         if per_run:
             for r in rows:
                 dollars = cost(str(r.get("model", "")), num(r, "tokens_in"), num(r, "tokens_out"))
                 when = str(r.get("time", ""))[11:19]
-                print(f"  {when:<18}{str(r.get('label', ''))[:47]:<48}{'':>5}{num(r, 'model_calls'):>7}"
+                print(f"  {when:<18}{str(r.get('label', ''))[:47]:<48}{'':>5}{mark(r.get('outcome', '')):>5}"
+                      f"{num(r, 'model_calls'):>7}"
                       f"{num(r, 'tokens_in'):>11,}{num(r, 'tokens_out'):>8,}{num(r, 'seconds'):>9}"
                       f"{money(dollars):>10}  {r.get('outcome', '')}")
         if broken:

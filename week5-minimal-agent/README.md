@@ -136,7 +136,7 @@ setups/<setup>/
 
 Each run ends with a line showing its model calls, tokens, time and cost. When you stop the scheduled pipeline or the standing agent with Ctrl-C, it also shows the total for that session.
 
-To compare the setups side by side, run `python3 mva.py usage`: one line per setup, for its latest run, or for the scheduled pipeline and the standing agent, every run since you started it. Add `--runs` to list each run on its own line. Costs come from `PRICES` in `mva.py`: Ollama models cost $0, and a model not listed there shows `?` until you add its price.
+To compare the setups side by side, run `python3 mva.py usage`: one line per setup, for its latest run, or for the scheduled pipeline and the standing agent, every run since you started it. The `ok` column shows `✓` when every run ended as planned, and `✗` with the number of runs that were stopped by the harness, an error or Ctrl-C. Add `--runs` to list each run on its own line. Costs come from `PRICES` in `mva.py`: Ollama models cost $0, and a model not listed there shows `?` until you add its price.
 
 ## Make your own agent
 
