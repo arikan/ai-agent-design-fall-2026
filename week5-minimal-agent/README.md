@@ -1,0 +1,178 @@
+# A minimum viable agent
+
+A folder of receipts has to become an expense claim: a mix of café slips, a hotel bill, a blurry photo, a handwritten taxi note, and a restaurant menu that isn't a receipt at all. This lab solves that job in two ways and compares them:
+
+- **Workflows** orchestrate models and tools through predefined code paths. The code decides every step, and the model does one small piece of work inside each step.
+- **Agents** direct their own process and tool use. The model decides what to look at, what to do next, and when it is done.
+
+The four setups in this lab sit on the Autonomy Grid from the lecture. Two questions place each one: who picks the next step (the rows), and who starts the run (the columns).
+
+| | You start it | It starts itself |
+|---|---|---|
+| **Open path**: the model picks each next step<br>*agent* | **Task agent** · `agents/task`<br>You give it a task and its goal. The model decides each next step until the goal is met. | **Standing agent** · `agents/standing`<br>Each arrival starts a run. What earlier runs wrote to memory shapes the next one. |
+| **Fixed path**: code runs the steps you wrote<br>*workflow* | **Pipeline** · `agents/pipeline`<br>Code runs fixed steps. The model does the work inside each step. | **Scheduled pipeline** · `agents/scheduled`<br>The same pipeline, started by a timer or an arrival. Here, a timer every 30 seconds. |
+
+Run all four, then compare what they got right, what they asked you, and what they cost.
+
+## Setup (once)
+
+**1. Get the folder.** In the course repo:
+
+```
+git pull
+cd week5-minimal-agent
+```
+
+**2. Check Python.** `python3 --version` must say 3.11 or newer. There is nothing to install.
+
+**3. Pick a model.** Choose one:
+
+- **Anthropic (the default).** Create an API key at [console.anthropic.com](https://console.anthropic.com). Then make your own `.env` file from the example:
+  ```
+  cp .env.example .env
+  ```
+  Open `.env` and paste your key after `ANTHROPIC_API_KEY=`. `mva.py` reads it from there on every run, in any terminal.
+- **Ollama, free and on your computer.** No key needed. With Ollama running (set up in [week 4](../week4-agent-runs/README.md#setup-once)):
+  ```
+  ollama pull gemma3
+  ```
+  Then change the model line to `model = "ollama/gemma3"` in each agent's `harness.toml` (see step 4).
+- **OpenRouter, one key for many models.** Get a key at [openrouter.ai/keys](https://openrouter.ai/keys), run `cp .env.example .env`, paste the key after `OPENROUTER_API_KEY=`, and change the model line to `model = "openrouter/google/gemini-2.5-flash"`.
+
+🔑 **Keep your key to yourself.** Git ignores `.env`, but that only protects you from commits. Never zip it into a submission, paste it into a chat, show it on a shared screen, or share one key with classmates. In the Anthropic Console, set a monthly spend limit, so a leaked key can't cost much. If a key leaks, delete it in the Console and make a new one.
+
+VS Code may offer to enable `python.terminal.useEnvFile` once `.env` exists. Say no: `mva.py` already reads `.env` itself, and that setting would put your key into every VS Code terminal, where Claude Code would pick it up and bill it instead of your plan.
+
+**4. Set the model for each agent.** Each agent folder has its own `harness.toml` with its own `model` line: `agents/task/`, `agents/pipeline/`, `agents/scheduled/` and `agents/standing/`. With Anthropic, leave them as they are. Otherwise, in each one, put `#` in front of the `anthropic/` line and add or uncomment your model's line.
+
+## Run each agent
+
+Always `reset` an agent before you run it. `reset` empties the agent's folder, puts the receipts back in its inbox if the agent starts with them, and restarts its memory. It deletes everything except `spec.md`, `harness.toml`, `policy.md` and `memory.start.md`, so keep your own notes outside the agent folder.
+
+After any run, `python3 mva.py board` shows the tokens and time for every agent. Each run also leaves a trace in the agent's `traces/` folder, with every model call and tool call.
+
+### 1. Task agent: open path, you start it
+
+```
+python3 mva.py reset agents/task
+python3 mva.py run   agents/task
+```
+
+The agent reads the receipts in `agents/task/inbox/` and decides what to do next. It may ask you a question in the terminal: type your answer and press Enter. When it finishes, open `agents/task/report.md`.
+
+### 2. Pipeline: fixed path, you start it
+
+```
+python3 mva.py reset agents/pipeline
+python3 mva.py run   agents/pipeline
+```
+
+The code goes through the receipts one by one and asks the model for one line per receipt. It never asks you anything. Open `agents/pipeline/expenses.csv` and compare it with the task agent's report.
+
+### 3. Scheduled pipeline: fixed path, it starts itself
+
+This one starts with an empty inbox and keeps running, so you need two terminals.
+
+In the first terminal:
+
+```
+python3 mva.py reset agents/scheduled
+python3 mva.py run   agents/scheduled
+```
+
+Every 30 seconds it checks `agents/scheduled/inbox/` and prints "no new files" until something arrives. In a second terminal, `cd week5-minimal-agent` and drop in receipts:
+
+```
+python3 mva.py drop agents/scheduled receipts/cafe_luna_0914.jpg
+python3 mva.py drop agents/scheduled receipts/extras/copy_center_0922.jpg
+```
+
+At the next tick, the new files become rows in `agents/scheduled/expenses.csv`. Press Ctrl-C in the first terminal to stop it.
+
+### 4. Standing agent: open path, it starts itself
+
+This one also starts with an empty inbox and keeps running, so you need two terminals. It keeps a memory between runs.
+
+In the first terminal:
+
+```
+python3 mva.py reset agents/standing
+python3 mva.py run   agents/standing
+```
+
+It watches `agents/standing/inbox/`. In a second terminal, `cd week5-minimal-agent` and drop in one file at a time. Wait for each run to finish before you drop the next:
+
+```
+python3 mva.py drop agents/standing receipts/extras/cafe_luna_0921.jpg
+python3 mva.py drop agents/standing receipts/extras/bodega_note.jpg
+python3 mva.py drop agents/standing receipts/harbor_hotel_boston.jpg
+```
+
+Each new file starts one run. The agent moves the file to `filed/` or `review/` and writes its reason in `actions.log`, and it updates `memory.md`. Nobody is there to answer its questions, so a question (for example, about the hotel bill over $200) is saved in `pending/`, and the file stays in the inbox. Press Ctrl-C in the first terminal to stop it.
+
+## An agent is a folder
+
+```
+agents/task/
+  spec.md        what the model reads     (requested)
+  harness.toml   what mva.py enforces     (enforced)
+  policy.md      a source the spec points to
+  inbox/         the files it works on
+  traces/        one file per run
+```
+
+**spec.md** has five parts: Task, Why, Done, Boundaries, Sources. A workflow adds Steps.
+
+**harness.toml** holds everything the model cannot change: which tools it has, which folders it may read and write, what is denied, how long it may run, and what starts it.
+
+## The grid is two settings
+
+Each agent's `harness.toml` places it on the grid with two lines:
+
+| Grid | Setting |
+|---|---|
+| Open path | `path = "goal"`: the model gets tools and loops until it calls `finish`, or the harness stops it. |
+| Fixed path | `path = "steps"`: code loops over the files and calls the model once per file, with no tools. |
+| You start it | `trigger = "manual"` |
+| It starts itself | `trigger = "every"` (a timer) or `trigger = "on_new_file"` (an arrival) |
+
+## Where each box of the architecture lives in mva.py
+
+| Box | Section |
+|---|---|
+| Context | `assemble_context`: the spec, memory, and tool descriptions |
+| Router | `route`: `anthropic/…`, `ollama/…`, `openrouter/…` |
+| Model call | `call_model`: one HTTP request |
+| Result | `parse_result`: text, and tool calls parsed out |
+| Tool | `TOOLS`: what the agent can touch |
+| Guardrail | `guard`: runs before every tool, whatever the model decided |
+| Feedback | `run_goal`: every result goes back into the context |
+| Trace | `Trace`: every run leaves a file |
+| Trigger | `run`: you, a timer, or a new file |
+
+## Make your own agent
+
+1. Copy a folder: `cp -r agents/task agents/mine`
+2. Rewrite `spec.md` for your step.
+3. Edit `harness.toml`: which tools, which folders, which trigger, which model.
+4. Put your files in `agents/mine/inbox/` and run it.
+
+Start from `agents/task`. Move to another cell only when the work forces you.
+
+## Models
+
+Set `model` in `harness.toml`:
+
+```
+model = "anthropic/claude-sonnet-5"
+model = "ollama/gemma3"
+model = "openrouter/google/gemini-2.5-flash"
+```
+
+The receipts are images, so the model must read images. With Ollama, the model writes its tool calls as JSON text and the harness parses them (`tool_mode = "text"`). You can see this in the trace.
+
+## Safety
+
+The harness only lets an agent touch files inside its own folder, and only the folders listed in `harness.toml`. Deleting is off unless you add the tool, and the standing agent has it denied on purpose. Runs cost money on paid APIs: check `board` after each run.
+
+The receipts are specimens: invented businesses, generated by `tools/make_receipts.py`. Add your own images to any `inbox/` if you like.
