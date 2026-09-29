@@ -17,7 +17,8 @@ Two settings in harness.toml place the setup on the Autonomy Grid:
 Usage:
   python mva.py run   setups/task-agent
   python mva.py reset setups/task-agent
-  python mva.py board
+  python mva.py usage
+  python mva.py usage --runs
 """
 import base64
 import csv
@@ -77,6 +78,9 @@ class Agent:
 
 
 # ---------------------------------------------------------------- 8. trace
+OPEN_TRACES = []  # runs not closed yet: main closes them if a run is cut short
+
+
 class Trace:
     """Every run leaves a file: traces/<time>.jsonl. Evaluation reads these."""
 
@@ -85,8 +89,10 @@ class Trace:
         (agent.dir / "traces").mkdir(exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         self.path = agent.dir / "traces" / f"{stamp}-{label}.jsonl"
+        self.label = label
         self.start = time.time()
         self.tokens_in = self.tokens_out = self.calls = 0
+        OPEN_TRACES.append(self)
 
     def log(self, event, **data):
         with self.path.open("a") as f:
@@ -98,16 +104,18 @@ class Trace:
         self.tokens_out += tout
 
     def close(self, outcome):
+        OPEN_TRACES.remove(self)
         secs = round(time.time() - self.start, 1)
         summary = {"agent": self.agent.name, "path": self.agent.path, "trigger": self.agent.trigger,
                    "model": self.agent.model, "model_calls": self.calls, "tokens_in": self.tokens_in,
                    "tokens_out": self.tokens_out, "seconds": secs, "outcome": outcome,
-                   "time": datetime.now().isoformat(timespec="seconds")}
+                   "time": datetime.now().isoformat(timespec="seconds"), "label": self.label}
         self.log("end", **summary)
         with (self.agent.dir / "traces" / "summary.jsonl").open("a") as f:
             f.write(json.dumps(summary) + "\n")
+        dollars = cost(self.agent.model, self.tokens_in, self.tokens_out)
         say("done", f"■ {outcome} · {self.calls} model calls · {self.tokens_in:,} tokens in · "
-                    f"{self.tokens_out:,} out · {secs}s · trace: {self.path.relative_to(ROOT)}")
+                    f"{self.tokens_out:,} out · {secs}s · {money(dollars)} · trace: {self.path.relative_to(ROOT)}")
 
 
 # ---------------------------------------------------------------- content blocks
@@ -569,6 +577,7 @@ def run(agent, message=None):
             return run_steps(agent, inbox_files(agent), "manual", fresh=True)
         return run_goal(agent, message or agent.cfg.get("start", "Do the task in your spec."), "manual")
 
+    first = len(summary_rows(agent.dir)[0])  # this session's runs are the ones after these
     every = agent.cfg.get("every", 30)
     done_log = agent.dir / ".processed"
     seen = set(done_log.read_text().splitlines()) if done_log.exists() else set()
@@ -600,6 +609,11 @@ def run(agent, message=None):
             countdown(every) if agent.trigger == "every" else time.sleep(every)
     except KeyboardInterrupt:
         say("info", "\nstopped")
+        for trace in list(OPEN_TRACES):  # the run Ctrl-C cut short still counts
+            trace.close("stopped before the end")
+        runs, calls, tokens_in, tokens_out, seconds, dollars = totals(summary_rows(agent.dir)[0][first:])
+        say("done", f"■ this session: {runs} run(s) · {calls} model calls · {tokens_in:,} tokens in · "
+                    f"{tokens_out:,} out · {seconds}s · {money(dollars)}")
 
 
 # ---------------------------------------------------------------- commands
@@ -608,7 +622,7 @@ KEEP = {"spec.md", "harness.toml", "traces"}
 
 def reset(agent):
     """Back to a clean folder: delete outputs and memory.md, refill the inbox if seed = true.
-    Trace files stay; a new session starts, so board counts only the runs after this."""
+    Trace files stay; a new session starts, so usage counts only the runs after this."""
     for p in agent.dir.iterdir():
         if p.name in KEEP:
             continue
@@ -623,18 +637,83 @@ def reset(agent):
     say("done", f"reset {agent.name}: {len(list(inbox.iterdir()))} file(s) in {inbox.relative_to(agent.dir)}/")
 
 
-def board(folders):
-    """The lab board: tokens and time for each setup since its last reset."""
-    print(f"{'setup':<20}{'path':<7}{'trigger':<13}{'model':<28}{'runs':>5}{'calls':>7}{'tokens in':>11}{'out':>8}{'seconds':>9}")
+PRICES = {  # USD per million tokens (input, output), September 2026: add a line for your model
+    "anthropic/claude-opus-5-5": (4.00, 20.00),
+    "anthropic/claude-opus-5": (5.00, 25.00),
+    "anthropic/claude-sonnet-5-5": (2.00, 10.00),
+    "anthropic/claude-sonnet-5": (2.00, 10.00),
+    "anthropic/claude-haiku-4-5": (1.00, 5.00),
+}
+
+
+def cost(model, tokens_in, tokens_out):
+    """Dollars for one run, or None when the model's price is not in PRICES. Local models are free."""
+    if model.startswith("ollama/"):
+        return 0.0
+    if model not in PRICES:
+        return None
+    price_in, price_out = PRICES[model]
+    return (tokens_in * price_in + tokens_out * price_out) / 1_000_000
+
+
+def money(dollars):
+    return "?" if dollars is None else f"${dollars:.4f}"
+
+
+def num(row, key):
+    value = row.get(key, 0)
+    return value if isinstance(value, (int, float)) and not isinstance(value, bool) else 0
+
+
+def totals(rows):
+    """runs, model calls, tokens in, tokens out, seconds, dollars (None if any price is unknown)."""
+    costs = [cost(str(r.get("model", "")), num(r, "tokens_in"), num(r, "tokens_out")) for r in rows]
+    return (len(rows), sum(num(r, "model_calls") for r in rows), sum(num(r, "tokens_in") for r in rows),
+            sum(num(r, "tokens_out") for r in rows), round(sum(num(r, "seconds") for r in rows), 1),
+            None if None in costs else sum(costs))
+
+
+def summary_rows(folder):
+    """One dict per run since the last reset. A broken line is counted and skipped, not a crash."""
+    s = Path(folder) / "traces" / "summary.jsonl"
+    rows, broken = [], 0
+    if s.exists():
+        for line in s.read_text().splitlines():
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                row = None
+            if isinstance(row, dict) and isinstance(row.get("model"), str):
+                rows.append(row)
+            else:  # not JSON, or not a run
+                broken += 1
+    return rows, broken
+
+
+def show_usage(folders, per_run=False):
+    """Tokens, time and cost for each setup since its last reset; per_run lists every run."""
+    print(f"{'setup':<20}{'path':<7}{'trigger':<13}{'model':<28}{'runs':>5}{'calls':>7}{'tokens in':>11}"
+          f"{'out':>8}{'seconds':>9}{'cost':>10}")
     for folder in folders:
-        s = Path(folder) / "traces" / "summary.jsonl"
-        if not s.exists():
+        rows, broken = summary_rows(folder)
+        if not rows:
             continue
-        rows = [json.loads(l) for l in s.read_text().splitlines() if l.strip()]
-        r0 = rows[-1]
-        print(f"{r0['agent']:<20}{r0['path']:<7}{r0['trigger']:<13}{r0['model'][:27]:<28}{len(rows):>5}"
-              f"{sum(r['model_calls'] for r in rows):>7}{sum(r['tokens_in'] for r in rows):>11,}"
-              f"{sum(r['tokens_out'] for r in rows):>8,}{round(sum(r['seconds'] for r in rows), 1):>9}")
+        runs, calls, tokens_in, tokens_out, seconds, dollars = totals(rows)
+        last = rows[-1]
+        print(f"{str(last.get('agent', Path(folder).name)):<20}{str(last.get('path', '?')):<7}"
+              f"{str(last.get('trigger', '?')):<13}{str(last.get('model', '?'))[:27]:<28}{runs:>5}"
+              f"{calls:>7}{tokens_in:>11,}{tokens_out:>8,}{seconds:>9}{money(dollars):>10}")
+        if per_run:
+            for r in rows:
+                dollars = cost(str(r.get("model", "")), num(r, "tokens_in"), num(r, "tokens_out"))
+                when = str(r.get("time", ""))[11:19]
+                print(f"  {when:<18}{str(r.get('label', ''))[:47]:<48}{'':>5}{num(r, 'model_calls'):>7}"
+                      f"{num(r, 'tokens_in'):>11,}{num(r, 'tokens_out'):>8,}{num(r, 'seconds'):>9}"
+                      f"{money(dollars):>10}  {r.get('outcome', '')}")
+        if broken:
+            print(f"  ({broken} broken line(s) in {folder}/traces/summary.jsonl skipped)")
 
 
 def main(argv):
@@ -642,12 +721,18 @@ def main(argv):
         print(__doc__)
         return
     cmd = argv[1]
-    if cmd == "board":
-        folders = argv[2:] or sorted(str(p) for p in (ROOT / "setups").iterdir() if p.is_dir())
-        return board(folders)
+    if cmd == "usage":
+        per_run = "--runs" in argv[2:]
+        folders = [a for a in argv[2:] if a != "--runs"]
+        folders = folders or sorted(str(p) for p in (ROOT / "setups").iterdir() if p.is_dir())
+        return show_usage(folders, per_run)
     agent = Agent(argv[2])
     if cmd == "run":
-        run(agent, " ".join(argv[3:]) or None)
+        try:
+            run(agent, " ".join(argv[3:]) or None)
+        finally:  # a run cut short by an error or Ctrl-C still reaches usage, with what it spent
+            for trace in list(OPEN_TRACES):
+                trace.close("stopped before the end")
     elif cmd == "reset":
         reset(agent)
     else:
