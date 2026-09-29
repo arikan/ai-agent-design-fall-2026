@@ -11,7 +11,6 @@ Week 5 of the course repo (`ai-agent-design-fall-2026`): `mva.py`, a minimum via
 ```sh
 python3 mva.py reset agents/task      # wipe outputs, re-seed inbox/, restore memory
 python3 mva.py run   agents/task      # optional trailing words replace the harness.toml `start` message
-python3 mva.py drop  agents/standing receipts/extras/cafe_luna_0921.jpg   # feed a running watcher (2nd terminal)
 python3 mva.py board                  # tokens/time per agent, from traces/summary.jsonl
 python3 -m py_compile mva.py          # the only offline check
 ```

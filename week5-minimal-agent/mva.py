@@ -17,7 +17,6 @@ Two settings in harness.toml place the agent on the Autonomy Grid:
 Usage:
   python mva.py run   agents/task
   python mva.py reset agents/task
-  python mva.py drop  agents/standing receipts/extras/cafe_luna_0921.jpg
   python mva.py board
 """
 import base64
@@ -603,14 +602,6 @@ def reset(agent):
     say("done", f"reset {agent.name}: {len(list(inbox.iterdir()))} file(s) in {inbox.relative_to(agent.dir)}/")
 
 
-def drop(agent, files):
-    inbox = agent.file(agent.cfg.get("input", "inbox"))
-    inbox.mkdir(exist_ok=True)
-    for f in files:
-        shutil.copy(f, inbox / Path(f).name)
-        say("info", f"dropped {Path(f).name} into {agent.name}/{inbox.name}/")
-
-
 def board(folders):
     """The lab board: tokens and time for each agent since its last reset."""
     print(f"{'agent':<12}{'path':<7}{'trigger':<13}{'model':<28}{'runs':>5}{'calls':>7}{'tokens in':>11}{'out':>8}{'seconds':>9}")
@@ -638,8 +629,6 @@ def main(argv):
         run(agent, " ".join(argv[3:]) or None)
     elif cmd == "reset":
         reset(agent)
-    elif cmd == "drop":
-        drop(agent, argv[3:])
     else:
         print(__doc__)
 
