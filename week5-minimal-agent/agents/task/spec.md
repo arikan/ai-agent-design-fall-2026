@@ -13,4 +13,10 @@ Every file in inbox/ is in the table or the left-out list, and every converted a
 ❌ Never change or delete anything in inbox/.
 
 # Sources
-inbox/, and the reimbursement policy in policy.md.
+The reimbursement policy:
+- Reimbursed: supplies and printing for coursework, travel to school events, meals with a business purpose.
+- Not reimbursed: personal meals and snacks, and anything without an itemized receipt.
+- Amounts in USD. Convert other currencies at the course rate: 1 EUR = 1.10 USD.
+- Anything over $200 needs approval before it is claimed.
+
+The receipts in inbox/.

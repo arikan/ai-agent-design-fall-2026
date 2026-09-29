@@ -6,5 +6,4 @@
 agents/*/*
 !agents/*/spec.md
 !agents/*/harness.toml
-!agents/*/policy.md
 !agents/*/memory.start.md

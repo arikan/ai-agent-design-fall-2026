@@ -9,7 +9,7 @@ input  = "inbox"
 memory = "memory.md"           # read into context at the start of every run
 tools  = ["list_dir", "read_file", "move_file", "append_file", "write_file", "ask", "notify", "delete_file", "finish"]
 deny   = ["delete_file"]       # offered, and blocked by the harness whatever the model decides
-read   = ["inbox", "filed", "review", "policy.md", "memory.md"]
+read   = ["inbox", "filed", "review", "memory.md"]
 write  = ["inbox", "filed", "review", "memory.md", "actions.log"]
 ask_queue = "pending"          # nobody is here: questions wait in pending/
 

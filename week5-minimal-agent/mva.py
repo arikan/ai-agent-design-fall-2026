@@ -587,7 +587,7 @@ def run(agent, message=None):
 
 
 # ---------------------------------------------------------------- commands
-KEEP = {"spec.md", "harness.toml", "policy.md", "memory.start.md"}
+KEEP = {"spec.md", "harness.toml", "memory.start.md"}
 
 
 def reset(agent):

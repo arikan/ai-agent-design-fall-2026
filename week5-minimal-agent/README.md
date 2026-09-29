@@ -18,10 +18,11 @@ Each setup is a folder in `agents/`. Two files define it: `spec.md` is requested
 agents/<setup>/
   spec.md           what the model reads: Task, Why, Done, Boundaries, Sources; a pipeline adds Steps
   harness.toml      what mva.py enforces: path, trigger, model; agents add tools, readable and writable folders, limits
-  policy.md         task and standing agents: the rules the spec points to
   memory.start.md   standing agent: its memory at the start, before any run
   inbox/            the files it works on; reset makes it, and fills it for the pipeline and the task agent
 ```
+
+The spec is always in the model's context, and so is the standing agent's memory. A pipeline's code hands the model each file; for an agent, any other file reaches the model only if the agent decides to open it.
 
 Run all four, then compare what they got right, what they asked you, and what they cost.
 

@@ -29,6 +29,6 @@ Every `run` makes real model calls. Pick the model with `model = "anthropic/…"
 
 ## Gotchas
 
-- `reset` deletes everything in the agent folder except `KEEP` (`spec.md`, `harness.toml`, `policy.md`, `memory.start.md`). A new hand-written file in an agent folder is lost on the next reset unless it's added to `KEEP`. `seed = true` copies every file directly in `receipts/` (not `extras/`) into the inbox. `memory.md` is deleted too: until a run writes it with `write_file`, `assemble_context` gives the model `memory.start.md`, labeled as its memory before any run.
+- `reset` deletes everything in the agent folder except `KEEP` (`spec.md`, `harness.toml`, `memory.start.md`). A new hand-written file in an agent folder is lost on the next reset unless it's added to `KEEP`. `seed = true` copies every file directly in `receipts/` (not `extras/`) into the inbox. `memory.md` is deleted too: until a run writes it with `write_file`, `assemble_context` gives the model `memory.start.md`, labeled as its memory before any run.
 - `receipts/` holds deliberate test cases: a duplicate (`cafe_luna_0914 (1).jpg`), a menu that isn't a receipt, foreign currency, a blurry photo, a rotated one, a handwritten one, an over-$200 hotel. Don't "clean them up". They are invented businesses with a specimen footer.
 - `tools/make_receipts.py` regenerates them. It is the one script that needs Pillow, and it hardcodes Linux DejaVu font paths (`/usr/share/fonts/truetype/dejavu/`), so it won't run on macOS as-is.
