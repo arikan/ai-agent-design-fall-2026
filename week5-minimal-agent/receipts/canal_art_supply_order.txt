@@ -1,0 +1,16 @@
+From: orders@canalartsupply.example
+Subject: Your order CAS-20931 is confirmed
+Date: September 20, 2026
+
+Canal Art Supply
+Order CAS-20931
+
+  Arches watercolor block 9x12      $38.00
+  Micron pens, set of 6             $17.50
+  Tax                                $4.90
+  -----------------------------------------
+  Total charged (VISA **** 4417)    $60.40
+
+Thank you for your order.
+
+Specimen · AI Agent & Platform Design
