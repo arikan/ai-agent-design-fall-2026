@@ -70,7 +70,8 @@ class Agent:
         c = self.cfg
         self.path = c.get("path", "goal")
         self.trigger = c.get("trigger", "manual")
-        self.model = c.get("model", "anthropic/claude-sonnet-5")
+        # MVA_MODEL, from the environment or .env, overrides every setup, so nobody edits harness.toml for it
+        self.model = os.environ.get("MVA_MODEL") or dotenv().get("MVA_MODEL") or c.get("model", "anthropic/claude-sonnet-5")
         self.tools = c.get("tools", [])
         self.deny = c.get("deny", [])
         self.read = c.get("read", [])

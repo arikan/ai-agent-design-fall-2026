@@ -47,14 +47,14 @@ cd week5-minimal-agent
   ```
   ollama pull gemma3
   ```
-  Then change the model line to `model = "ollama/gemma3"` in each setup's `harness.toml`. The receipts are images, so the model must read images. With Ollama, the model writes its tool calls as JSON text and the harness parses them (`tool_mode = "text"`). You can see this in each run's trace, in the setup's `traces/` folder.
-- **OpenRouter, one key for many models.** Get a key at [openrouter.ai/keys](https://openrouter.ai/keys), run `cp .env.example .env`, paste the key after `OPENROUTER_API_KEY=`, and change the model line to `model = "openrouter/google/gemini-2.5-flash"`.
+  Then run `cp .env.example .env` and set `MVA_MODEL=ollama/gemma3` in `.env`. The receipts are images, so the model must read images. With Ollama, the model writes its tool calls as JSON text and the harness parses them (`tool_mode = "text"`). You can see this in each run's trace, in the setup's `traces/` folder.
+- **OpenRouter, one key for many models.** Get a key at [openrouter.ai/keys](https://openrouter.ai/keys), run `cp .env.example .env`, paste the key after `OPENROUTER_API_KEY=`, and set `MVA_MODEL=openrouter/google/gemini-2.5-flash` in the same file.
 
 🔑 **Keep your key to yourself.** Git ignores `.env`, but that only protects you from commits. Never zip it into a submission, paste it into a chat, show it on a shared screen, or share one key with classmates. In the Anthropic Console, set a monthly spend limit, so a leaked key can't cost much. If a key leaks, delete it in the Console and make a new one.
 
 VS Code may offer to enable `python.terminal.useEnvFile` once `.env` exists. Say no: `mva.py` already reads `.env` itself, and that setting would put your key into every VS Code terminal, where Claude Code would pick it up and bill it instead of your plan.
 
-**4. Set the model for each setup.** Each setup's `harness.toml` has its own `model` line: `setups/pipeline/`, `setups/scheduled-pipeline/`, `setups/task-agent/` and `setups/standing-agent/`. With Anthropic, leave them as they are. Otherwise, in each one, put `#` in front of the `anthropic/` line and add or uncomment your model's line.
+**4. Check the model.** Each setup's `harness.toml` has its own `model` line: `setups/pipeline/`, `setups/scheduled-pipeline/`, `setups/task-agent/` and `setups/standing-agent/`. `MVA_MODEL` in `.env` overrides all of them, your own agents included, so you never edit a file that came with the repo. Leave it empty to use each setup's own model.
 
 ## Run each setup
 

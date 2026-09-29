@@ -15,7 +15,7 @@ python3 mva.py usage [--runs]            # tokens/time/cost per setup (or per ru
 python3 -m py_compile mva.py          # the only offline check
 ```
 
-Every `run` makes real model calls. Pick the model with `model = "anthropic/…" | "ollama/…" | "openrouter/<vendor>/<model>"` in `harness.toml`. The keys are `ANTHROPIC_API_KEY` and `OPENROUTER_API_KEY`. `need_key` takes them from the environment first, then from `.env` next to `mva.py` (git-ignored; students copy `.env.example`). The key is never put into `os.environ`, so it doesn't leak into Claude Code or other child processes, and `.env` sits outside every agent folder, so no agent's tools can read it. Never read or print a student's `.env`. `OLLAMA_HOST` overrides `localhost:11434`. `ollama/gemma3` is the free way to exercise a change. There is no dry-run mode.
+Every `run` makes real model calls. Pick the model with `model = "anthropic/…" | "ollama/…" | "openrouter/<vendor>/<model>"` in `harness.toml`; `MVA_MODEL` (environment first, then `.env`) overrides it for every setup, so students never edit tracked files to switch models. The keys are `ANTHROPIC_API_KEY` and `OPENROUTER_API_KEY`. `need_key` takes them from the environment first, then from `.env` next to `mva.py` (git-ignored; students copy `.env.example`). The key is never put into `os.environ`, so it doesn't leak into Claude Code or other child processes, and `.env` sits outside every agent folder, so no agent's tools can read it. Never read or print a student's `.env`. `OLLAMA_HOST` overrides `localhost:11434`. `ollama/gemma3` is the free way to exercise a change. There is no dry-run mode.
 
 ## How it fits together
 
