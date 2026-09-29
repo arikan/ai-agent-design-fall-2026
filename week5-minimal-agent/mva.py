@@ -6,17 +6,17 @@ One file, standard library only (Python 3.11+). Each section below is one box
 of the agent architecture: context, router, model call, result, tool,
 guardrail, the loop, and the trace. Triggers decide what begins each run.
 
-An agent is a folder with two files:
+A setup is a folder in setups/ with two files:
   spec.md       what the model reads (requested)
   harness.toml  what this program enforces (enforced)
 
-Two settings in harness.toml place the agent on the Autonomy Grid:
+Two settings in harness.toml place the setup on the Autonomy Grid:
   path    = "steps" | "goal"                 who picks the next step
   trigger = "manual" | "every" | "on_new_file"   what begins each run
 
 Usage:
-  python mva.py run   agents/task
-  python mva.py reset agents/task
+  python mva.py run   setups/task-agent
+  python mva.py reset setups/task-agent
   python mva.py board
 """
 import base64
@@ -614,15 +614,15 @@ def reset(agent):
 
 
 def board(folders):
-    """The lab board: tokens and time for each agent since its last reset."""
-    print(f"{'agent':<12}{'path':<7}{'trigger':<13}{'model':<28}{'runs':>5}{'calls':>7}{'tokens in':>11}{'out':>8}{'seconds':>9}")
+    """The lab board: tokens and time for each setup since its last reset."""
+    print(f"{'setup':<20}{'path':<7}{'trigger':<13}{'model':<28}{'runs':>5}{'calls':>7}{'tokens in':>11}{'out':>8}{'seconds':>9}")
     for folder in folders:
         s = Path(folder) / "traces" / "summary.jsonl"
         if not s.exists():
             continue
         rows = [json.loads(l) for l in s.read_text().splitlines() if l.strip()]
         r0 = rows[-1]
-        print(f"{r0['agent']:<12}{r0['path']:<7}{r0['trigger']:<13}{r0['model'][:27]:<28}{len(rows):>5}"
+        print(f"{r0['agent']:<20}{r0['path']:<7}{r0['trigger']:<13}{r0['model'][:27]:<28}{len(rows):>5}"
               f"{sum(r['model_calls'] for r in rows):>7}{sum(r['tokens_in'] for r in rows):>11,}"
               f"{sum(r['tokens_out'] for r in rows):>8,}{round(sum(r['seconds'] for r in rows), 1):>9}")
 
@@ -633,7 +633,7 @@ def main(argv):
         return
     cmd = argv[1]
     if cmd == "board":
-        folders = argv[2:] or sorted(str(p) for p in (ROOT / "agents").iterdir() if p.is_dir())
+        folders = argv[2:] or sorted(str(p) for p in (ROOT / "setups").iterdir() if p.is_dir())
         return board(folders)
     agent = Agent(argv[2])
     if cmd == "run":

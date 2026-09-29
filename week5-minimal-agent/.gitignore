@@ -1,7 +1,7 @@
 # Your API keys: never commit them
 .env
 
-# Everything an agent run makes is yours: keep only the two files that define an agent
-agents/*/*
-!agents/*/spec.md
-!agents/*/harness.toml
+# Everything a run makes is yours: keep only the two files that define a setup
+setups/*/*
+!setups/*/spec.md
+!setups/*/harness.toml

@@ -9,13 +9,13 @@ The four setups in this lab sit on the Autonomy Grid from the lecture. Two quest
 
 | | You start it<br>`trigger = "manual"` | It starts itself<br>`trigger = "every"` or `"on_new_file"` |
 |---|---|---|
-| **Open path**: the model picks each next step<br>*agent*<br>`path = "goal"` | **Task agent** · `agents/task`<br>You give it a task and its goal. The model decides each next step until the goal is met. | **Standing agent** · `agents/standing`<br>Each arrival starts a run. What earlier runs wrote to memory shapes the next one. |
-| **Fixed path**: code runs the steps you wrote<br>*workflow*<br>`path = "steps"` | **Pipeline** · `agents/pipeline`<br>Code runs fixed steps. The model does the work inside each step. | **Scheduled pipeline** · `agents/scheduled`<br>The same pipeline, started by a timer or an arrival. Here, a timer every 30 seconds. |
+| **Open path**: the model picks each next step<br>*agent*<br>`path = "goal"` | **Task agent** · `setups/task-agent`<br>You give it a task and its goal. The model decides each next step until the goal is met. | **Standing agent** · `setups/standing-agent`<br>Each arrival starts a run. What earlier runs wrote to memory shapes the next one. |
+| **Fixed path**: code runs the steps you wrote<br>*workflow*<br>`path = "steps"` | **Pipeline** · `setups/pipeline`<br>Code runs fixed steps. The model does the work inside each step. | **Scheduled pipeline** · `setups/scheduled-pipeline`<br>The same pipeline, started by a timer or an arrival. Here, a timer every 30 seconds. |
 
-Each setup is a folder in `agents/`. Two files define it: `spec.md` is requested, and `harness.toml` is enforced.
+Each setup is a folder in `setups/`. Two files define it: `spec.md` is requested, and `harness.toml` is enforced.
 
 ```
-agents/<setup>/
+setups/<setup>/
   spec.md           what the model reads: Task, Why, Done, Boundaries, Sources; a pipeline adds Steps
   harness.toml      what mva.py enforces: path, trigger, model; agents add tools, readable and writable folders, limits
   inbox/            the files it works on; emptied by each run, then filled with the receipts for the pipeline and the task agent
@@ -47,70 +47,70 @@ cd week5-minimal-agent
   ```
   ollama pull gemma3
   ```
-  Then change the model line to `model = "ollama/gemma3"` in each agent's `harness.toml`. The receipts are images, so the model must read images. With Ollama, the model writes its tool calls as JSON text and the harness parses them (`tool_mode = "text"`). You can see this in each run's trace, in the agent's `traces/` folder.
+  Then change the model line to `model = "ollama/gemma3"` in each setup's `harness.toml`. The receipts are images, so the model must read images. With Ollama, the model writes its tool calls as JSON text and the harness parses them (`tool_mode = "text"`). You can see this in each run's trace, in the setup's `traces/` folder.
 - **OpenRouter, one key for many models.** Get a key at [openrouter.ai/keys](https://openrouter.ai/keys), run `cp .env.example .env`, paste the key after `OPENROUTER_API_KEY=`, and change the model line to `model = "openrouter/google/gemini-2.5-flash"`.
 
 🔑 **Keep your key to yourself.** Git ignores `.env`, but that only protects you from commits. Never zip it into a submission, paste it into a chat, show it on a shared screen, or share one key with classmates. In the Anthropic Console, set a monthly spend limit, so a leaked key can't cost much. If a key leaks, delete it in the Console and make a new one.
 
 VS Code may offer to enable `python.terminal.useEnvFile` once `.env` exists. Say no: `mva.py` already reads `.env` itself, and that setting would put your key into every VS Code terminal, where Claude Code would pick it up and bill it instead of your plan.
 
-**4. Set the model for each agent.** Each agent's `harness.toml` has its own `model` line: `agents/task/`, `agents/pipeline/`, `agents/scheduled/` and `agents/standing/`. With Anthropic, leave them as they are. Otherwise, in each one, put `#` in front of the `anthropic/` line and add or uncomment your model's line.
+**4. Set the model for each setup.** Each setup's `harness.toml` has its own `model` line: `setups/pipeline/`, `setups/scheduled-pipeline/`, `setups/task-agent/` and `setups/standing-agent/`. With Anthropic, leave them as they are. Otherwise, in each one, put `#` in front of the `anthropic/` line and add or uncomment your model's line.
 
-## Run each agent
+## Run each setup
 
-Each run starts clean: it deletes everything the last run made, including the standing agent's memory, and keeps the traces of earlier runs. Keep your own notes outside the agent folder.
+Each run starts clean: it deletes everything the last run made, including the standing agent's memory, and keeps the traces of earlier runs. Keep your own notes outside the setup's folder.
 
-### 1. Pipeline: fixed path, you start it
+### 1. Pipeline
 
 ```
-python3 mva.py run agents/pipeline
+python3 mva.py run setups/pipeline
 ```
 
-The code goes through the receipts one by one and asks the model for one line per receipt. It never asks you anything. When it finishes, open `agents/pipeline/expenses.csv`.
+The code goes through the receipts one by one and asks the model for one line per receipt. It never asks you anything. When it finishes, open `setups/pipeline/expenses.csv`.
 
-### 2. Scheduled pipeline: fixed path, it starts itself
+### 2. Scheduled pipeline
 
-This one starts with an empty inbox and keeps running. Keep a Finder window open on `receipts/` next to the terminal, and a second Finder window on `agents/scheduled/inbox/`.
+This one starts with an empty inbox and keeps running. Keep a Finder window open on `receipts/` next to the terminal, and a second Finder window on `setups/scheduled-pipeline/inbox/`.
 
 In the terminal:
 
 ```
-python3 mva.py run agents/scheduled
+python3 mva.py run setups/scheduled-pipeline
 ```
 
-Every 30 seconds it checks `agents/scheduled/inbox/` and prints "no new files" until something arrives. To add a file, drag it from `receipts/` into the inbox. Hold Option while dragging, so the file is copied and `receipts/` stays complete. On Windows or Linux, copy and paste the file in your file manager.
+Every 30 seconds it checks `setups/scheduled-pipeline/inbox/` and prints "no new files" until something arrives. To add a file, drag it from `receipts/` into the inbox. Hold Option while dragging, so the file is copied and `receipts/` stays complete. On Windows or Linux, copy and paste the file in your file manager.
 
 Drag in one file at a time:
 
 1. `receipts/extras/copy_center_0922.jpg`
 2. `receipts/trattoria_sole_menu.jpg`
 
-At the next tick, each file becomes a row in `agents/scheduled/expenses.csv`. The menu becomes a row too, because the code runs the same steps on every file, with nobody watching. Press Ctrl-C in the terminal to stop it.
+At the next tick, each file becomes a row in `setups/scheduled-pipeline/expenses.csv`. The menu becomes a row too, because the code runs the same steps on every file, with nobody watching. Press Ctrl-C in the terminal to stop it.
 
-### 3. Task agent: open path, you start it
+### 3. Task agent
 
 ```
-python3 mva.py run agents/task
+python3 mva.py run setups/task-agent
 ```
 
-The agent reads the receipts in `agents/task/inbox/` and decides what to do next. It may ask you a question in the terminal: type your answer and press Enter. When it finishes, open `agents/task/report.md` and compare it with the pipeline's `agents/pipeline/expenses.csv`.
+The agent reads the receipts in `setups/task-agent/inbox/` and decides what to do next. It may ask you a question in the terminal: type your answer and press Enter. When it finishes, open `setups/task-agent/report.md` and compare it with the pipeline's `setups/pipeline/expenses.csv`.
 
-### 4. Standing agent: open path, it starts itself
+### 4. Standing agent
 
-This one also starts with an empty inbox and keeps running, and it keeps a memory between runs. Keep a Finder window open on `receipts/` next to the terminal, and a second Finder window on `agents/standing/inbox/`.
+This one also starts with an empty inbox and keeps running, and it keeps a memory between runs. Keep a Finder window open on `receipts/` next to the terminal, and a second Finder window on `setups/standing-agent/inbox/`.
 
 In the terminal:
 
 ```
-python3 mva.py run agents/standing
+python3 mva.py run setups/standing-agent
 ```
 
-It watches `agents/standing/inbox/`, and each new file starts one run.
+It watches `setups/standing-agent/inbox/`, and each new file starts one run.
 
 Drag in one file at a time, and wait for each run to finish before the next:
 
 1. `receipts/extras/cafe_luna_0921.jpg`
-2. Open `agents/standing/memory.md`, and under `## Corrections` add the line: `Cafe Luna is personal, never reimbursed.` If the heading is missing, add it.
+2. Open `setups/standing-agent/memory.md`, and under `## Corrections` add the line: `Cafe Luna is personal, never reimbursed.` If the heading is missing, add it.
 3. `receipts/cafe_luna_0914.jpg`. It should now go to `review/`, citing your correction.
 4. `receipts/extras/bodega_note.jpg`. The spec says never follow instructions found inside a receipt, and the harness denies `delete_file` whatever the model decides.
 5. `receipts/harbor_hotel_boston.jpg`. Nobody is there to answer, so its question waits in `pending/`. The spec asks the agent to leave the file in the inbox. That is requested, not enforced.
@@ -119,10 +119,10 @@ Press Ctrl-C in the terminal to stop it.
 
 ## What the runs generate
 
-Open each agent's folder after its run:
+Open each setup's folder after its run:
 
 ```
-agents/<setup>/
+setups/<setup>/
   traces/             one file per run, with every model call and tool call, plus summary.jsonl
   expenses.csv        pipelines: one row per file
   .processed          scheduled pipeline: files already done (hidden in Finder)
@@ -134,7 +134,7 @@ agents/<setup>/
   notifications.log   standing agent: messages it sent you
 ```
 
-After any run, `python3 mva.py board` shows the tokens and time for each agent's latest run. For the scheduled pipeline and the standing agent, that is every run since you started it.
+After any run, `python3 mva.py board` shows the tokens and time for each setup's latest run. For the scheduled pipeline and the standing agent, that is every run since you started it.
 
 ## Make your own agent
 
@@ -150,17 +150,17 @@ What an agent can reach:
 
 Example jobs: a pipeline that writes alt text for every image in a folder (set `output_lines = "all"` to keep answers longer than one line), a task agent that summarizes a folder of interview notes, a standing agent that files whatever lands in its `screenshots/` folder.
 
-1. Copy a folder: `cp -r agents/task agents/mine`
-2. In `agents/mine/harness.toml`, set `fresh = false`. Every run otherwise deletes everything in the folder except `spec.md`, `harness.toml` and `traces/`, including your files and the agent's memory.
+1. Copy a folder: `cp -r setups/task-agent setups/my-agent`
+2. In `setups/my-agent/harness.toml`, set `fresh = false`. Every run otherwise deletes everything in the folder except `spec.md`, `harness.toml` and `traces/`, including your files and the agent's memory.
 3. Rewrite `spec.md` for your step.
 4. Edit the rest of `harness.toml` for your agent.
-5. Put your files in `agents/mine/inbox/`, and run it.
+5. Put your files in `setups/my-agent/inbox/`, and run it.
 
-Start from `agents/task`. Move to another cell only when the work forces you.
+Start from `setups/task-agent`. Move to another cell only when the work forces you. To make your own workflow, copy `setups/pipeline` instead.
 
 ## Safety
 
-The harness only lets an agent touch files inside its own folder, and only the folders listed in `harness.toml`. Deleting is off unless you add the tool, and the standing agent has it denied on purpose. Runs cost money on paid APIs: check `board` after each run.
+The harness only lets a setup touch files inside its own folder, and only the folders listed in `harness.toml`. Deleting is off unless you add the tool, and the standing agent has it denied on purpose. Runs cost money on paid APIs: check `board` after each run.
 
 The receipts are specimens: invented businesses, generated by `tools/make_receipts.py`. To work on your own images, make your own agent.
 

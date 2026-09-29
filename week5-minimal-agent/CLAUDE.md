@@ -9,9 +9,9 @@ Week 5 of the course repo (`ai-agent-design-fall-2026`): `mva.py`, a minimum via
 ## Commands
 
 ```sh
-python3 mva.py run   agents/task      # resets first (fresh = true); trailing words replace the harness.toml `start` message
-python3 mva.py reset agents/task      # by hand: wipe outputs and memory.md, re-seed inbox/, clear summary.jsonl
-python3 mva.py board                  # tokens/time per agent, from traces/summary.jsonl
+python3 mva.py run   setups/task-agent   # resets first (fresh = true); trailing words replace the harness.toml `start` message
+python3 mva.py reset setups/task-agent   # by hand: wipe outputs and memory.md, re-seed inbox/, clear summary.jsonl
+python3 mva.py board                     # tokens/time per setup, from traces/summary.jsonl
 python3 -m py_compile mva.py          # the only offline check
 ```
 
@@ -19,7 +19,7 @@ Every `run` makes real model calls. Pick the model with `model = "anthropic/…"
 
 ## How it fits together
 
-- **An agent is a folder** under `agents/`. `spec.md` is what the model reads ("requested"). `harness.toml` is what `mva.py` enforces ("enforced"). The split is the lesson, so rules that must hold belong in `harness.toml`/`guard`, not only in the spec. For example, task's "never change inbox/" is enforced by leaving `inbox` out of `write`, and standing offers `delete_file` but puts it in `deny` on purpose, to show a denial in the trace.
+- **A setup is a folder** under `setups/`: `pipeline`, `scheduled-pipeline`, `task-agent`, `standing-agent`. Only the last two are agents; the README keeps that distinction. `spec.md` is what the model reads ("requested"). `harness.toml` is what `mva.py` enforces ("enforced"). The split is the lesson, so rules that must hold belong in `harness.toml`/`guard`, not only in the spec. For example, task-agent's "never change inbox/" is enforced by leaving `inbox` out of `write`, and standing-agent offers `delete_file` but puts it in `deny` on purpose, to show a denial in the trace.
 - **The Autonomy Grid is two keys.** `path = "steps"` runs `run_steps`: code loops over the files, makes one model call per file with no tools, and code appends the first non-fence line of the reply as a CSV row after the filename (`output_lines = "all"`: the filename on its own line, then the whole reply). `path = "goal"` runs `run_goal`: a tool loop until `finish`, a reply with no tool calls, `max_turns`, or `max_seconds`. `trigger` (`manual` / `every` / `on_new_file`) is dispatched in `run()`. `every` remembers processed filenames in `.processed`. `on_new_file` ignores files already present at start, polls every `poll` seconds (default 2) and starts one goal run per new file.
 - **Internal message format.** Content is a list of harness-neutral blocks (`{"type":"text"}` / `{"type":"image","media_type","data"}`, or `"document"` for a PDF). `file_blocks` emits a PDF document block only for `anthropic/` models and a text notice for every other provider, since the OpenAI-style path has no PDF block. Messages have roles `user`, `assistant` (`text` + `calls`) and `tool` (`results`). `to_anthropic` and `to_openai` convert at call time. Ollama and OpenRouter both go through the OpenAI-compatible path. On that path, images from tool results are re-sent as a following user message, because OpenAI tool messages carry text only.
 - **Tool modes.** `tool_mode` is `native` (API tool calling) or `text`. Ollama models default to `text`: `text_protocol` adds a JSON calling convention to the system prompt, and `parse_text_call` pulls out the first `{…}` object, one call per reply. It can be overridden with `tool_mode` in `harness.toml`.
