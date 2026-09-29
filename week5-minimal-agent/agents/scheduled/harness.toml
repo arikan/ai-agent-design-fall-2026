@@ -1,0 +1,13 @@
+# Scheduled pipeline: the same code and spec, started by a timer.
+path    = "steps"
+trigger = "every"
+every   = 30           # seconds between runs
+
+model = "anthropic/claude-sonnet-5"
+# model = "ollama/gemma3"
+
+input  = "inbox"
+output = "expenses.csv"
+header = "file,date,vendor,amount,currency"
+seed   = false         # reset leaves inbox/ empty: drop files in while it runs
+# .processed lists the files already done: bookkeeping, never judgment

@@ -1,0 +1,15 @@
+# Task agent: the model picks each next step, and you start it.
+path    = "goal"
+trigger = "manual"
+start   = "Prepare the report."
+
+model = "anthropic/claude-sonnet-5"
+# model = "ollama/gemma3"
+
+tools = ["list_dir", "read_file", "write_file", "ask", "finish"]
+read  = ["inbox", "policy.md"]
+write = ["report.md"]          # inbox/ is read only: the "never" is enforced here
+
+max_turns   = 40
+max_seconds = 400
+seed = true

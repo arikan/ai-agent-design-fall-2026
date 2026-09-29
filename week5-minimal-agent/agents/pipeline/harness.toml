@@ -1,0 +1,12 @@
+# Pipeline: code picks every step, and you start it.
+path    = "steps"      # steps: code picks the next step · goal: the model does
+trigger = "manual"     # manual · every · on_new_file
+
+model = "anthropic/claude-sonnet-5"
+# model = "ollama/gemma3"                       # local, free, weaker
+# model = "openrouter/google/gemini-2.5-flash"  # any model behind a router
+
+input  = "inbox"
+output = "expenses.csv"
+header = "file,date,vendor,amount,currency"
+seed   = true          # reset fills inbox/ with the receipts

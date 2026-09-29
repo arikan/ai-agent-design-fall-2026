@@ -1,0 +1,18 @@
+# Standing agent: the model picks each next step, and each new file starts a run.
+path    = "goal"
+trigger = "on_new_file"
+
+model = "anthropic/claude-sonnet-5"
+# model = "ollama/gemma3"
+
+input  = "inbox"
+memory = "memory.md"           # read into context at the start of every run
+tools  = ["list_dir", "read_file", "move_file", "append_file", "write_file", "ask", "notify", "delete_file", "finish"]
+deny   = ["delete_file"]       # offered, and blocked by the harness whatever the model decides
+read   = ["inbox", "filed", "review", "policy.md", "memory.md"]
+write  = ["inbox", "filed", "review", "memory.md", "actions.log"]
+ask_queue = "pending"          # nobody is here: questions wait in pending/
+
+max_turns   = 15
+max_seconds = 120
+seed = false

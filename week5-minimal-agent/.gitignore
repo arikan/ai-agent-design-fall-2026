@@ -1,0 +1,10 @@
+# Your API keys: never commit them
+.env
+
+# Everything an agent run makes is yours, like `reset` sees it:
+# keep only the files reset keeps (KEEP in mva.py)
+agents/*/*
+!agents/*/spec.md
+!agents/*/harness.toml
+!agents/*/policy.md
+!agents/*/memory.start.md

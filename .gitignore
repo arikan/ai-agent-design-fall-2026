@@ -2,6 +2,9 @@
 runs/
 report*.md
 
+# API keys
+.env
+
 # Python and macOS clutter
 __pycache__/
 *.pyc
