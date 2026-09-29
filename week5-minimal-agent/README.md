@@ -151,7 +151,7 @@ What an agent can reach:
 Example jobs: a pipeline that writes alt text for every image in a folder (set `output_lines = "all"` to keep answers longer than one line), a task agent that summarizes a folder of interview notes, a standing agent that files whatever lands in its `screenshots/` folder.
 
 1. Copy a folder: `cp -r setups/task-agent setups/my-agent`
-2. In `setups/my-agent/harness.toml`, set `fresh = false`. Every run otherwise deletes everything in the folder except `spec.md`, `harness.toml` and `traces/`, including your files and the agent's memory.
+2. In `setups/my-agent/harness.toml`, set `fresh = false`. Every run otherwise deletes everything in the folder except `spec.md`, `harness.toml` and `traces/`, including your files and the agent's memory. To start clean by hand, run `python3 mva.py reset setups/my-agent`.
 3. Rewrite `spec.md` for your step.
 4. Edit the rest of `harness.toml` for your agent.
 5. Put your files in `setups/my-agent/inbox/`, and run it.
