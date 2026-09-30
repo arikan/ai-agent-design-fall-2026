@@ -27,16 +27,22 @@ Run all four, then compare what they got right, what they asked you, and what th
 
 ## Setup (once)
 
-**1. Get the folder.** If you don't have the course repo yet, clone it as the [course README](../README.md#getting-the-labs) shows. Then, in the repo:
+### 1. Get the folder
+
+If you don't have the course repo yet, clone it as the [course README](../README.md#getting-the-labs) shows. Then, in the repo:
 
 ```
 git pull
 cd week5-minimal-agent
 ```
 
-**2. Check Python.** `python3 --version` must say 3.11 or newer. If it's older, install the latest Python from [python.org](https://www.python.org/downloads/). There is nothing else to install.
+### 2. Check Python
 
-**3. Pick a model.** Choose one:
+`python3 --version` must say 3.11 or newer. If it's older, install the latest Python from [python.org](https://www.python.org/downloads/). There is nothing else to install.
+
+### 3. Pick a model
+
+Choose one:
 
 - **Anthropic (the default).** Create an API key at [console.anthropic.com](https://console.anthropic.com). API use is billed separately from a Claude plan, so the account needs credit. Then make your own `.env` file from the example:
   ```
@@ -54,7 +60,9 @@ cd week5-minimal-agent
 
 VS Code may offer to enable `python.terminal.useEnvFile` once `.env` exists. Say no: `mva.py` already reads `.env` itself, and that setting would put your key into every VS Code terminal, where Claude Code would pick it up and bill it instead of your plan.
 
-**4. Check the model.** Each setup's `harness.toml` has its own `model` line: `setups/pipeline/`, `setups/scheduled-pipeline/`, `setups/task-agent/` and `setups/standing-agent/`. `MVA_MODEL` in `.env` overrides all of them, your own agents included, so you never edit a file that came with the repo. Leave it empty to use each setup's own model.
+### 4. Check the model
+
+Each setup's `harness.toml` has its own `model` line: `setups/pipeline/`, `setups/scheduled-pipeline/`, `setups/task-agent/` and `setups/standing-agent/`. `MVA_MODEL` in `.env` overrides all of them, your own agents included, so you never edit a file that came with the repo. Leave it empty to use each setup's own model.
 
 ## Run each setup
 
@@ -152,13 +160,33 @@ What an agent can reach:
 
 Example jobs: a pipeline that writes alt text for every image in a folder (set `output_lines = "all"` to keep answers longer than one line), a task agent that summarizes a folder of interview notes, a standing agent that files whatever lands in its `screenshots/` folder.
 
-1. Copy a folder: `cp -r setups/task-agent setups/my-agent`
-2. In `setups/my-agent/harness.toml`, set `fresh = false`. Every run otherwise deletes everything in the folder except `spec.md`, `harness.toml` and `traces/`, including your files and the agent's memory. To start clean by hand, run `python3 mva.py reset setups/my-agent`.
-3. Rewrite `spec.md` for your step.
-4. Edit the rest of `harness.toml` for your agent.
-5. Put your files in `setups/my-agent/inbox/`, and run it.
+### 1. Copy a folder
+
+```
+cp -r setups/task-agent setups/my-agent
+```
 
 Start from `setups/task-agent`. Move to another cell only when the work forces you. To make your own workflow, copy `setups/pipeline` instead.
+
+### 2. Turn off the reset
+
+In `setups/my-agent/harness.toml`, set `fresh = false`. Every run otherwise deletes everything in the folder except `spec.md`, `harness.toml` and `traces/`, including your files and the agent's memory. To start clean by hand, run `python3 mva.py reset setups/my-agent`.
+
+### 3. Rewrite the spec
+
+Rewrite `spec.md` for your step.
+
+### 4. Edit the harness
+
+Edit the rest of `harness.toml` for your agent.
+
+### 5. Add your files and run it
+
+Put your files in `setups/my-agent/inbox/`, then:
+
+```
+python3 mva.py run setups/my-agent
+```
 
 ## Safety
 
