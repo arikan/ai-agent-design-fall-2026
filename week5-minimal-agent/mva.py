@@ -172,17 +172,26 @@ def assemble_context(agent, trace, first_message):
 
 
 # ---------------------------------------------------------------- 2. router
+KEYS = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY",
+        "openrouter": "OPENROUTER_API_KEY"}  # ollama runs on your computer and needs none
+
+
 def route(model):
-    """'anthropic/claude-sonnet-5' · 'ollama/gemma3' · 'openrouter/<vendor>/<model>'"""
+    """'anthropic/claude-sonnet-5' · 'openai/gpt-5-mini' · 'gemini/gemini-2.5-flash' · 'ollama/gemma3'
+    · 'openrouter/<vendor>/<model>'"""
     provider, _, name = model.partition("/")
     if provider == "anthropic":
         return "anthropic", name, "https://api.anthropic.com/v1/messages"
     if provider == "ollama":
         host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
         return "openai", name, host.rstrip("/") + "/v1/chat/completions"
+    if provider == "openai":
+        return "openai", name, "https://api.openai.com/v1/chat/completions"
+    if provider == "gemini":
+        return "openai", name, "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
     if provider == "openrouter":
         return "openai", name, "https://openrouter.ai/api/v1/chat/completions"
-    raise ValueError(f"unknown provider in model '{model}': use anthropic/, ollama/ or openrouter/")
+    raise ValueError(f"unknown provider in model '{model}': use anthropic/, openai/, gemini/, ollama/ or openrouter/")
 
 
 def tool_mode(agent):
@@ -200,15 +209,16 @@ def call_model(agent, trace, system, messages, tools):
         body = {"model": name, "max_tokens": 4096, "system": system, "messages": to_anthropic(messages, native)}
         if native:
             body["tools"] = [{"name": n, "description": TOOLS[n]["about"], "input_schema": schema(n)} for n in tools]
-        headers = {"x-api-key": need_key("ANTHROPIC_API_KEY"), "anthropic-version": "2023-06-01"}
+        headers = {"x-api-key": need_key(KEYS["anthropic"]), "anthropic-version": "2023-06-01"}
     else:
         body = {"model": name, "messages": [{"role": "system", "content": system}] + to_openai(messages, native)}
         if native:
             body["tools"] = [{"type": "function", "function": {"name": n, "description": TOOLS[n]["about"],
                                                                "parameters": schema(n)}} for n in tools]
         headers = {}
-        if "openrouter.ai" in url:
-            headers["Authorization"] = "Bearer " + need_key("OPENROUTER_API_KEY")
+        provider = agent.model.partition("/")[0]
+        if provider in KEYS:
+            headers["Authorization"] = "Bearer " + need_key(KEYS[provider])
     req = urllib.request.Request(url, data=json.dumps(body).encode(),
                                  headers={"content-type": "application/json", **headers})
     say("model", f"  → {agent.model} · {len(messages)} messages in context")
@@ -656,12 +666,13 @@ PRICES = {  # USD per million tokens (input, output), September 2026: add a line
     "anthropic/claude-sonnet-5-5": (2.00, 10.00),
     "anthropic/claude-sonnet-5": (2.00, 10.00),
     "anthropic/claude-haiku-4-5": (1.00, 5.00),
+    "openrouter/z-ai/glm-5.3-flash": (0.15, 0.50),
 }
 
 
 def cost(model, tokens_in, tokens_out):
     """Dollars for one run, or None when the model's price is not in PRICES. Local models are free."""
-    if model.startswith("ollama/"):
+    if model.startswith("ollama/") or model.endswith(":free") or model == "openrouter/openrouter/free":
         return 0.0
     if model not in PRICES:
         return None
