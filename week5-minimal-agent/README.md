@@ -27,6 +27,8 @@ Run all four, then compare what they got right, what they asked you, and what th
 
 ## Setup (once)
 
+📖 **New to the terminal, VS Code or git?** Read **[Terminal, VS Code and Git](../BASICS.md)** first. It covers the commands this lab uses, and you can keep it open as a reference while you work.
+
 ### 1. Get the folder
 
 If you don't have the course repo yet, clone it as the [course README](../README.md#getting-the-labs) shows. Then, in the repo:
@@ -35,6 +37,8 @@ If you don't have the course repo yet, clone it as the [course README](../README
 git pull
 cd week5-minimal-agent
 ```
+
+Every `python3 mva.py …` command in this README runs from this folder.
 
 ### 2. Check Python
 

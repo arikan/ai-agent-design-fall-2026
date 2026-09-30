@@ -10,6 +10,8 @@ Code and instructions for the course labs, one folder per week. Each folder has 
 
 ## Getting the labs
 
+New to the terminal, VS Code or git? [Terminal, VS Code and Git](BASICS.md) covers what the labs use.
+
 Clone once:
 
 ```sh
