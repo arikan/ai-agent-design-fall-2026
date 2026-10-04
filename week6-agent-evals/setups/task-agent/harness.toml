@@ -16,3 +16,6 @@ write = ["report.md"]          # inbox/ is read only: the "never" is enforced he
 max_turns   = 40
 max_seconds = 400
 seed = true
+
+# eval: each run starts with only these files in inbox/, the cases golden.jsonl checks
+eval_inbox = ["trattoria_sole_menu.jpg", "cafe_luna_0914.jpg", "cafe_luna_0914 (1).jpg", "kaffeehaus_berlin.jpg", "harbor_hotel_boston.jpg"]
