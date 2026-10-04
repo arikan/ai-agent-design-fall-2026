@@ -1,7 +1,8 @@
 # Your API keys: never commit them
 .env
 
-# Everything a run makes is yours: keep only the two files that define a setup
+# Everything a run makes is yours, traces/ and evals/ included: keep only the files that define a setup
 setups/*/*
 !setups/*/spec.md
 !setups/*/harness.toml
+!setups/*/golden.jsonl

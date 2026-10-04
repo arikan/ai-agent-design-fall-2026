@@ -19,18 +19,24 @@ Usage:
   python mva.py reset setups/task-agent
   python mva.py usage
   python mva.py usage --runs
+  python mva.py golden setups/task-agent [--force]
+  python mva.py eval   setups/task-agent [--runs 20] [--model openai/gpt-5-mini] [--jobs 4] [--allow-unverified]
 """
 import base64
 import csv
 import io
 import json
+import math
 import os
+import re
 import shutil
 import sys
+import threading
 import time
 import tomllib
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
@@ -46,6 +52,7 @@ TEXT_TYPES = {".txt", ".md", ".csv", ".log", ".json", ".toml"}
 # rust #af5f5f keep about 4.5:1 contrast on both white and black. The leading symbol carries the meaning.
 STYLES = {"run": "1", "done": "1", "ask": "1", "notify": "1", "denied": "31", "model": "2", "tick": "2",
           "ok": "1;38;5;29", "failed": "1;38;5;131"}
+LOCAL = threading.local()  # an eval runs several agents at once: each thread's lines start with its run's name
 
 
 def styled():
@@ -55,6 +62,7 @@ def styled():
 
 def say(kind, text):
     style = STYLES.get(kind)
+    text = getattr(LOCAL, "prefix", "") + text
     print(f"\033[{style}m{text}\033[0m" if style and styled() else text, flush=True)
 
 
@@ -80,6 +88,7 @@ class Agent:
         self.ask_queue = c.get("ask_queue", "pending")
         self.max_turns = c.get("max_turns", 30)
         self.max_seconds = c.get("max_seconds", 300)
+        self.answers = None  # set by eval: scripted answers from golden.jsonl, so ask never waits for a person
 
     def file(self, rel):
         """Resolve a path the model gives us. It must stay inside the agent folder."""
@@ -424,7 +433,11 @@ def t_ask(agent, question):
     """Ask first. If a person started the run, they answer now; otherwise it waits in a queue."""
     if agent.trigger == "manual":
         say("ask", f"  ? {question}")
-        answer = input("  your answer › ").strip()
+        if agent.answers is None:
+            answer = input("  your answer › ").strip()
+        else:  # an eval: the answer key speaks for the person
+            answer = scripted(agent.answers, question)
+            say("ask", f"  › {answer} (from golden.jsonl)")
         return [text(f"The person answered: {answer}")]
     q = agent.dir / agent.ask_queue
     q.mkdir(exist_ok=True)
@@ -639,8 +652,374 @@ def run(agent, message=None):
                     f"{tokens_out:,} out · {seconds}s · {money(dollars)}")
 
 
+# ---------------------------------------------------------------- 9. graders
+# Each grader reads one finished run folder and checks one case from golden.jsonl: True or False.
+# The cases are data, so these five check any job. Nothing here knows what the agent was for.
+
+def cells(line):
+    return [c.strip() for c in line.strip().strip("|").split("|")]
+
+
+def tables(p):
+    """Every table in a markdown or CSV file, as (header, rows), each row a list of cells."""
+    if not p.is_file():
+        return []
+    if p.suffix.lower() == ".csv":
+        rows = [r for r in csv.reader(io.StringIO(p.read_text(errors="replace"))) if any(c.strip() for c in r)]
+        return [(rows[0], rows[1:])] if rows else []
+    lines, found, i = p.read_text(errors="replace").splitlines(), [], 0
+    while i < len(lines) - 1:
+        rule = cells(lines[i + 1])
+        if lines[i].strip().startswith("|") and all(re.fullmatch(r":?-+:?", c) for c in rule):
+            header, rows, i = cells(lines[i]), [], i + 2
+            while i < len(lines) and lines[i].strip().startswith("|"):
+                rows.append(cells(lines[i]))
+                i += 1
+            found.append((header, rows))
+        else:
+            i += 1
+    return found
+
+
+def find_row(p, key):
+    """The row that names key. Of the rows with a cell containing it, the one where that cell is
+    shortest: 'cafe_luna_0914.jpg' finds its own row, not a row that mentions it. Never by position."""
+    best = None
+    for header, rows in tables(p):
+        for row in rows:
+            hits = [len(c) for c in row if key.lower() in c.lower()]
+            if hits and (best is None or min(hits) < best[0]):
+                best = (min(hits), header, row)
+    return (best[1], best[2]) if best else (None, None)
+
+
+def numbers(s):
+    """'$412.02', '412.02', '7,60 €', '1,234.50': every number in s. A comma before one or two final digits is a decimal comma."""
+    out = []
+    for n in re.findall(r"\d[\d.,]*\d|\d", s):
+        if "," in n and "." in n:
+            n = n.replace(".", "").replace(",", ".") if n.rfind(",") > n.rfind(".") else n.replace(",", "")
+        elif "," in n:
+            n = n.replace(",", ".") if n.count(",") == 1 and re.search(r",\d{1,2}$", n) else n.replace(",", "")
+        elif n.count(".") > 1:
+            n = n.replace(".", "")
+        try:
+            out.append(float(n))
+        except ValueError:
+            pass
+    return out
+
+
+def has_any(s, words):
+    return any(str(w).lower() in s.lower() for w in words)
+
+
+def g_text_contains(folder, case):
+    p = folder / case["file"]
+    return p.is_file() and has_any(p.read_text(errors="replace"), case["any"])
+
+
+def g_text_lacks(folder, case):
+    p = folder / case["file"]
+    return p.is_file() and not has_any(p.read_text(errors="replace"), case["any"])
+
+
+def g_row_value(folder, case):
+    header, row = find_row(folder / case["file"], case["row"])
+    if row is None:
+        return False
+    if "column" in case:
+        col = next((i for i, h in enumerate(header) if case["column"].lower() in h.lower()), None)
+        if col is None or col >= len(row):
+            return False
+        cell = row[col]
+    else:  # no column: the whole row
+        cell = " | ".join(row)
+    if "near" in case and any(abs(n - case["near"]) <= 0.01 for n in numbers(cell)):
+        return True
+    return has_any(cell, case.get("any", []))
+
+
+def g_file_in(folder, case):
+    return (folder / case["path"]).exists()
+
+
+def tool_calls(folder):
+    """Every tool call in the run's traces, allowed ("tool") or denied, in order."""
+    out = []
+    for t in sorted((folder / "traces").glob("*.jsonl")):
+        if t.name == "summary.jsonl":
+            continue
+        for line in t.read_text().splitlines():
+            try:
+                e = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(e, dict) and e.get("event") in ("tool", "denied"):
+                out.append(e)
+    return out
+
+
+def call_matches(e, want):
+    """Same tool, and args_contain in its paths (or in all its args, for a tool without paths)."""
+    names = want["tool"] if isinstance(want["tool"], list) else [want["tool"]]
+    args = e.get("args") if isinstance(e.get("args"), dict) else {}
+    if e.get("tool") not in names:
+        return False
+    keys = READS.get(e["tool"], []) + WRITES.get(e["tool"], []) or list(args)  # a report's text is not a path
+    return str(want.get("args_contain", "")).lower() in " ".join(str(args.get(k, "")) for k in keys).lower()
+
+
+def g_tool_call(folder, case):
+    calls = tool_calls(folder)
+    if case.get("never"):  # allowed or denied: trying counts
+        return not any(call_matches(e, case) for e in calls)
+    done = [e for e in calls if e["event"] == "tool"]
+    first = next((i for i, e in enumerate(done) if call_matches(e, case)), None)
+    if first is None or "before" not in case:
+        return first is not None
+    later = next((i for i, e in enumerate(done) if call_matches(e, case["before"])), None)
+    return later is not None and first < later
+
+
+GRADERS = {"text_contains": g_text_contains, "text_lacks": g_text_lacks, "row_value": g_row_value,
+           "file_in": g_file_in, "tool_call": g_tool_call}
+
+
+def wilson(k, n, z=1.96):
+    """The 95% interval for a pass rate, in percent. Honest at small n, where k/n alone is not."""
+    if n == 0:
+        return 0, 100
+    p = k / n
+    mid, spread = p + z * z / (2 * n), z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))
+    return round(100 * (mid - spread) / (1 + z * z / n)), round(100 * (mid + spread) / (1 + z * z / n))
+
+
+# ---------------------------------------------------------------- answer key and eval
+def latest_trace(agent):
+    traces = sorted(p for p in (agent.dir / "traces").glob("*.jsonl") if p.name != "summary.jsonl")
+    return traces[-1] if traces else None
+
+
+def start_inbox(agent):
+    """The file names in the inbox when a run starts: eval_inbox if harness.toml lists it, else
+    what is there now plus what reset seeds."""
+    if "eval_inbox" in agent.cfg:
+        return list(agent.cfg["eval_inbox"])
+    names = {p.name for p in inbox_files(agent)}
+    if agent.cfg.get("seed", False):
+        names |= {p.name for p in RECEIPTS.iterdir() if p.is_file()}
+    return sorted(names)
+
+
+def run_outputs(agent):
+    """Every file the run left: anything in the folder but its own files, traces, evals and the inbox."""
+    inbox = agent.file(agent.cfg.get("input", "inbox"))
+    out = []
+    for p in sorted(agent.dir.rglob("*")):
+        rel = p.relative_to(agent.dir)
+        if p.is_file() and rel.parts[0] not in KEEP and inbox not in p.parents \
+                and not any(part.startswith(".") for part in rel.parts):
+            out.append(p)
+    return out
+
+
+def slug(s):
+    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
+
+
+def is_number(cell):
+    bare = re.sub(r"[$€£¥*`\s]|usd|eur|gbp", "", cell.lower())
+    return bool(re.fullmatch(r"[-+]?[\d.,]*\d[\d.,]*", bare))
+
+
+def draft_golden(agent, force=False):
+    """A first answer key, drafted from the latest run. It holds what the model did, not what is right."""
+    golden = agent.dir / "golden.jsonl"
+    if golden.exists() and not force:
+        raise SystemExit(f"{golden.relative_to(ROOT)} exists: correct it by hand, or add --force to draft over it")
+    trace = latest_trace(agent)
+    if trace is None:
+        say("run", "no run yet, running once to draft from")
+        try:
+            run(agent)
+        finally:
+            for t in list(OPEN_TRACES):
+                t.close("stopped before the end")
+        trace = latest_trace(agent)
+    note = f"drafted from run {trace.name}, verify by hand"
+    cases = []
+
+    def add(name, grader, **fields):
+        cid, n = slug(name), 2
+        while cid in {c["id"] for c in cases}:
+            cid, n = f"{slug(name)}-{n}", n + 1
+        cases.append({"id": cid, "grader": grader, "settled": None, "note": note, **fields})
+
+    outputs = run_outputs(agent)
+    texts = [p for p in outputs if p.suffix.lower() in TEXT_TYPES]
+    for p in outputs:  # a file the run made or moved that is not text: check that it is there
+        if p not in texts:
+            add(f"{p.name} in {p.parent.name}", "file_in", path=str(p.relative_to(agent.dir)))
+    for name in start_inbox(agent):
+        for p in texts:
+            rel = str(p.relative_to(agent.dir))
+            header, row = find_row(p, name)
+            if row is None:
+                add(f"{Path(name).stem} mentioned", "text_contains", file=rel, any=[name])
+                continue
+            for column, cell in zip(header, row):
+                if not cell or name.lower() in cell.lower():
+                    continue
+                if is_number(cell):
+                    add(f"{Path(name).stem} {column}", "row_value", file=rel, row=name, column=column, near=numbers(cell)[0])
+                else:
+                    add(f"{Path(name).stem} {column}", "row_value", file=rel, row=name, column=column, any=[cell])
+    writers = [t for t in agent.tools if t in WRITES]
+    for folder in [f for f in agent.read if f not in agent.write]:
+        if writers:
+            inside = folder if Path(folder).suffix else folder.rstrip("/") + "/"
+            add(f"never writes {folder}", "tool_call", tool=writers, args_contain=inside, never=True)
+    answers = []
+    for line in trace.read_text().splitlines():  # every question the model asked gets a blank answer
+        e = json.loads(line)
+        if e.get("event") == "tool" and e.get("tool") == "ask":
+            words = re.findall(r"[A-Za-z]+", str(e["args"].get("question", "")))
+            if words and max(words, key=len).lower() not in [a["match"].lower() for a in answers]:
+                answers.append({"match": max(words, key=len), "answer": ""})
+    with golden.open("w") as f:
+        for c in cases:
+            f.write(json.dumps(c, ensure_ascii=False) + "\n")
+        f.write(json.dumps({"answers": answers}, ensure_ascii=False) + "\n")
+    say("done", f"drafted {len(cases)} case(s) and {len(answers)} answer(s) in {golden.relative_to(ROOT)}")
+    say("info", f"  from the run in {trace.relative_to(ROOT)}")
+    say("info", "  This draft holds the model's answers, not a verified key. Correct every case, then set its\n"
+                "  settled to true (checked, it must pass) or false (checked, the answer is still open),\n"
+                "  and fill in each answer the agent will get when it asks.")
+
+
+def load_golden(agent):
+    p = agent.dir / "golden.jsonl"
+    if not p.exists():
+        raise SystemExit(f"no golden.jsonl in {agent.dir.relative_to(ROOT)}: run python3 mva.py golden "
+                         f"{agent.dir.relative_to(ROOT)} first")
+    cases, answers = [], []
+    for n, line in enumerate(p.read_text().splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError as e:
+            raise SystemExit(f"golden.jsonl line {n} is not JSON: {e}")
+        if isinstance(obj, dict) and "answers" in obj and "grader" not in obj:
+            answers += obj["answers"]
+        elif not isinstance(obj, dict) or "id" not in obj or obj.get("grader") not in GRADERS:
+            raise SystemExit(f"golden.jsonl line {n}: a case needs an id and a grader: {', '.join(GRADERS)}")
+        else:
+            cases.append(obj)
+    return cases, answers
+
+
+def scripted(answers, question):
+    """The first answer whose match is in the question, ignoring case. "No." when none is."""
+    for a in answers:
+        if a.get("answer") and str(a.get("match", "")).lower() in question.lower():
+            return a["answer"]
+    return "No."
+
+
+def eval_copy(agent, folder):
+    """A fresh copy of the setup for one run, seeded the way reset does, or from eval_inbox if harness.toml lists one."""
+    if agent.cfg.get("fresh", True):
+        folder.mkdir(parents=True)
+        for name in ("spec.md", "harness.toml"):
+            shutil.copy(agent.dir / name, folder / name)
+    else:  # no reset before a run: it starts from the folder as it is
+        shutil.copytree(agent.dir, folder, ignore=lambda d, names: [n for n in names if Path(d) == agent.dir
+                                                                    and n in KEEP - {"spec.md", "harness.toml"}])
+    inbox = folder / agent.cfg.get("input", "inbox")
+    if "eval_inbox" in agent.cfg:
+        shutil.rmtree(inbox, ignore_errors=True)
+        inbox.mkdir(parents=True)
+        for name in agent.cfg["eval_inbox"]:
+            places = (agent.file(agent.cfg.get("input", "inbox")), RECEIPTS, RECEIPTS / "extras")
+            src = next((d / name for d in places if (d / name).is_file()), None)
+            if src is None:
+                raise SystemExit(f"eval_inbox lists {name}, which is not in {agent.cfg.get('input', 'inbox')}/ or receipts/")
+            shutil.copy(src, inbox / name)
+    else:
+        inbox.mkdir(parents=True, exist_ok=True)
+        if agent.cfg.get("fresh", True) and agent.cfg.get("seed", False):
+            for p in RECEIPTS.iterdir():
+                if p.is_file():
+                    shutil.copy(p, inbox / p.name)
+
+
+def eval_once(n, folder, answers):
+    """One run in its own folder, started the way its trigger would start it, with nobody at the keyboard."""
+    LOCAL.prefix = f"[run-{n}] "
+    agent = Agent(folder)
+    agent.answers = answers
+    try:
+        if agent.path == "steps":
+            run_steps(agent, inbox_files(agent), "eval", fresh=True)
+        elif agent.trigger == "on_new_file":  # each file arrives on its own
+            for p in inbox_files(agent):
+                run_goal(agent, f"A new file arrived: {p.relative_to(agent.dir)}", p.stem)
+        elif agent.trigger == "every":
+            run_goal(agent, f"Scheduled run. New files: {', '.join(p.name for p in inbox_files(agent))}", "eval")
+        else:
+            run_goal(agent, agent.cfg.get("start", "Do the task in your spec."), "eval")
+    except (Exception, SystemExit) as e:  # a failed run is a result, not the end of the eval
+        say("failed", f"✗ {e}")
+    finally:
+        for trace in [t for t in OPEN_TRACES if t.agent is agent]:
+            trace.close("stopped before the end")
+    rows = summary_rows(folder)[0]
+    _, _, tokens_in, tokens_out, seconds, dollars = totals(rows)
+    failed = [r.get("outcome", "") for r in rows if mark(r.get("outcome", "")) == "✗"]
+    outcome = failed[0] if failed else rows[-1].get("outcome", "") if rows else "no run"
+    return {"run": n, "model": agent.model, "outcome": outcome, "tokens": tokens_in + tokens_out,
+            "seconds": seconds, "cost": dollars}
+
+
+def run_eval(agent, runs=20, jobs=4, allow_unverified=False):
+    """Run the setup many times, each in its own copy, and grade every run against golden.jsonl."""
+    cases, answers = load_golden(agent)
+    unverified = [c["id"] for c in cases if c.get("settled") is None]
+    if unverified and not allow_unverified:
+        raise SystemExit(f"{len(unverified)} case(s) in golden.jsonl are not verified yet: {', '.join(unverified)}\n"
+                         "Check each one and set settled to true or false, or add --allow-unverified.")
+    base = agent.dir / "evals" / datetime.now().strftime("%Y%m%d-%H%M%S")
+    folders = [base / f"run-{n}" for n in range(1, runs + 1)]
+    for folder in folders:
+        eval_copy(agent, folder)
+    say("run", f"▶ eval {agent.name} · {len(cases)} case(s) · {runs} run(s), {jobs} at a time · {agent.model}")
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
+        results = list(pool.map(eval_once, range(1, runs + 1), folders, [answers] * runs))
+    for r, folder in zip(results, folders):  # a run that did not end as planned fails every case
+        r["cases"] = {c["id"]: mark(r["outcome"]) == "✓" and GRADERS[c["grader"]](folder, c) for c in cases}
+    with (base / "results.jsonl").open("w") as f:
+        for r in results:
+            f.write(json.dumps(r) + "\n")
+    print()
+    print(f"{'case':<26}{'grader':<15}{'passes':>8}{'rate':>6}{'95% interval':>14}")
+    for c in cases:
+        k = sum(r["cases"][c["id"]] for r in results)
+        lo, hi = wilson(k, runs)
+        flag = "" if c.get("settled") else f"  ○ open: {c.get('note', '')}" if c.get("settled") is False \
+            else f"  ? unverified: {c.get('note', '')}"
+        print(f"{c['id'][:25]:<26}{c['grader']:<15}{f'{k}/{runs}':>8}{round(100 * k / runs):>5}%"
+              f"{f'[{lo}, {hi}]':>14}{flag}")
+    rows = [row for folder in folders for row in summary_rows(folder)[0]]
+    _, _, tokens_in, tokens_out, seconds, dollars = totals(rows)
+    print()
+    say("done", f"■ {runs} runs · {agent.model} · {tokens_in + tokens_out:,} tokens · {money(dollars)} · "
+                f"{seconds / runs:.1f}s per run · results: {(base / 'results.jsonl').relative_to(ROOT)}")
+
+
 # ---------------------------------------------------------------- commands
-KEEP = {"spec.md", "harness.toml", "traces"}
+KEEP = {"spec.md", "harness.toml", "traces", "golden.jsonl", "evals"}  # the answer key and eval results outlive a reset
 
 
 def reset(agent):
@@ -748,6 +1127,11 @@ def show_usage(folders, per_run=False):
             print(f"  ({broken} broken line(s) in {folder}/traces/summary.jsonl skipped)")
 
 
+def option(argv, name, default=None):
+    """The value after --name, as in --runs 20."""
+    return argv[argv.index(name) + 1] if name in argv[:-1] else default
+
+
 def main(argv):
     if len(argv) < 2:
         print(__doc__)
@@ -758,8 +1142,15 @@ def main(argv):
         folders = [a for a in argv[2:] if a != "--runs"]
         folders = folders or sorted(str(p) for p in (ROOT / "setups").iterdir() if p.is_dir())
         return show_usage(folders, per_run)
+    if cmd == "eval" and option(argv, "--model"):
+        os.environ["MVA_MODEL"] = option(argv, "--model")  # this eval only: it ends with the process
     agent = Agent(argv[2])
-    if cmd == "run":
+    if cmd == "golden":
+        draft_golden(agent, force="--force" in argv[3:])
+    elif cmd == "eval":
+        run_eval(agent, runs=int(option(argv, "--runs", 20)), jobs=int(option(argv, "--jobs", 4)),
+                 allow_unverified="--allow-unverified" in argv[3:])
+    elif cmd == "run":
         try:
             run(agent, " ".join(argv[3:]) or None)
         finally:  # a run cut short by an error or Ctrl-C still reaches usage, with what it spent
