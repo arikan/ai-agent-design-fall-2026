@@ -1,0 +1,7 @@
+# Your API keys: never commit them
+.env
+
+# Everything a run makes is yours: keep only the two files that define a setup
+setups/*/*
+!setups/*/spec.md
+!setups/*/harness.toml
