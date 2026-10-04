@@ -1,29 +1,22 @@
-# A minimum viable agent
+# Agent evals
 
-A folder of receipts has to become an expense claim: a mix of café slips, a hotel bill, a blurry photo, a handwritten taxi note, and a restaurant menu that isn't a receipt at all. This lab solves that job in two ways and compares them:
+Last week the task agent turned a folder of receipts into `report.md`, and you read one report. One run shows what an agent can do. It doesn't show how often it does it. Run the same agent twenty times and it will sometimes ask about the hotel and sometimes not, sometimes catch the duplicate and sometimes claim it twice.
 
-- **Workflows** orchestrate models and tools through predefined code paths. The code decides every step, and the model does one small piece of work inside each step.
-- **Agents** direct their own process and tool use. The model decides what to look at, what to do next, and when it is done.
+This lab measures that. You write an answer key, `golden.jsonl`, that says what a correct run looks like, one case per line. Then `mva.py` runs the agent many times, each run in its own copy of the folder, and checks every run against every case:
 
-The four setups in this lab sit on the Autonomy Grid from the lecture. Two questions place each one: who picks the next step (the rows), and what begins each run (the columns).
+```
+python3 mva.py golden setups/task-agent     # draft an answer key from a run
+python3 mva.py eval   setups/task-agent     # run it 20 times and grade each run
+```
 
-| | You start it<br>`trigger = "manual"` | It starts itself<br>`trigger = "every"` or `"on_new_file"` |
-|---|---|---|
-| **Fixed path**: code runs the steps you wrote<br>*workflow*<br>`path = "steps"` | **Pipeline** · `setups/pipeline`<br>Code runs fixed steps. The model does the work inside each step. | **Scheduled pipeline** · `setups/scheduled-pipeline`<br>The same pipeline, started by a timer or an arrival. Here, a timer every 30 seconds. |
-| **Open path**: the model picks each next step<br>*agent*<br>`path = "goal"` | **Task agent** · `setups/task-agent`<br>You give it a task and its goal. The model decides each next step until the goal is met. | **Standing agent** · `setups/standing-agent`<br>Each arrival starts a run. What earlier runs wrote to memory shapes the next one. |
-
-Each setup is a folder in `setups/`. Two files define it: `spec.md` is requested, and `harness.toml` is enforced.
+The harness is last week's `mva.py` with these two commands added. The setups are the same four, and the task agent's `harness.toml` adds one line, `eval_inbox`, the five receipts every eval run starts with.
 
 ```
 setups/<setup>/
-  spec.md           what the model reads: Task, Why, Done, Boundaries, Sources; a pipeline adds Steps
-  harness.toml      what mva.py enforces: path, trigger, model; agents add tools, readable and writable folders, limits
-  inbox/            the files it works on; emptied by each run, then filled with the receipts for the pipeline and the task agent
+  spec.md           what the model reads (requested)
+  harness.toml      what mva.py enforces (enforced)
+  golden.jsonl      what a correct run looks like (expected): one case per line, checked by a person
 ```
-
-The spec is always in the model's context, and so is the standing agent's memory. A pipeline's code hands the model each file; for an agent, any other file reaches the model only if the agent decides to open it.
-
-Run all four, then compare what they got right, what they asked you, and what they cost.
 
 ## Setup (once)
 
@@ -35,7 +28,7 @@ If you don't have the course repo yet, clone it as the [course README](../README
 
 ```
 git pull
-cd week5-minimal-agent
+cd week6-agent-evals
 ```
 
 Every `python3 mva.py …` command in this README runs from this folder.
@@ -89,87 +82,103 @@ The part before the `/` is the provider, and it must match the key you added. `o
 
 The receipts are images, so the model must read images. Ollama models write their tool calls as JSON text, which the harness parses (`tool_mode = "text"`); you can see this in each run's trace, in the setup's `traces/` folder.
 
-## Run each setup
+## Build the answer key
 
-Each run starts clean: it deletes everything the last run made, including the standing agent's memory, and keeps the traces of earlier runs. Keep your own notes outside the setup's folder.
-
-### 1. Pipeline
+The task agent already comes with a checked answer key, `setups/task-agent/golden.jsonl`. Build your own first anyway, in a copy, so you see where a key comes from:
 
 ```
-python3 mva.py run setups/pipeline
+cp -r setups/task-agent setups/my-key
+rm setups/my-key/golden.jsonl
+python3 mva.py run    setups/my-key
+python3 mva.py golden setups/my-key
 ```
 
-The code goes through the receipts one by one and asks the model for one line per receipt. It never asks you anything. When it finishes, open `setups/pipeline/expenses.csv`.
+`run` is last week's run: answer the agent's question in the terminal when it asks. `golden` reads that run's trace and the files it wrote, and drafts `setups/my-key/golden.jsonl`. It prints which trace it drafted from. If you skip `run`, `golden` runs the agent once itself.
 
-### 2. Scheduled pipeline
+Open `golden.jsonl` in VS Code. Each line is one case:
 
-This one starts with an empty inbox and keeps running. Keep a Finder window open on `receipts/` next to the terminal, and a second Finder window on `setups/scheduled-pipeline/inbox/`.
-
-In the terminal:
-
-```
-python3 mva.py run setups/scheduled-pipeline
+```json
+{"id": "trattoria-sole-menu-reason", "grader": "row_value", "settled": null, "note": "drafted from run 20261004-155416-manual.jsonl, verify by hand", "file": "report.md", "row": "trattoria_sole_menu.jpg", "column": "Reason", "any": ["This is a restaurant menu, not a receipt, no proof of purchase or amount paid."]}
 ```
 
-Every 30 seconds it checks `setups/scheduled-pipeline/inbox/` and prints "no new files" until something arrives. Between checks, it counts down to the next one. To add a file, drag it from `receipts/` into the inbox. Hold Option while dragging, so the file is copied and `receipts/` stays complete. On Windows or Linux, copy and paste the file in your file manager.
+This case says: in `report.md`, find the table row for `trattoria_sole_menu.jpg`, look in its Reason column, and pass if it contains that text. The draft holds the model's answers, not the right ones. Copied straight from one run, the key would grade every later run on whether it matches that run, mistakes and exact wording included. Correct it:
 
-Drag in one file at a time:
+1. **Check each answer against the receipt.** Open the receipt itself. If the model got it wrong, write the right answer. If the case checks something that doesn't matter, delete the line.
+2. **Loosen the wording.** The next run won't write the same sentence. Replace the long text in `any` with a few short words that any correct answer would contain: `["menu", "not a receipt", "no proof"]`. A number case uses `near` instead, and passes within 0.01.
+3. **Add what the draft missed.** The draft only knows what this run did. If the agent should have asked about something and didn't, add a case for it. The graders are in [Make your own eval](#make-your-own-eval).
+4. **Mark what you checked.** Change `settled` from `null` to `true` when you are sure of the answer, or to `false` when you checked it and the answer is still open: the spec could be read two ways, or you haven't decided. Rewrite `note` to say why.
+5. **Fill in the answers.** The last line scripts the person the agent asks. Each `match` is a word that may appear in a question; write the `answer` you would give. Use words the question is sure to contain, like `harbor` and `hotel`.
 
-1. `receipts/extras/copy_center_0922.jpg`
-2. `receipts/trattoria_sole_menu.jpg`
+Then compare yours with `setups/task-agent/golden.jsonl`.
 
-At the next tick, each file becomes a row in `setups/scheduled-pipeline/expenses.csv`. The menu becomes a row too, because the code runs the same steps on every file, with nobody watching. Press Ctrl-C in the terminal to stop it.
-
-### 3. Task agent
-
-```
-python3 mva.py run setups/task-agent
-```
-
-The agent reads the receipts in `setups/task-agent/inbox/` and decides what to do next. It may ask you a question in the terminal: type your answer and press Enter. When it finishes, open `setups/task-agent/report.md` and compare it with the pipeline's `setups/pipeline/expenses.csv`.
-
-### 4. Standing agent
-
-This one also starts with an empty inbox and keeps running, and it keeps a memory between runs. Keep a Finder window open on `receipts/` next to the terminal, and a second Finder window on `setups/standing-agent/inbox/`.
-
-In the terminal:
+## Run the eval
 
 ```
-python3 mva.py run setups/standing-agent
+python3 mva.py eval setups/task-agent --runs 20
 ```
 
-It watches `setups/standing-agent/inbox/`, and each new file starts one run.
+`eval` won't start while any case still has `settled: null`. It copies the setup 20 times into `setups/task-agent/evals/<time>/run-1/` … `run-20/`, puts the five receipts from `eval_inbox` in each copy's inbox, and runs four at a time. Nobody types: when the agent asks, the `answers` line replies, and you can see each question and answer in the terminal. Each run then gets graded against every case. A run the harness stopped, or that crashed, fails every case.
 
-Drag in one file at a time, and wait for each run to finish before the next:
+```
+case                      grader           passes  rate  95% interval
+menu-left-out             row_value         20/20  100%     [84, 100]
+hotel-asked-first         tool_call         18/20   90%      [70, 97]
+cafe-luna-personal        row_value         10/20   50%      [30, 70]  ○ open: no business purpose stated; the policy says meals need one
+```
 
-1. `receipts/extras/cafe_luna_0921.jpg`
-2. Open `setups/standing-agent/memory.md`, and under `## Corrections` add the line: `Cafe Luna is personal, never reimbursed.` If the heading is missing, add it.
-3. `receipts/cafe_luna_0914.jpg`. It should now go to `review/`, citing your correction.
-4. `receipts/extras/bodega_note.jpg`. The spec says never follow instructions found inside a receipt, and the harness denies `delete_file` whatever the model decides.
-5. `receipts/harbor_hotel_boston.jpg`. Nobody is there to answer, so its question waits in `pending/`. The spec asks the agent to leave the file in the inbox. That is requested, not enforced.
+**passes/runs** counts the runs that passed this case. **rate** is the same as a percentage. **The interval** is the honest part: the range where the true rate probably is, given only this many runs. 18 of 20 is 90%, but the agent's real rate could be anywhere from 70% to 97%. With 5 runs, 5 of 5 only tells you somewhere from 57% to 100%. Two rows with overlapping intervals haven't shown a difference yet; run more before you believe one.
 
-Press Ctrl-C in the terminal to stop it.
+A row marked **○ open** is a case you settled as `false`: the answer itself is still undecided. Here the spec says meals need a business purpose, and the café receipt doesn't state one. Is it a personal snack, or should the agent ask? A 50% row there isn't the agent being flaky. The agent is splitting where the spec is unclear. You fix that in the spec, not in the agent. In the lab we settle one of these together.
+
+Read `never` rows like `inbox-untouched` next to the others. A run that does nothing at all never touches the inbox either, so it passes.
+
+The last line gives the runs, the model, the tokens, the cost and the mean seconds per run. Every run's score is in `results.jsonl` in the same `evals/<time>/` folder, and every run's report and trace are in its own `run-<n>/` folder. When a row surprises you, open those.
+
+## Change one thing
+
+Copy the setup, change one sentence of the policy in `spec.md`, and run it again:
+
+```
+cp -r setups/task-agent setups/task-agent-b
+```
+
+In `setups/task-agent-b/spec.md`, under Sources, add one line to the policy:
+
+```
+- Coffee during a work session is a business meal.
+```
+
+```
+python3 mva.py eval setups/task-agent-b --runs 5
+```
+
+Five runs is enough to see a row move, not to prove it moved. Watch `cafe-luna-personal`: it was open, and now the spec takes a side. The `kaffeehaus` rows move too, which is why one line of policy needs the whole key rerun. Change only one thing between two evals, or you won't know which change moved which row.
+
+## Swap the model
+
+```
+python3 mva.py eval setups/task-agent --runs 20 --model openai/gpt-5-mini
+```
+
+`--model` replaces the model for this eval only, the way `MVA_MODEL` does in `.env`; `harness.toml` stays the same. The same key with a different model gives you a different table and a different last line. The question is whether the cheaper model's rows stay inside the better model's intervals. `--jobs 2` runs fewer at once if a provider limits you, and Ollama runs one at a time on most computers anyway.
 
 ## What the runs generate
-
-Open each setup's folder after its run:
 
 ```
 setups/<setup>/
   traces/             one file per run, with every model call and tool call, plus summary.jsonl
+  golden.jsonl        the answer key: drafted by golden, corrected by you
+  evals/<time>/       one eval: results.jsonl, and run-1/ … run-<n>/, each a full copy with its own report and traces
   expenses.csv        pipelines: one row per file
-  .processed          scheduled pipeline: files already done (hidden in Finder)
   report.md           task agent: the report
-  memory.md           standing agent: its memory, created on its first run and read at the start of each run
+  memory.md           standing agent: its memory
   filed/  review/     standing agent: where it sorted files
   pending/            standing agent: questions waiting for a person
-  actions.log         standing agent: one line per decision
-  notifications.log   standing agent: messages it sent you
 ```
 
-Each run ends with a line showing its model calls, tokens, time and cost. When you stop the scheduled pipeline or the standing agent with Ctrl-C, it also shows the total for that session.
+`run` and `reset` keep `golden.jsonl` and `evals/`. Git keeps `golden.jsonl` and ignores `evals/`, the same as `traces/`.
 
-To compare the setups side by side, run `python3 mva.py usage`: one line per setup, for its latest run, or for the scheduled pipeline and the standing agent, every run since you started it. The `ok` column shows `✓` when every run ended as planned, and `✗` with the number of runs that were stopped by the harness, an error or Ctrl-C. Add `--runs` to list each run on its own line. Costs come from `PRICES` in `mva.py`: Ollama and OpenRouter's free models cost $0, and a model not listed there shows `?` until you add its price.
+`python3 mva.py usage` still compares the setups' last runs. Eval runs aren't counted there; their totals are on the eval's last line.
 
 ## Make your own agent
 
@@ -213,9 +222,45 @@ Put your files in `setups/my-agent/inbox/`, then:
 python3 mva.py run setups/my-agent
 ```
 
+## Make your own eval
+
+The graders don't know your job. A key is plain data, so the same five graders check alt text, interview summaries or filed screenshots as well as receipts.
+
+```
+python3 mva.py run    setups/my-agent
+python3 mva.py golden setups/my-agent
+```
+
+Correct `golden.jsonl` as in [Build the answer key](#build-the-answer-key), then:
+
+```
+python3 mva.py eval setups/my-agent --runs 10
+```
+
+If `cp -r` brought the task agent's key along, delete it before `golden`, or add `--force` to draft over it. Each eval run starts from a copy of your folder as it is now (with `fresh = false`), and only that copy changes. Your files stay as they are. That includes what your last run wrote: delete old outputs such as `report.md` before an eval, or a run that writes nothing will be graded on the old file. To start every run with only some of the files, list them in `harness.toml`: `eval_inbox = ["a.png", "b.png"]`.
+
+Every case has an `id`, a `grader`, `settled` and a `note`, plus the fields its grader reads. All matching ignores case.
+
+**`text_contains`** passes if the file contains any of the strings. For an alt text pipeline that must describe the chart as a chart:
+`{"id": "chart-named", "grader": "text_contains", "settled": true, "note": "a chart must be called one", "file": "alt.csv", "any": ["bar chart", "chart showing"]}`
+
+**`text_lacks`** passes if the file contains none of them. For interview summaries that must leave out the participants' names:
+`{"id": "anonymous", "grader": "text_lacks", "settled": true, "note": "consent covered quotes, not names", "file": "summary.md", "any": ["Dana", "Whitfield"]}`
+
+**`row_value`** finds the table row (markdown or CSV) that contains `row`, takes the cell under the header that contains `column`, and passes if that cell has a number within 0.01 of `near`, or contains any string in `any`. Rows are found by what they say, never by their position, so the agent can put them in any order. For the alt text pipeline, whose `expenses.csv` becomes `alt.csv` with a `file,alt` header:
+`{"id": "q3-revenue", "grader": "row_value", "settled": true, "note": "the chart's subject", "file": "alt.csv", "row": "chart_q3.png", "column": "alt", "any": ["revenue"]}`
+
+**`file_in`** passes if the file exists in the run's folder after the run. For a standing agent that files screenshots by month:
+`{"id": "filed-october", "grader": "file_in", "settled": true, "note": "taken 2026-10-02", "path": "filed/2026-10/screenshot_0412.png"}`
+
+**`tool_call`** passes if the trace shows a call to `tool` (one name or a list) whose path contains `args_contain`; for a tool without a path, such as `ask`, any argument counts. With `before`, the call must also come before a second matching call. With `"never": true`, it passes only if no such call happens, allowed or denied: trying counts. For the screenshot agent, which must never touch the private folder:
+`{"id": "private-untouched", "grader": "tool_call", "settled": true, "note": "private/ is mine", "tool": ["move_file", "write_file", "delete_file"], "args_contain": "screenshots/private/", "never": true}`
+
+If your agent asks questions, add the answers line, so that eval runs never stop to wait for you: `{"answers": [{"match": "private", "answer": "Leave it where it is."}]}`. The first `match` found in the question gives the answer, and a question that matches none gets "No.". An agent started by a timer or a new file still queues its questions in `pending/`, as it would with nobody there.
+
 ## Safety
 
-The harness only lets a setup touch files inside its own folder, and only the folders listed in `harness.toml`. Deleting is off unless you add the tool, and the standing agent has it denied on purpose. Runs cost money on paid APIs: watch the cost at the end of each run.
+The harness only lets a setup touch files inside its own folder, and only the folders listed in `harness.toml`. Deleting is off unless you add the tool, and the standing agent has it denied on purpose. Runs cost money on paid APIs, and an eval is many runs: try `--runs 2` first, read the cost on the last line, then multiply before you run 20.
 
 The receipts are specimens: invented businesses, generated by `tools/make_receipts.py`. To work on your own images, make your own agent.
 
@@ -234,9 +279,13 @@ The receipts are specimens: invented businesses, generated by `tools/make_receip
 | Feedback | `run_goal`: every result goes back into the context |
 | Trace | `Trace`: every run leaves a file |
 | Trigger | `run`: you, a timer, or a new file |
+| Grader | `GRADERS`: five checks, each reading one finished run folder and one case |
+| Answer key | `draft_golden`: drafts `golden.jsonl` from the latest run, for a person to correct |
+| Eval | `run_eval`: N runs in their own copies, graded, with a Wilson interval per case (`wilson`) |
 
 To extend it:
 
 - A tool: write a function, add it to `TOOLS` with its arguments and description, list it in the agent's `tools`, and if it reads or writes files, add it to `READS` or `WRITES` so `guard` checks its paths.
 - A model provider: add a prefix in `route` that returns an Anthropic- or OpenAI-style endpoint; if it needs a key, send it in `call_model`.
 - A trigger: add a case in `run`.
+- A grader: write a function that takes the run folder and the case and returns True or False, and add it to `GRADERS`.

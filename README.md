@@ -6,7 +6,7 @@ Code and instructions for the course labs, one folder per week. Each folder has 
 |---|---|
 | [week4-agent-runs](week4-agent-runs/) | Run the same task with three agents and compare harness against model |
 | [week5-minimal-agent](week5-minimal-agent/) | Workflows and agents on one small harness |
-| week6-evals | Evaluating agents (coming) |
+| [week6-agent-evals](week6-agent-evals/) | Build an answer key and measure how often an agent gets it right |
 
 ## Getting the labs
 
