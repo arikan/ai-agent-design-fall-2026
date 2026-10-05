@@ -1,6 +1,9 @@
 # Your API keys: never commit them
 .env
 
+# Setups you make (setups/my-…) are yours: never committed, never touched by git pull
+setups/my-*/
+
 # Everything a run makes is yours: keep only the two files that define a setup
 setups/*/*
 !setups/*/spec.md
