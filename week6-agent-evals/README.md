@@ -68,7 +68,7 @@ The part before the `/` is the provider, and it must match the key you added. `o
 
 **Ollama**, free and on your computer: have Ollama running (see the [course setup](../README.md#ollama)), pull the model once with `ollama pull gemma3`, and switch to the `ollama/gemma3` line.
 
-The receipts are images, so the model must read images. Ollama models write their tool calls as JSON text, which the harness parses (`tool_mode = "text"`); you can see this in each run's trace, in the setup's `traces/` folder.
+The receipts are images, so pick a model that reads images.
 
 ## What is in a golden set
 
@@ -89,18 +89,16 @@ You add a golden answer when you have seen the agent do something and you know w
 
 The golden set grows from reading.
 
-Each golden answer is one line, with three parts:
+Each golden answer is one line, with two parts:
 
 ```json
-{"id": "menu-left-out",
- "note": "Menu left out: not a receipt",
+{"note": "trattoria_sole_menu Menu left out: not a receipt",
  "expect": {"in": "report.md", "near": "trattoria_sole_menu.jpg", "says_any": ["menu", "not a receipt"]}}
 ```
 
-- **`note`** is the answer said to a person: what a correct run does.
+- **`note`** is the answer said to a person: the receipt's name, then what a correct run does.
   - Write it as the sentence you would say to a colleague.
-  - If you would have to ask them instead, say what the check counts, then ask: `Claimed the hotel in full. Should the $12.50 breakfast be left out?` A question marks the case open: the count shows how often runs took that reading, not a pass or fail.
-- **`id`** is the answer's name. Short, lowercase, dashes. The report lists cases by it.
+  - If you would have to ask them instead, say what the check counts, then ask: `harbor_hotel_boston Claimed in full. Should the $12.50 breakfast be left out?` A question marks the case open: the count shows how often runs took that reading, not a pass or fail.
 - **`expect`** is the same answer said to the computer. It takes one of two forms:
   1. **About what the agent wrote:**
      - `in` is the output file to check, such as `report.md`.
@@ -133,48 +131,95 @@ Most eval tools keep the golden answer as one value and put the comparison in co
 
 ## Build a golden set
 
-The task agent already comes with a checked golden set, `setups/task-agent/golden.jsonl`. Build your own first anyway, in a copy, so you see where a golden set comes from:
+**Run the agent once.** Make your own task agent from the two files that define it, and run it:
 
 ```
-cp -r setups/task-agent setups/my-task-agent
-rm setups/my-task-agent/golden.jsonl
-python3 mva.py run    setups/my-task-agent
+mkdir setups/my-task-agent
+cp setups/task-agent/spec.md setups/task-agent/harness.toml setups/my-task-agent/
+python3 mva.py run setups/my-task-agent
+```
+
+The agent may ask you about the hotel bill. Type your answer in the terminal. When it finishes, the run has left two things in `setups/my-task-agent/`: `report.md`, what the agent wrote, and a trace in `traces/`, what it did.
+
+**Draft the golden set from that run:**
+
+```
 python3 mva.py golden setups/my-task-agent
 ```
 
-`golden` drafts `golden.jsonl` from that run. A drafted line looks like this:
+This reads `report.md` and the trace, and writes `setups/my-task-agent/golden.jsonl`. Open that file in VS Code. It has a line for each thing `report.md` says about the five receipts in `eval_inbox` (the other four receipts are not part of the eval), a line that checks the agent never changed `inbox/`, and a last line with answers. Every line copies what the agent did in your one run, right or wrong. Your job is to correct them.
+
+Here is the line for the menu:
 
 ```json
-{"id": "trattoria-sole-menu-reason", "note": "drafted from run 20261004-155416-manual.jsonl, verify?", "expect": {"in": "report.md", "near": "trattoria_sole_menu.jpg", "column": "Reason", "says_any": ["This is a restaurant menu, not a receipt, no proof of purchase or amount paid."]}}
+{"note": "trattoria_sole_menu Reason: drafted from run 20261004-155416-manual.jsonl, verify?", "expect": {"in": "report.md", "near": "trattoria_sole_menu.jpg", "column": "Reason", "says_any": ["This is a restaurant menu, not a receipt, no proof of purchase or amount paid."]}}
 ```
 
-The draft copies what the model did, mistakes included. Open it in VS Code and fix each line:
+In words: in `report.md`, find the row for `trattoria_sole_menu.jpg`. Its Reason cell must contain this sentence.
 
-- Check the answer against the receipt. Delete lines that don't matter.
-- Shorten `says_any` to a few words any correct answer would contain: `["menu", "not a receipt"]`.
-- Replace the note with what a correct run does, or with the open question.
-- Add what the agent should have done but didn't.
-- In the last line, write the `answer` you would give.
+**1. Decide if the agent was right.** Open the image the agent read, `setups/my-task-agent/inbox/trattoria_sole_menu.jpg`, and its row in `report.md`. The image is a menu, not a receipt, and the agent left it out. That is right, so keep the line. If the agent got a receipt wrong, change the line to the right answer. If a line checks something you don't care about, delete it.
 
-Then compare yours with `setups/task-agent/golden.jsonl`.
+**2. Shorten `says_any`.** The next run won't write the same sentence. Keep a few words that any correct answer would contain:
+
+```
+before:  "says_any": ["This is a restaurant menu, not a receipt, no proof of purchase or amount paid."]
+after:   "says_any": ["menu", "not a receipt"]
+
+before:  "says_any": ["Duplicate copy of cafe_luna_0914.jpg (same receipt, same charge) — would double-count if included."]
+after:   "says_any": ["duplicate"]
+
+before:  "says_any": ["Personal snack (flat white & Franzbrötchen), no business purpose. Amount was €7.60 (≈ $8.36 at 1 EUR = 1.10 USD) but excluded regardless."]
+after:   "says_any": ["personal", "no business purpose"]
+```
+
+**3. Rewrite the note.** The eval's summary shows this note for the line. Keep the receipt's name, then say what a correct run does:
+
+```
+before:  "note": "trattoria_sole_menu Reason: drafted from run 20261004-155416-manual.jsonl, verify?"
+after:   "note": "trattoria_sole_menu Menu left out: not a receipt"
+```
+
+If you can't decide what is right, say what the line checks, then ask your question. The hotel bill includes a $12.50 breakfast, and the policy doesn't say whether it is reimbursed:
+
+```
+before:  "note": "harbor_hotel_boston Amount: drafted from run 20261004-155416-manual.jsonl, verify?"
+after:   "note": "harbor_hotel_boston Claimed in full. Should the $12.50 breakfast be left out?"
+```
+
+Do steps 1 to 3 for every receipt line. The `inbox/` line is already right; only rewrite its note: `"Never tries to change inbox/"`.
+
+**4. Add what your run did not show.** The draft only checks what happened in your run. A correct run asks about the hotel before it writes `report.md`. Add this line above the last line:
+
+```json
+{"note": "harbor_hotel_boston Asked about before the report was written", "expect": {"did": "ask", "mentions": "harbor", "before": {"did": "write_file", "mentions": "report.md"}}}
+```
+
+**5. Fill in the last line.** In an eval nobody is at the keyboard, so this line answers the agent's questions for you. The draft leaves both parts blank. `match` is a word every hotel question will contain; `answer` is what every run should hear. A blank answer is sent as "No.".
+
+```
+before:  {"answers": [{"match": "", "answer": ""}]}
+after:   {"answers": [{"match": "harbor", "answer": "Approved as a school event; follow the policy on the meal."}]}
+```
+
+**6. Compare** your file with the finished one that comes with the lab, `setups/task-agent/golden.jsonl`, receipt by receipt.
 
 ## Run the eval
 
 An eval is many paid runs: try `--runs 2` first and read the cost on the last line.
 
 ```
-python3 mva.py eval setups/task-agent --runs 20
+python3 mva.py eval setups/my-task-agent --runs 20
 ```
 
-Each run works in its own copy, and the `answers` line replies when the agent asks. The result is `summary.md` in `setups/task-agent/evals/<time>/`, like [example-summary.md](example-summary.md).
+Each run works in its own copy, and the `answers` line replies when the agent asks. The result is `evals/<time>/summary.md` in `setups/my-task-agent/evals/<time>/`, like [example-summary.md](example-summary.md).
 
 ## Change the specification, run eval again
 
 ```
-cp -r setups/task-agent setups/task-agent-b
+cp -r setups/my-task-agent setups/my-task-agent-b
 ```
 
-In `setups/task-agent-b/spec.md`, under Sources, add one line:
+In `setups/my-task-agent-b/spec.md`, under Sources, add one line:
 
 ```
 - Meals on a hotel bill are not reimbursed: claim the room and its taxes only.
@@ -183,17 +228,23 @@ In `setups/task-agent-b/spec.md`, under Sources, add one line:
 Run it again (5 runs would be enough to see the change):
 
 ```
-python3 mva.py eval setups/task-agent-b --runs 5
+python3 mva.py eval setups/my-task-agent-b --runs 5
 ```
 
-Compare the new `summary.md` with the last one.
+Compare the new `evals/<time>/summary.md` with the previous one. The hotel row should be the only change: before, some runs claimed the full $412.02 and some left out the breakfast; now none claims it in full. The other rows stay the same.
+
+The summary still shows the hotel row as an open question, because its note in `golden.jsonl` still asks one. The spec answers it now, so close the case: in `setups/my-task-agent-b/golden.jsonl`, replace that line with a statement and the new amount:
+
+```json
+{"note": "harbor_hotel_boston Claimed without the breakfast", "expect": {"in": "report.md", "near": "harbor_hotel_boston.jpg", "column": "Amount", "value": 399.52}}
+```
 
 ## Swap the model, run eval again
 
 Pick a model whose provider key is in your `.env`, as in [Pick the model](#3-pick-the-model).
 
 ```
-python3 mva.py eval setups/task-agent --runs 20 --model openai/gpt-5-mini
+python3 mva.py eval setups/my-task-agent --runs 20 --model openai/gpt-5-mini
 ```
 
 Compare the new `summary.md` with the last one.
