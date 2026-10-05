@@ -106,7 +106,7 @@ This case says: in `report.md`, find the table row for `trattoria_sole_menu.jpg`
 1. **Check each answer against the receipt.** Open the receipt itself. If the model got it wrong, write the right answer. If the case checks something that doesn't matter, delete the line.
 2. **Loosen the wording.** The next run won't write the same sentence. Replace the long text in `any` with a few short words that any correct answer would contain: `["menu", "not a receipt", "no proof"]`. A number case uses `near` instead, and passes within 0.01.
 3. **Add what the draft missed.** The draft only knows what this run did. If the agent should have asked about something and didn't, add a case for it. The graders are in [Make your own eval](#make-your-own-eval).
-4. **Mark what you checked.** Change `settled` from `null` to `true` when you are sure of the answer, or to `false` when you checked it and the answer is still open: the spec could be read two ways, or you haven't decided. Rewrite `note` as a few words that say what a passing run does: the eval report shows it next to each score. For a `false` case, write the open question instead: `Cafe Luna latte, no business purpose stated: personal, so left out?`
+4. **Mark what you checked.** Change `settled` from `null` to `true` when you are sure of the answer, or to `false` when you checked it and the answer is still open: the spec could be read two ways, or you haven't decided. Rewrite `note` as a few words that say what a passing run does: the eval report shows it next to each score. For a `false` case, write the open question instead: `Hotel claimed in full, $12.50 breakfast included?`
 5. **Fill in the answers.** The last line scripts the person the agent asks. Each `match` is a word that may appear in a question; write the `answer` you would give. Use words the question is sure to contain, like `harbor` and `hotel`.
 
 Then compare yours with `setups/task-agent/golden.jsonl`.
@@ -121,7 +121,7 @@ python3 mva.py eval setups/task-agent --runs 20
 
 When it finishes, it prints a table and saves it as `summary.md` in `setups/task-agent/evals/<time>/`. See [example-summary.md](example-summary.md), from 20 runs of `anthropic/claude-sonnet-5`.
 
-The rows that need you come first, and `next` says what to do. In the example, `duplicate-left-out` failed once: `run-1/report.md` shows the agent caught the duplicate but called the original the copy. Is that a miss, or is the case too strict? And the ○ rows show the agent called both coffees personal every time: the spec leaves that open, so the agent decided for you.
+The rows that need you come first, and `next` says what to do. In the example, `duplicate-left-out` failed once: `run-1/report.md` shows the agent caught the duplicate but called the original the copy. Is that a miss, or is the case too strict? And the ○ row asks a question the spec leaves open. The hotel bill includes a $12.50 breakfast: the policy reimburses travel to school events, but meals only with a business purpose. The agent claimed the full bill in every run, so it decided for you.
 
 ## Change the specification, run eval again
 
@@ -131,17 +131,17 @@ Copy the setup, change one sentence of the policy in `spec.md`, and run it again
 cp -r setups/task-agent setups/task-agent-b
 ```
 
-In `setups/task-agent-b/spec.md`, under Sources, add one line to the policy:
+In `setups/task-agent-b/spec.md`, under Sources, add one line to the policy that answers the open question:
 
 ```
-- Coffee during a work session is a business meal.
+- Meals on a hotel bill are not reimbursed: claim the room and its taxes only.
 ```
 
 ```
 python3 mva.py eval setups/task-agent-b --runs 5
 ```
 
-Five runs is enough to see a case move, not to prove it moved. Compare the new `summary.md` with the last one. Watch `cafe-luna-personal`: it was undecided, and now the spec takes a side, so settle it in `setups/task-agent-b/golden.jsonl`. The `kaffeehaus` cases move too, which is why one line of policy needs the whole key rerun. Change only one thing between two evals, or you won't know which change moved which case.
+Five runs is enough to see a case move, not to prove it moved. Compare the new `summary.md` with the last one. Watch `hotel-amount`: the agent claimed the full $412.02 every time, and now it should drop. The question is answered, so settle it in `setups/task-agent-b/golden.jsonl`: `near` becomes 399.52, the bill without the breakfast, and `settled` becomes `true`. Change only one thing between two evals, or you won't know which change moved which case.
 
 ## Swap the model, run eval again
 
