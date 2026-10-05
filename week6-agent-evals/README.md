@@ -87,13 +87,13 @@ The receipts are images, so the model must read images. Ollama models write thei
 The task agent already comes with a checked answer key, `setups/task-agent/golden.jsonl`. Build your own first anyway, in a copy, so you see where a key comes from:
 
 ```
-cp -r setups/task-agent setups/my-key
-rm setups/my-key/golden.jsonl
-python3 mva.py run    setups/my-key
-python3 mva.py golden setups/my-key
+cp -r setups/task-agent setups/my-task-agent
+rm setups/my-task-agent/golden.jsonl
+python3 mva.py run    setups/my-task-agent
+python3 mva.py golden setups/my-task-agent
 ```
 
-`run` is last week's run: answer the agent's question in the terminal when it asks. `golden` reads that run's trace and the files it wrote, and drafts `setups/my-key/golden.jsonl`. It prints which trace it drafted from. If you skip `run`, `golden` runs the agent once itself.
+`run` is last week's run: answer the agent's question in the terminal when it asks. `golden` reads that run's trace and the files it wrote, and drafts `setups/my-task-agent/golden.jsonl`. It prints which trace it drafted from. If you skip `run`, `golden` runs the agent once itself.
 
 Open `golden.jsonl` in VS Code. Each line is one case:
 
