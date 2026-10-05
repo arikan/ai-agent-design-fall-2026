@@ -14,6 +14,7 @@ python3 mva.py reset setups/task-agent   # by hand: wipe outputs and memory.md, 
 python3 mva.py usage [--runs]            # tokens/time/cost per setup (or per run), from traces/summary.jsonl
 python3 mva.py golden setups/task-agent  # drafts golden.jsonl from the latest run (runs once if none); settled: null until a person checks it; --force to redraft
 python3 mva.py eval   setups/task-agent --runs 20 [--model …] [--jobs 4] [--allow-unverified]  # N runs in evals/<stamp>/run-<n>/, graded by GRADERS
+python3 mva.py results setups/task-agent [evals/<stamp>]  # reprints an eval's table (latest by default) and saves it as summary.txt
 python3 -m py_compile mva.py          # the only offline check
 ```
 
