@@ -29,6 +29,8 @@ Run all four, then compare what they got right, what they asked you, and what th
 
 📖 **New to the terminal, VS Code or git?** Read **[Terminal, VS Code and Git](../BASICS.md)** first. It covers the commands this lab uses, and you can keep it open as a reference while you work.
 
+Do the [course setup](../README.md#setup-once) once first: Python 3.11 or newer, an API key, and Ollama if you use it.
+
 ### 1. Get the folder
 
 If you don't have the course repo yet, clone it as the [course README](../README.md#getting-the-labs) shows. Then, in the repo:
@@ -40,36 +42,19 @@ cd week5-minimal-agent
 
 Every `python3 mva.py …` command in this README runs from this folder.
 
-### 2. Check Python
+### 2. Add your API key
 
-`python3 --version` must say 3.11 or newer. If it's older, install the latest Python from [python.org](https://www.python.org/downloads/). There is nothing else to install.
+If you only use Ollama, skip this step.
 
-### 3. Add your API key
-
-If you only use Ollama, which runs on your computer, skip this step: it needs no key.
-
-Your API key goes in a file called `.env`, in this folder. It's a plain text file of `NAME=value` lines, which `mva.py` reads on every run. The dot at the start of the name makes it a hidden file: Finder and `ls` don't show it (press Cmd-Shift-. in Finder, or run `ls -a`), but the VS Code Explorer does.
-
-Make it once, from the example that comes with the lab:
+Make the `.env` file in this folder from the example that comes with the lab:
 
 ```
 cp .env.example .env
 ```
 
-Open `.env` in VS Code by clicking it in the Explorer, paste the key for the provider you use, and save. API use always needs credit or a card on file, billed separately from chat plans like Claude or ChatGPT, except where free use is noted:
+Open `.env` in VS Code by clicking it in the Explorer, paste your key after its provider's name, and save. Where to get a key, and how to keep it safe, is in the [course setup](../README.md#api-key).
 
-| Provider | Where to get a key | Line in `.env` file |
-|---|---|---|
-| **Anthropic** | [console.anthropic.com](https://console.anthropic.com) | `ANTHROPIC_API_KEY=` your key |
-| **OpenAI** | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | `OPENAI_API_KEY=` your key |
-| **Gemini** | [aistudio.google.com/apikey](https://aistudio.google.com/apikey). **Free tier available**, with rate limits and no card needed. Students may get more through [Google's student offer](https://blog.google/innovation-and-ai/products/gemini-app/student-offer-google-ai/). | `GEMINI_API_KEY=` your key |
-| **OpenRouter** | [openrouter.ai/keys](https://openrouter.ai/keys). One key for hundreds of models, open-source and closed, including the latest. **Some are free**, offered by their providers, up to 50 requests a day. | `OPENROUTER_API_KEY=` your key |
-
-🔑 **Keep your key to yourself.** Git ignores `.env`, but that only protects you from commits. Never zip it into a submission, paste it into a chat, show it on a shared screen, or share one key with classmates. In your provider's console, set a monthly spend limit, so a leaked key can't cost much. If a key leaks, delete it there and make a new one.
-
-VS Code may offer to enable `python.terminal.useEnvFile` once `.env` exists. Say no: `mva.py` already reads `.env` itself, and that setting would put your key into every VS Code terminal, where Claude Code would pick it up and bill it instead of your plan.
-
-### 4. Pick the model
+### 3. Pick the model
 
 Each setup picks its model in its own `harness.toml`, near the top:
 
@@ -85,7 +70,7 @@ The part before the `/` is the provider, and it must match the key you added. `o
 
 **OpenRouter for free**: use `openrouter/openrouter/free`, or any model on [openrouter.ai/models](https://openrouter.ai/models) whose name ends in `:free`. Each model call counts as one request.
 
-**Ollama**, free and on your computer: have Ollama running (set up in [week 4](../week4-agent-runs/README.md#setup-once)), pull the model once with `ollama pull gemma3`, and switch to the `ollama/gemma3` line.
+**Ollama**, free and on your computer: have Ollama running (see the [course setup](../README.md#ollama)), pull the model once with `ollama pull gemma3`, and switch to the `ollama/gemma3` line.
 
 The receipts are images, so the model must read images. Ollama models write their tool calls as JSON text, which the harness parses (`tool_mode = "text"`); you can see this in each run's trace, in the setup's `traces/` folder.
 
