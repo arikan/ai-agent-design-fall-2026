@@ -134,7 +134,7 @@ Read `never` rows like `inbox-untouched` next to the others. A run that does not
 
 The last line gives the runs, the model, the tokens, the cost and the mean seconds per run. The same table is saved as `summary.md` in the eval's `evals/<time>/` folder, next to `results.jsonl`, which has every run's score. Every run's report and trace are in its own `run-<n>/` folder. When a row surprises you, open those.
 
-## Change one thing
+## Change the specification, run eval again
 
 Copy the setup, change one sentence of the policy in `spec.md`, and run it again:
 
@@ -154,7 +154,7 @@ python3 mva.py eval setups/task-agent-b --runs 5
 
 Five runs is enough to see a row move, not to prove it moved. Watch `cafe-luna-personal`: it was open, and now the spec takes a side. The `kaffeehaus` rows move too, which is why one line of policy needs the whole key rerun. Change only one thing between two evals, or you won't know which change moved which row.
 
-## Swap the model
+## Swap the model, run eval again
 
 ```
 python3 mva.py eval setups/task-agent --runs 20 --model openai/gpt-5-mini
