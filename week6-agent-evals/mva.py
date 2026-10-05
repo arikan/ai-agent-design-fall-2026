@@ -1002,16 +1002,18 @@ def run_eval(agent, runs=20, jobs=4, allow_unverified=False):
     with (base / "results.jsonl").open("w") as f:
         for r in results:
             f.write(json.dumps(r) + "\n")
-    report = eval_summary(agent, cases, results, folders)
+    report = eval_summary(agent, cases, results, folders, base)
     (base / "summary.md").write_text(report)
     print()
     print(report)
     say("done", f"■ saved: {(base / 'summary.md').relative_to(ROOT)}")
 
 
-def eval_summary(agent, cases, results, folders):
-    """The eval as one table, the cases that need you first: how often each passed, and what to do next."""
+def eval_summary(agent, cases, results, folders, where):
+    """The eval as one table, the cases that need you first: how often each passed, and what to do next.
+    where is the folder the report is saved in, so its link to spec.md works from there."""
     runs = len(results)
+    spec = f"[{(agent.dir / 'spec.md').relative_to(ROOT)}]({os.path.relpath(agent.dir / 'spec.md', where)})"
     _, _, tokens_in, tokens_out, seconds, dollars = totals([row for f in folders for row in summary_rows(f)[0]])
     rows = []
     for c in cases:
@@ -1020,7 +1022,7 @@ def eval_summary(agent, cases, results, folders):
         if c.get("settled") is None:
             mark_, todo, order = "?", "check it, then set settled", 2
         elif c.get("settled") is False:
-            mark_, todo, order = "○", "answer it in spec.md", 1
+            mark_, todo, order = "○", f"answer it in {spec}", 1
         elif k < runs:
             mark_, todo, order = "✗", "open " + ", ".join(failed[:3]) + (f" +{len(failed) - 3}" if len(failed) > 3 else ""), 0
         else:
