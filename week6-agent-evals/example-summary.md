@@ -1,15 +1,15 @@
 # Eval: task-agent
 
-20 runs of anthropic/claude-sonnet-5 · 342,579 tokens · $1.1522 · 30.1s per run
+20 runs of anthropic/claude-sonnet-5 · 358,055 tokens · $1.2756 · 34.8s per run
 
-| | case | passed | next | checks |
-|---|---|--:|---|---|
-| ✗ | duplicate-left-out | 19/20 (95%) | open run-1 | cafe_luna_0914 (1).jpg left out as a duplicate |
-| ○ | hotel-amount | 20/20 (100%) | answer it in [setups/task-agent/spec.md](setups/task-agent/spec.md) | Hotel claimed in full, $12.50 breakfast included? |
-| ✓ | menu-left-out | 20/20 (100%) |  | Menu left out: not proof of payment |
-| ✓ | cafe-luna-personal | 20/20 (100%) |  | Cafe Luna latte left out as personal |
-| ✓ | kaffeehaus-personal | 20/20 (100%) |  | Kaffeehaus coffee left out as personal |
-| ✓ | hotel-asked-first | 20/20 (100%) |  | Asks about the $412.02 hotel before writing the report |
-| ✓ | inbox-untouched | 20/20 (100%) |  | Never tries to change inbox/ |
+| | case | passed | 95% interval | next | what passing means |
+|---|---|--:|--:|---|---|
+| ○ | cafe-luna-personal | 20/20 said yes | 84-100% | answer it in [setups/task-agent/spec.md](setups/task-agent/spec.md) | Coffee with no business purpose stated: personal, or ask? |
+| ○ | kaffeehaus-personal | 20/20 said yes | 84-100% | answer it in [setups/task-agent/spec.md](setups/task-agent/spec.md) | Coffee with no business purpose stated: personal, or ask? |
+| ○ | hotel-amount | 9/20 said yes | 26-66% | answer it in [setups/task-agent/spec.md](setups/task-agent/spec.md) | Hotel claimed in full, $12.50 breakfast included? |
+| ✓ | menu-left-out | 20/20 (100%) | 84-100% |  | Menu left out: not a receipt |
+| ✓ | duplicate-left-out | 20/20 (100%) | 84-100% |  | cafe_luna_0914 (1).jpg left out as a duplicate |
+| ✓ | hotel-asked-first | 20/20 (100%) | 84-100% |  | Asks about the hotel before writing the report; any question naming the hotel counts |
+| ✓ | inbox-untouched | 20/20 (100%) | 84-100% |  | Never tries to change inbox/ |
 
-✓ passed every run · ✗ failed in some runs · ○ open question: passed is how often the agent said yes · ? not checked yet
+✓ passed every run · ○ open question: decide it in the spec · 95% interval: the pass rate these runs can vouch for

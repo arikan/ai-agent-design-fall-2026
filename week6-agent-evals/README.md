@@ -98,15 +98,15 @@ python3 mva.py golden setups/my-task-agent
 Open `golden.jsonl` in VS Code. Each line is one case:
 
 ```json
-{"id": "trattoria-sole-menu-reason", "grader": "row_value", "settled": null, "note": "drafted from run 20261004-155416-manual.jsonl, verify by hand", "file": "report.md", "row": "trattoria_sole_menu.jpg", "column": "Reason", "any": ["This is a restaurant menu, not a receipt, no proof of purchase or amount paid."]}
+{"id": "trattoria-sole-menu-reason", "note": "drafted from run 20261004-155416-manual.jsonl, verify?", "expect": {"in": "report.md", "near": "trattoria_sole_menu.jpg", "column": "Reason", "says_any": ["This is a restaurant menu, not a receipt, no proof of purchase or amount paid."]}}
 ```
 
 This case says: in `report.md`, find the table row for `trattoria_sole_menu.jpg`, look in its Reason column, and pass if it contains that text. The draft holds the model's answers, not the right ones. Copied straight from one run, the key would grade every later run on whether it matches that run, mistakes and exact wording included. Correct it:
 
 1. **Check each answer against the receipt.** Open the receipt itself. If the model got it wrong, write the right answer. If the case checks something that doesn't matter, delete the line.
-2. **Loosen the wording.** The next run won't write the same sentence. Replace the long text in `any` with a few short words that any correct answer would contain: `["menu", "not a receipt", "no proof"]`. A number case uses `near` instead, and passes within 0.01.
-3. **Add what the draft missed.** The draft only knows what this run did. If the agent should have asked about something and didn't, add a case for it. The graders are in [Make your own eval](#make-your-own-eval).
-4. **Mark what you checked.** Change `settled` from `null` to `true` when you are sure of the answer, or to `false` when you checked it and the answer is still open: the spec could be read two ways, or you haven't decided. Rewrite `note` as a few words that say what a passing run does: the eval report shows it next to each score. For a `false` case, write the open question instead: `Hotel claimed in full, $12.50 breakfast included?`
+2. **Loosen the wording.** The next run won't write the same sentence. Replace the long text in `says_any` with a few short words that any correct answer would contain: `["menu", "not a receipt", "no proof"]`. A number uses `value` instead, and passes within 0.01.
+3. **Add what the draft missed.** The draft only knows what this run did. If the agent should have asked about something and didn't, add a case for it. The forms an `expect` can take are in [Make your own eval](#make-your-own-eval).
+4. **Rewrite every note.** Replace `verify?` with a few words that say what a passing run does: the eval report shows it next to each score. If the answer is still open, because the spec could be read two ways or you haven't decided, write the open question instead, ending in a question mark: `Hotel claimed in full, $12.50 breakfast included?`
 5. **Fill in the answers.** The last line scripts the person the agent asks. Each `match` is a word that may appear in a question; write the `answer` you would give. Use words the question is sure to contain, like `harbor` and `hotel`.
 
 Then compare yours with `setups/task-agent/golden.jsonl`.
@@ -117,11 +117,11 @@ Then compare yours with `setups/task-agent/golden.jsonl`.
 python3 mva.py eval setups/task-agent --runs 20
 ```
 
-`eval` won't start while any case still has `settled: null`. It copies the setup 20 times into `setups/task-agent/evals/<time>/run-1/` … `run-20/`, puts the five receipts from `eval_inbox` in each copy's inbox, and runs four at a time. Nobody types: when the agent asks, the `answers` line replies, and you can see each question and answer in the terminal. Each run then gets graded against every case. A run the harness stopped, or that crashed, fails every case.
+`eval` won't start while any note still says `verify?`. It copies the setup 20 times into `setups/task-agent/evals/<time>/run-1/` … `run-20/`, puts the five receipts from `eval_inbox` in each copy's inbox, and runs four at a time. Nobody types: when the agent asks, the `answers` line replies, and you can see each question and answer in the terminal. Each run then gets graded against every case. A run the harness stopped, or that crashed, fails every case.
 
 When it finishes, it prints a table and saves it as `summary.md` in `setups/task-agent/evals/<time>/`. See [example-summary.md](example-summary.md), from 20 runs of `anthropic/claude-sonnet-5`.
 
-The rows that need you come first, and `next` says what to do. In the example, `duplicate-left-out` failed once: `run-1/report.md` shows the agent caught the duplicate but called the original the copy. Is that a miss, or is the case too strict? And the ○ row asks a question the spec leaves open. The hotel bill includes a $12.50 breakfast: the policy reimburses travel to school events, but meals only with a business purpose. The agent claimed the full bill in every run, so it decided for you.
+The rows that need you come first, and `next` says what to do. In the example, nothing failed, and three questions are open. The hotel bill includes a $12.50 breakfast: the policy reimburses travel to school events, but meals only with a business purpose. 9 runs claimed the full $412.02 and 11 claimed $399.52 without the breakfast. The agent isn't broken; the spec doesn't decide, so each run decides for you. The two coffee rows say yes every time, but whether the agent should have asked instead is still your call.
 
 ## Change the specification, run eval again
 
@@ -141,7 +141,7 @@ In `setups/task-agent-b/spec.md`, under Sources, add one line to the policy that
 python3 mva.py eval setups/task-agent-b --runs 5
 ```
 
-Five runs is enough to see a case move, not to prove it moved. Compare the new `summary.md` with the last one. Watch `hotel-amount`: the agent claimed the full $412.02 every time, and now it should drop. The question is answered, so settle it in `setups/task-agent-b/golden.jsonl`: `near` becomes 399.52, the bill without the breakfast, and `settled` becomes `true`. Change only one thing between two evals, or you won't know which change moved which case.
+Five runs is enough to see a case move, not to prove it moved. Compare the new `summary.md` with the last one. Watch `hotel-amount`: it split 9 to 11, and now it should drop to 0. The question is answered, so close it in `setups/task-agent-b/golden.jsonl`: `value` becomes 399.52, the bill without the breakfast, and the note becomes `Hotel claimed without the breakfast`, with no question mark. Change only one thing between two evals, or you won't know which change moved which case.
 
 ## Swap the model, run eval again
 
@@ -213,7 +213,7 @@ python3 mva.py run setups/my-agent
 
 ## Make your own eval
 
-The graders don't know your job. A key is plain data, so the same five graders check alt text, interview summaries or filed screenshots as well as receipts.
+The graders don't know your job. A key is plain data, so the same two graders check alt text, interview summaries or filed screenshots as well as receipts.
 
 ```
 python3 mva.py run    setups/my-agent
@@ -228,22 +228,17 @@ python3 mva.py eval setups/my-agent --runs 10
 
 If `cp -r` brought the task agent's key along, delete it before `golden`, or add `--force` to draft over it. Each eval run starts from a copy of your folder as it is now (with `fresh = false`), and only that copy changes. Your files stay as they are. That includes what your last run wrote: delete old outputs such as `report.md` before an eval, or a run that writes nothing will be graded on the old file. To start every run with only some of the files, list them in `harness.toml`: `eval_inbox = ["a.png", "b.png"]`.
 
-Every case has an `id`, a `grader`, `settled` and a `note`, plus the fields its grader reads. All matching ignores case.
+Every line has an `id`, a `note` that says what passing means (or asks the open question), and an `expect`. All matching ignores case.
 
-**`text_contains`** passes if the file contains any of the strings. For an alt text pipeline that must describe the chart as a chart:
-`{"id": "chart-named", "grader": "text_contains", "settled": true, "note": "Alt text calls it a chart", "file": "alt.csv", "any": ["bar chart", "chart showing"]}`
+**What the agent wrote**: `"in"` names the file. `"near"` narrows it to the line or table row that mentions a text, and `"column"` to one cell of that row, under the header containing it. Rows are found by what they say, never by their position. Then one comparison: `"says_any"`, `"says_all"` or `"says_none"` with a list of words, `"value"` with a number (within 0.01), or `"exists": true` for the file itself. For an alt text pipeline, whose `expenses.csv` becomes `alt.csv` with a `file,alt` header:
+`{"id": "q3-revenue", "note": "Q3 chart alt text names revenue", "expect": {"in": "alt.csv", "near": "chart_q3.png", "column": "alt", "says_any": ["revenue"]}}`
+For interview summaries that must leave out the participants' names:
+`{"id": "anonymous", "note": "No participant named", "expect": {"in": "summary.md", "says_none": ["Dana", "Whitfield"]}}`
+For a standing agent that files screenshots by month:
+`{"id": "filed-october", "note": "October screenshot filed under 2026-10", "expect": {"in": "filed/2026-10/screenshot_0412.png", "exists": true}}`
 
-**`text_lacks`** passes if the file contains none of them. For interview summaries that must leave out the participants' names:
-`{"id": "anonymous", "grader": "text_lacks", "settled": true, "note": "No participant named", "file": "summary.md", "any": ["Dana", "Whitfield"]}`
-
-**`row_value`** finds the table row (markdown or CSV) that contains `row`, takes the cell under the header that contains `column`, and passes if that cell has a number within 0.01 of `near`, or contains any string in `any`. Rows are found by what they say, never by their position, so the agent can put them in any order. For the alt text pipeline, whose `expenses.csv` becomes `alt.csv` with a `file,alt` header:
-`{"id": "q3-revenue", "grader": "row_value", "settled": true, "note": "Q3 chart alt text names revenue", "file": "alt.csv", "row": "chart_q3.png", "column": "alt", "any": ["revenue"]}`
-
-**`file_in`** passes if the file exists in the run's folder after the run. For a standing agent that files screenshots by month:
-`{"id": "filed-october", "grader": "file_in", "settled": true, "note": "October screenshot filed under 2026-10", "path": "filed/2026-10/screenshot_0412.png"}`
-
-**`tool_call`** passes if the trace shows a call to `tool` (one name or a list) whose path contains `args_contain`; for a tool without a path, such as `ask`, any argument counts. With `before`, the call must also come before a second matching call. With `"never": true`, it passes only if no such call happens, allowed or denied: trying counts. For the screenshot agent, which must never touch the private folder:
-`{"id": "private-untouched", "grader": "tool_call", "settled": true, "note": "Never touches screenshots/private/", "tool": ["move_file", "write_file", "delete_file"], "args_contain": "screenshots/private/", "never": true}`
+**What the agent did**: `"did"` names a tool, or a list of tools, found in the trace. `"mentions"` is a word that must appear in the call's path; for a tool without a path, such as `ask`, in any argument. `"before": {"did": ..., "mentions": ...}` is a call that must come later. `"never": true` passes only if no such call happens, allowed or denied: trying counts. For the screenshot agent, which must never touch the private folder:
+`{"id": "private-untouched", "note": "Never touches screenshots/private/", "expect": {"did": ["move_file", "write_file", "delete_file"], "mentions": "screenshots/private/", "never": true}}`
 
 If your agent asks questions, add the answers line, so that eval runs never stop to wait for you: `{"answers": [{"match": "private", "answer": "Leave it where it is."}]}`. The first `match` found in the question gives the answer, and a question that matches none gets "No.". An agent started by a timer or a new file still queues its questions in `pending/`, as it would with nobody there.
 
@@ -268,7 +263,7 @@ The receipts are specimens: invented businesses, generated by `tools/make_receip
 | Feedback | `run_goal`: every result goes back into the context |
 | Trace | `Trace`: every run leaves a file |
 | Trigger | `run`: you, a timer, or a new file |
-| Grader | `GRADERS`: five checks, each reading one finished run folder and one case |
+| Grader | `grade_wrote` and `grade_did`, one for what the agent wrote, one for what it did |
 | Answer key | `draft_golden`: drafts `golden.jsonl` from the latest run, for a person to correct |
 | Eval | `run_eval`: N runs in their own copies, graded; `eval_summary` writes the table, what needs you first |
 
@@ -277,4 +272,4 @@ To extend it:
 - A tool: write a function, add it to `TOOLS` with its arguments and description, list it in the agent's `tools`, and if it reads or writes files, add it to `READS` or `WRITES` so `guard` checks its paths.
 - A model provider: add a prefix in `route` that returns an Anthropic- or OpenAI-style endpoint; if it needs a key, send it in `call_model`.
 - A trigger: add a case in `run`.
-- A grader: write a function that takes the run folder and the case and returns True or False, and add it to `GRADERS`.
+- A comparison: add its key to `WROTE` and `VERDICTS`, and a branch in `grade_wrote` that returns True or False.
