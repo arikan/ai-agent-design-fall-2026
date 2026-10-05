@@ -653,44 +653,105 @@ def run(agent, message=None):
 
 
 # ---------------------------------------------------------------- 9. graders
-# Each grader reads one finished run folder and checks one case from golden.jsonl: True or False.
-# The cases are data, so these five check any job. Nothing here knows what the agent was for.
+# A golden answer says what a correct run wrote, or what it did. Two graders check one finished run
+# against it: True or False. The answers are data, so nothing here knows what the agent was for.
+
+WROTE = {"in", "near", "column", "says_any", "says_all", "says_none", "value", "exists"}
+DID = {"did", "mentions", "before", "never"}
+VERDICTS = ("says_any", "says_all", "says_none", "value", "exists")
+
+
+def grade_wrote(run_dir, expect):
+    """What the agent wrote: read the file, or only the part near a text, and compare."""
+    p = run_dir / expect["in"]
+    if "exists" in expect:
+        return p.exists() == bool(expect["exists"])
+    if not p.is_file():
+        return False
+    text = part(p, expect["near"], expect.get("column")) if "near" in expect else p.read_text(errors="replace")
+    if text is None:  # nothing mentions near: nothing to compare
+        return False
+    t = text.lower()
+    if "says_any" in expect:
+        return any(str(w).lower() in t for w in expect["says_any"])
+    if "says_all" in expect:
+        return all(str(w).lower() in t for w in expect["says_all"])
+    if "says_none" in expect:
+        return not any(str(w).lower() in t for w in expect["says_none"])
+    return any(abs(n - expect["value"]) <= 0.01 for n in numbers(text))
+
+
+def grade_did(run_dir, expect):
+    """What the agent did: find the call in the trace, before another call, or never."""
+    calls = tool_calls(run_dir)
+    if expect.get("never"):  # allowed or denied: trying counts
+        return not any(call_matches(e, expect) for e in calls)
+    done = [e for e in calls if e["event"] == "tool"]
+    first = next((i for i, e in enumerate(done) if call_matches(e, expect)), None)
+    if first is None or "before" not in expect:
+        return first is not None
+    later = next((i for i, e in enumerate(done) if call_matches(e, expect["before"])), None)
+    return later is not None and first < later
+
+
+def grade(run_dir, case):
+    expect = case["expect"]
+    return grade_wrote(run_dir, expect) if "in" in expect else grade_did(run_dir, expect)
+
+
+def is_open(case):
+    """A note that ends in a question mark is an open question: its right answer is not decided yet."""
+    return str(case.get("note", "")).rstrip().endswith("?")
+
 
 def cells(line):
     return [c.strip() for c in line.strip().strip("|").split("|")]
 
 
-def tables(p):
-    """Every table in a markdown or CSV file, as (header, rows), each row a list of cells."""
-    if not p.is_file():
-        return []
+def is_rule(line):
+    return all(re.fullmatch(r":?-+:?", c) for c in cells(line))
+
+
+def lines_of(p):
+    """Every line of a file as (header, cells): a table row gets its table's header; any other line is one cell."""
+    lines = p.read_text(errors="replace").splitlines()
     if p.suffix.lower() == ".csv":
-        rows = [r for r in csv.reader(io.StringIO(p.read_text(errors="replace"))) if any(c.strip() for c in r)]
-        return [(rows[0], rows[1:])] if rows else []
-    lines, found, i = p.read_text(errors="replace").splitlines(), [], 0
-    while i < len(lines) - 1:
-        rule = cells(lines[i + 1])
-        if lines[i].strip().startswith("|") and all(re.fullmatch(r":?-+:?", c) for c in rule):
-            header, rows, i = cells(lines[i]), [], i + 2
-            while i < len(lines) and lines[i].strip().startswith("|"):
-                rows.append(cells(lines[i]))
-                i += 1
-            found.append((header, rows))
+        rows = [r for r in csv.reader(lines) if any(c.strip() for c in r)]
+        return [(rows[0], r) for r in rows[1:]]
+    out, header = [], None
+    for i, line in enumerate(lines):
+        if line.strip().startswith("|"):
+            if i + 1 < len(lines) and lines[i + 1].strip().startswith("|") and is_rule(lines[i + 1]):
+                header = cells(line)  # a table starts here
+            elif not is_rule(line):
+                out.append((header, cells(line)))
         else:
-            i += 1
-    return found
+            header = None
+            if line.strip():
+                out.append((None, [line.strip()]))
+    return out
 
 
-def find_row(p, key):
-    """The row that names key. Of the rows with a cell containing it, the one where that cell is
-    shortest: 'cafe_luna_0914.jpg' finds its own row, not a row that mentions it. Never by position."""
+def line_with(p, near):
+    """The line or table row that mentions near. If several do, the one where near fills most of a cell:
+    'cafe_luna_0914.jpg' finds its own row, not a row that says it is a duplicate of it. Never by position."""
     best = None
-    for header, rows in tables(p):
-        for row in rows:
-            hits = [len(c) for c in row if key.lower() in c.lower()]
-            if hits and (best is None or min(hits) < best[0]):
-                best = (min(hits), header, row)
+    for header, row in lines_of(p):
+        hits = [len(c) for c in row if near.lower() in c.lower()]
+        if hits and (best is None or min(hits) < best[0]):
+            best = (min(hits), header, row)
     return (best[1], best[2]) if best else (None, None)
+
+
+def part(p, near, column=None):
+    """The text near points to: its whole line or row, or with column, the one cell under that header."""
+    header, row = line_with(p, near)
+    if row is None:
+        return None
+    if column is None:
+        return " | ".join(row)
+    col = next((i for i, h in enumerate(header or []) if column.lower() in h.lower()), None)
+    return row[col] if col is not None and col < len(row) else None
 
 
 def numbers(s):
@@ -710,40 +771,6 @@ def numbers(s):
     return out
 
 
-def has_any(s, words):
-    return any(str(w).lower() in s.lower() for w in words)
-
-
-def g_text_contains(folder, case):
-    p = folder / case["file"]
-    return p.is_file() and has_any(p.read_text(errors="replace"), case["any"])
-
-
-def g_text_lacks(folder, case):
-    p = folder / case["file"]
-    return p.is_file() and not has_any(p.read_text(errors="replace"), case["any"])
-
-
-def g_row_value(folder, case):
-    header, row = find_row(folder / case["file"], case["row"])
-    if row is None:
-        return False
-    if "column" in case:
-        col = next((i for i, h in enumerate(header) if case["column"].lower() in h.lower()), None)
-        if col is None or col >= len(row):
-            return False
-        cell = row[col]
-    else:  # no column: the whole row
-        cell = " | ".join(row)
-    if "near" in case and any(abs(n - case["near"]) <= 0.01 for n in numbers(cell)):
-        return True
-    return has_any(cell, case.get("any", []))
-
-
-def g_file_in(folder, case):
-    return (folder / case["path"]).exists()
-
-
 def tool_calls(folder):
     """Every tool call in the run's traces, allowed ("tool") or denied, in order."""
     out = []
@@ -761,29 +788,39 @@ def tool_calls(folder):
 
 
 def call_matches(e, want):
-    """Same tool, and args_contain in its paths (or in all its args, for a tool without paths)."""
-    names = want["tool"] if isinstance(want["tool"], list) else [want["tool"]]
+    """Same tool, and mentions in its paths (or in all its args, for a tool without paths, such as ask)."""
+    names = want["did"] if isinstance(want["did"], list) else [want["did"]]
     args = e.get("args") if isinstance(e.get("args"), dict) else {}
     if e.get("tool") not in names:
         return False
     keys = READS.get(e["tool"], []) + WRITES.get(e["tool"], []) or list(args)  # a report's text is not a path
-    return str(want.get("args_contain", "")).lower() in " ".join(str(args.get(k, "")) for k in keys).lower()
+    return str(want.get("mentions", "")).lower() in " ".join(str(args.get(k, "")) for k in keys).lower()
 
 
-def g_tool_call(folder, case):
-    calls = tool_calls(folder)
-    if case.get("never"):  # allowed or denied: trying counts
-        return not any(call_matches(e, case) for e in calls)
-    done = [e for e in calls if e["event"] == "tool"]
-    first = next((i for i, e in enumerate(done) if call_matches(e, case)), None)
-    if first is None or "before" not in case:
-        return first is not None
-    later = next((i for i, e in enumerate(done) if call_matches(e, case["before"])), None)
-    return later is not None and first < later
+def check_case(case, n):
+    """A golden answer has an id, a note, and an expect in one of the two forms. Anything else stops here."""
+    name = case.get("id", f"line {n}")
+    e = case.get("expect")
 
+    def bad(why):
+        raise SystemExit(f"golden.jsonl, {name}: {why}")
 
-GRADERS = {"text_contains": g_text_contains, "text_lacks": g_text_lacks, "row_value": g_row_value,
-           "file_in": g_file_in, "tool_call": g_tool_call}
+    if "id" not in case or "note" not in case:
+        bad("needs an id and a note")
+    if not isinstance(e, dict) or ("in" in e) == ("did" in e):
+        bad('needs an expect with "in" (what the agent wrote) or "did" (what it did), not both')
+    extra = set(e) - (WROTE if "in" in e else DID)
+    if extra:
+        bad(f"expect cannot have {', '.join(sorted(extra))} here")
+    if "in" in e:
+        if len([k for k in VERDICTS if k in e]) != 1:
+            bad(f"expect needs exactly one of {', '.join(VERDICTS)}")
+        if "column" in e and "near" not in e:
+            bad("column needs near")
+        if "exists" in e and "near" in e:
+            bad("exists checks the whole file: drop near")
+    elif "before" in e and not (isinstance(e["before"], dict) and "did" in e["before"]):
+        bad('before needs {"did": ...}')
 
 
 def wilson(k, n, z=1.96):
@@ -847,39 +884,39 @@ def draft_golden(agent, force=False):
             for t in list(OPEN_TRACES):
                 t.close("stopped before the end")
         trace = latest_trace(agent)
-    note = f"drafted from run {trace.name}, verify by hand"
+    note = f"drafted from run {trace.name}, verify?"
     cases = []
 
-    def add(name, grader, **fields):
+    def add(name, **expect):
         cid, n = slug(name), 2
         while cid in {c["id"] for c in cases}:
             cid, n = f"{slug(name)}-{n}", n + 1
-        cases.append({"id": cid, "grader": grader, "settled": None, "note": note, **fields})
+        cases.append({"id": cid, "note": note, "expect": expect})
 
     outputs = run_outputs(agent)
     texts = [p for p in outputs if p.suffix.lower() in TEXT_TYPES]
     for p in outputs:  # a file the run made or moved that is not text: check that it is there
         if p not in texts:
-            add(f"{p.name} in {p.parent.name}", "file_in", path=str(p.relative_to(agent.dir)))
+            add(f"{p.name} in {p.parent.name}", **{"in": str(p.relative_to(agent.dir)), "exists": True})
     for name in start_inbox(agent):
         for p in texts:
             rel = str(p.relative_to(agent.dir))
-            header, row = find_row(p, name)
+            header, row = line_with(p, name)
             if row is None:
-                add(f"{Path(name).stem} mentioned", "text_contains", file=rel, any=[name])
-                continue
-            for column, cell in zip(header, row):
-                if not cell or name.lower() in cell.lower():
-                    continue
-                if is_number(cell):
-                    add(f"{Path(name).stem} {column}", "row_value", file=rel, row=name, column=column, near=numbers(cell)[0])
-                else:
-                    add(f"{Path(name).stem} {column}", "row_value", file=rel, row=name, column=column, any=[cell])
+                add(f"{Path(name).stem} mentioned", **{"in": rel, "says_any": [name]})
+            elif header is None:  # a line of prose: the draft keeps all of it
+                add(f"{Path(name).stem}", **{"in": rel, "near": name, "says_any": row})
+            else:  # a table row: one answer per cell
+                for column, cell in zip(header, row):
+                    if not cell or name.lower() in cell.lower():
+                        continue
+                    found = {"value": numbers(cell)[0]} if is_number(cell) else {"says_any": [cell]}
+                    add(f"{Path(name).stem} {column}", **{"in": rel, "near": name, "column": column, **found})
     writers = [t for t in agent.tools if t in WRITES]
     for folder in [f for f in agent.read if f not in agent.write]:
         if writers:
             inside = folder if Path(folder).suffix else folder.rstrip("/") + "/"
-            add(f"never writes {folder}", "tool_call", tool=writers, args_contain=inside, never=True)
+            add(f"never writes {folder}", did=writers, mentions=inside, never=True)
     answers = []
     for line in trace.read_text().splitlines():  # every question the model asked gets a blank answer
         e = json.loads(line)
@@ -893,9 +930,9 @@ def draft_golden(agent, force=False):
         f.write(json.dumps({"answers": answers}, ensure_ascii=False) + "\n")
     say("done", f"drafted {len(cases)} case(s) and {len(answers)} answer(s) in {golden.relative_to(ROOT)}")
     say("info", f"  from the run in {trace.relative_to(ROOT)}")
-    say("info", "  This draft holds the model's answers, not a verified key. Correct every case, then set its\n"
-                "  settled to true (checked, it must pass) or false (checked, the answer is still open),\n"
-                "  and fill in each answer the agent will get when it asks.")
+    say("info", "  This draft holds the model's answers, not a verified key. Correct every line and rewrite its\n"
+                "  note: say what passing means, or end it with a question if the answer is still open.\n"
+                "  Fill in each answer the agent will get when it asks.")
 
 
 def load_golden(agent):
@@ -911,11 +948,12 @@ def load_golden(agent):
             obj = json.loads(line)
         except json.JSONDecodeError as e:
             raise SystemExit(f"golden.jsonl line {n} is not JSON: {e}")
-        if isinstance(obj, dict) and "answers" in obj and "grader" not in obj:
+        if not isinstance(obj, dict):
+            raise SystemExit(f"golden.jsonl line {n} is not an object")
+        if "answers" in obj and "expect" not in obj:
             answers += obj["answers"]
-        elif not isinstance(obj, dict) or "id" not in obj or obj.get("grader") not in GRADERS:
-            raise SystemExit(f"golden.jsonl line {n}: a case needs an id and a grader: {', '.join(GRADERS)}")
         else:
+            check_case(obj, n)
             cases.append(obj)
     return cases, answers
 
@@ -986,10 +1024,10 @@ def eval_once(n, folder, answers):
 def run_eval(agent, runs=20, jobs=4, allow_unverified=False):
     """Run the setup many times, each in its own copy, and grade every run against golden.jsonl."""
     cases, answers = load_golden(agent)
-    unverified = [c["id"] for c in cases if c.get("settled") is None]
+    unverified = [c["id"] for c in cases if "verify?" in c["note"]]
     if unverified and not allow_unverified:
-        raise SystemExit(f"{len(unverified)} case(s) in golden.jsonl are not verified yet: {', '.join(unverified)}\n"
-                         "Check each one and set settled to true or false, or add --allow-unverified.")
+        raise SystemExit(f"{len(unverified)} line(s) in golden.jsonl still say verify?: {', '.join(unverified)}\n"
+                         "Check each one and rewrite its note, or add --allow-unverified.")
     base = agent.dir / "evals" / datetime.now().strftime("%Y%m%d-%H%M%S")
     folders = [base / f"run-{n}" for n in range(1, runs + 1)]
     for folder in folders:
@@ -998,7 +1036,8 @@ def run_eval(agent, runs=20, jobs=4, allow_unverified=False):
     with ThreadPoolExecutor(max_workers=jobs) as pool:
         results = list(pool.map(eval_once, range(1, runs + 1), folders, [answers] * runs))
     for r, folder in zip(results, folders):  # a run that did not end as planned fails every case
-        r["cases"] = {c["id"]: mark(r["outcome"]) == "✓" and GRADERS[c["grader"]](folder, c) for c in cases}
+        r["cases"] = {c["id"]: {"pass": mark(r["outcome"]) == "✓" and grade(folder, c), "open": is_open(c)}
+                      for c in cases}
     with (base / "results.jsonl").open("w") as f:
         for r in results:
             f.write(json.dumps(r) + "\n")
@@ -1017,26 +1056,31 @@ def eval_summary(agent, cases, results, folders, where):
     _, _, tokens_in, tokens_out, seconds, dollars = totals([row for f in folders for row in summary_rows(f)[0]])
     rows = []
     for c in cases:
-        k = sum(r["cases"][c["id"]] for r in results)
-        failed = [f"run-{r['run']}" for r in results if not r["cases"][c["id"]]]
-        if c.get("settled") is None:
-            mark_, todo, order = "?", "check it, then set settled", 2
-        elif c.get("settled") is False:
-            mark_, todo, order = "○", f"answer it in {spec}", 1
+        k = sum(r["cases"][c["id"]]["pass"] for r in results)
+        failed = [f"run-{r['run']}" for r in results if not r["cases"][c["id"]]["pass"]]
+        lo, hi = wilson(k, runs)
+        passed = f"{k}/{runs} ({round(100 * k / runs)}%)"
+        if "verify?" in c["note"]:
+            mark_, todo, order = "?", "check it in golden.jsonl", 2
+        elif is_open(c):
+            mark_, todo, order, passed = "○", f"answer it in {spec}", 1, f"{k}/{runs} said yes"
         elif k < runs:
             mark_, todo, order = "✗", "open " + ", ".join(failed[:3]) + (f" +{len(failed) - 3}" if len(failed) > 3 else ""), 0
         else:
             mark_, todo, order = "✓", "", 3
-        rows.append((order, f"| {mark_} | {c['id']} | {k}/{runs} ({round(100 * k / runs)}%) | {todo} | {c.get('note', '')} |"))
+        rows.append((order, mark_, f"| {mark_} | {c['id']} | {passed} | {lo}-{hi}% | {todo} | {c['note']} |"))
     out = [f"# Eval: {agent.name}", "",
            f"{runs} runs of {agent.model} · {tokens_in + tokens_out:,} tokens · {money(dollars)} · "
            f"{seconds / runs:.1f}s per run", ""]
     stopped = [f"run-{r['run']}" for r in results if mark(r["outcome"]) == "✗"]
     if stopped:
         out += [f"✗ {len(stopped)} run(s) stopped before the end and fail every case: {', '.join(stopped)}", ""]
-    out += ["| | case | passed | next | checks |", "|---|---|--:|---|---|"]
-    out += [row for _, row in sorted(rows, key=lambda r: r[0])]
-    out += ["", "✓ passed every run · ✗ failed in some runs · ○ open question: passed is how often the agent said yes · ? not checked yet"]
+    out += ["| | case | passed | 95% interval | next | what passing means |", "|---|---|--:|--:|---|---|"]
+    out += [row for _, _, row in sorted(rows, key=lambda r: r[0])]
+    legend = {"✓": "✓ passed every run", "✗": "✗ failed in at least one run",
+              "○": "○ open question: decide it in the spec", "?": "? still a draft"}
+    shown = [legend[m] for m in legend if m in {r[1] for r in rows}]
+    out += ["", " · ".join(shown + ["95% interval: the pass rate these runs can vouch for"])]
     return "\n".join(out) + "\n"
 
 
