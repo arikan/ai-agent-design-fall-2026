@@ -798,15 +798,14 @@ def call_matches(e, want):
 
 
 def check_case(case, n):
-    """A golden answer has an id, a note, and an expect in one of the two forms. Anything else stops here."""
-    name = case.get("id", f"line {n}")
+    """A golden answer has a note and an expect in one of the two forms. Anything else stops here."""
     e = case.get("expect")
 
     def bad(why):
-        raise SystemExit(f"golden.jsonl, {name}: {why}")
+        raise SystemExit(f"golden.jsonl line {n}: {why}")
 
-    if "id" not in case or "note" not in case:
-        bad("needs an id and a note")
+    if "note" not in case:
+        bad("needs a note")
     if not isinstance(e, dict) or ("in" in e) == ("did" in e):
         bad('needs an expect with "in" (what the agent wrote) or "did" (what it did), not both')
     extra = set(e) - (WROTE if "in" in e else DID)
@@ -861,10 +860,6 @@ def run_outputs(agent):
     return out
 
 
-def slug(s):
-    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
-
-
 def is_number(cell):
     bare = re.sub(r"[$€£¥*`\s]|usd|eur|gbp", "", cell.lower())
     return bool(re.fullmatch(r"[-+]?[\d.,]*\d[\d.,]*", bare))
@@ -884,14 +879,10 @@ def draft_golden(agent, force=False):
             for t in list(OPEN_TRACES):
                 t.close("stopped before the end")
         trace = latest_trace(agent)
-    note = f"drafted from run {trace.name}, verify?"
     cases = []
 
-    def add(name, **expect):
-        cid, n = slug(name), 2
-        while cid in {c["id"] for c in cases}:
-            cid, n = f"{slug(name)}-{n}", n + 1
-        cases.append({"id": cid, "note": note, "expect": expect})
+    def add(name, **expect):  # the note says what the line checks, until a person rewrites it
+        cases.append({"note": f"{name}: drafted from run {trace.name}, verify?", "expect": expect})
 
     outputs = run_outputs(agent)
     texts = [p for p in outputs if p.suffix.lower() in TEXT_TYPES]
@@ -917,18 +908,11 @@ def draft_golden(agent, force=False):
         if writers:
             inside = folder if Path(folder).suffix else folder.rstrip("/") + "/"
             add(f"never writes {folder}", did=writers, mentions=inside, never=True)
-    answers = []
-    for line in trace.read_text().splitlines():  # every question the model asked gets a blank answer
-        e = json.loads(line)
-        if e.get("event") == "tool" and e.get("tool") == "ask":
-            words = re.findall(r"[A-Za-z]+", str(e["args"].get("question", "")))
-            if words and max(words, key=len).lower() not in [a["match"].lower() for a in answers]:
-                answers.append({"match": max(words, key=len), "answer": ""})
     with golden.open("w") as f:
         for c in cases:
             f.write(json.dumps(c, ensure_ascii=False) + "\n")
-        f.write(json.dumps({"answers": answers}, ensure_ascii=False) + "\n")
-    say("done", f"drafted {len(cases)} case(s) and {len(answers)} answer(s) in {golden.relative_to(ROOT)}")
+        f.write(json.dumps({"answers": [{"match": "", "answer": ""}]}) + "\n")  # a person fills in both
+    say("done", f"drafted {len(cases)} case(s) and a blank answers line in {golden.relative_to(ROOT)}")
     say("info", f"  from the run in {trace.relative_to(ROOT)}")
     say("info", "  This draft holds the model's answers, not a verified golden set. Correct every line and rewrite its\n"
                 "  note: say what passing means, or end it with a question if the answer is still open.\n"
@@ -954,7 +938,7 @@ def load_golden(agent):
             answers += obj["answers"]
         else:
             check_case(obj, n)
-            cases.append(obj)
+            cases.append({**obj, "line": n})  # the line number names the case in errors and results
     return cases, answers
 
 
@@ -1024,9 +1008,9 @@ def eval_once(n, folder, answers):
 def run_eval(agent, runs=20, jobs=4, allow_unverified=False):
     """Run the setup many times, each in its own copy, and grade every run against golden.jsonl."""
     cases, answers = load_golden(agent)
-    unverified = [c["id"] for c in cases if "verify?" in c["note"]]
+    unverified = [str(c["line"]) for c in cases if "verify?" in c["note"]]
     if unverified and not allow_unverified:
-        raise SystemExit(f"{len(unverified)} line(s) in golden.jsonl still say verify?: {', '.join(unverified)}\n"
+        raise SystemExit(f"golden.jsonl line(s) {', '.join(unverified)} still say verify?\n"
                          "Check each one and rewrite its note, or add --allow-unverified.")
     base = agent.dir / "evals" / datetime.now().strftime("%Y%m%d-%H%M%S")
     folders = [base / f"run-{n}" for n in range(1, runs + 1)]
@@ -1036,7 +1020,7 @@ def run_eval(agent, runs=20, jobs=4, allow_unverified=False):
     with ThreadPoolExecutor(max_workers=jobs) as pool:
         results = list(pool.map(eval_once, range(1, runs + 1), folders, [answers] * runs))
     for r, folder in zip(results, folders):  # a run that did not end as planned fails every case
-        r["cases"] = {c["id"]: {"pass": mark(r["outcome"]) == "✓" and grade(folder, c), "open": is_open(c)}
+        r["cases"] = {c["line"]: {"pass": mark(r["outcome"]) == "✓" and grade(folder, c), "open": is_open(c)}
                       for c in cases}
     with (base / "results.jsonl").open("w") as f:
         for r in results:
@@ -1056,8 +1040,8 @@ def eval_summary(agent, cases, results, folders, where):
     _, _, tokens_in, tokens_out, seconds, dollars = totals([row for f in folders for row in summary_rows(f)[0]])
     rows = []
     for c in cases:
-        k = sum(r["cases"][c["id"]]["pass"] for r in results)
-        failed = [f"run-{r['run']}" for r in results if not r["cases"][c["id"]]["pass"]]
+        k = sum(r["cases"][c["line"]]["pass"] for r in results)
+        failed = [f"run-{r['run']}" for r in results if not r["cases"][c["line"]]["pass"]]
         passed = f"{k}/{runs} ({round(100 * k / runs)}%)"
         if "verify?" in c["note"]:
             mark_, todo, order = "?", "check it in golden.jsonl", 2
@@ -1067,14 +1051,14 @@ def eval_summary(agent, cases, results, folders, where):
             mark_, todo, order = "✗", "open " + ", ".join(failed[:3]) + (f" +{len(failed) - 3}" if len(failed) > 3 else ""), 0
         else:
             mark_, todo, order = "✓", "", 3
-        rows.append((order, mark_, f"| {mark_} | {c['id']} | {passed} | {todo} | {c['note']} |"))
+        rows.append((order, mark_, f"| {mark_} | {c['line']} | {passed} | {todo} | {c['note']} |"))
     out = [f"# Eval: {agent.name}", "",
            f"{runs} runs of {agent.model} · {tokens_in + tokens_out:,} tokens · {money(dollars)} · "
            f"{seconds / runs:.1f}s per run", ""]
     stopped = [f"run-{r['run']}" for r in results if mark(r["outcome"]) == "✗"]
     if stopped:
         out += [f"✗ {len(stopped)} run(s) stopped before the end and fail every case: {', '.join(stopped)}", ""]
-    out += ["| | case | passed | next | what passing means |", "|---|---|--:|---|---|"]
+    out += ["| | line | passed | next | what passing means |", "|---|--:|--:|---|---|"]
     out += [row for _, _, row in sorted(rows, key=lambda r: r[0])]
     legend = {"✓": "✓ passed every run", "✗": "✗ failed in at least one run",
               "○": "○ open question: decide it in the spec", "?": "? still a draft"}
