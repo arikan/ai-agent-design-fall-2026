@@ -1020,7 +1020,7 @@ def eval_summary(agent, cases, results, folders):
         if c.get("settled") is None:
             mark_, todo, order = "?", "check it, then set settled", 2
         elif c.get("settled") is False:
-            mark_, todo, order = "○", "decide, then write it in spec.md", 1
+            mark_, todo, order = "○", "answer it in spec.md", 1
         elif k < runs:
             mark_, todo, order = "✗", "open " + ", ".join(failed[:3]) + (f" +{len(failed) - 3}" if len(failed) > 3 else ""), 0
         else:
@@ -1032,9 +1032,9 @@ def eval_summary(agent, cases, results, folders):
     stopped = [f"run-{r['run']}" for r in results if mark(r["outcome"]) == "✗"]
     if stopped:
         out += [f"✗ {len(stopped)} run(s) stopped before the end and fail every case: {', '.join(stopped)}", ""]
-    out += ["| | case | passed | next | a passing run |", "|---|---|--:|---|---|"]
+    out += ["| | case | passed | next | checks |", "|---|---|--:|---|---|"]
     out += [row for _, row in sorted(rows, key=lambda r: r[0])]
-    out += ["", "✓ passed every run · ✗ failed in some runs · ○ no right answer yet: the agent chose · ? not checked yet"]
+    out += ["", "✓ passed every run · ✗ failed in some runs · ○ open question: passed is how often the agent said yes · ? not checked yet"]
     return "\n".join(out) + "\n"
 
 
