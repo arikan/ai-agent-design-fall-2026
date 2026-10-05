@@ -1017,7 +1017,15 @@ def run_eval(agent, runs=20, jobs=4, allow_unverified=False):
         table.append(f"{c['id'][:25]:<26}{c['grader']:<15}{f'{k}/{runs}':>8}{round(100 * k / runs):>5}%"
                      f"{f'[{lo}, {hi}]':>14}" + (f"  {flag}" if flag else ""))
         md.append(f"| {c['id']} | {c['grader']} | {k}/{runs} | {round(100 * k / runs)}% | [{lo}, {hi}] | {flag} |")
-    md += ["", "Each run's report and trace are in its own run-<n>/ folder; every run's score is in results.jsonl."]
+    md += ["", "## How to read this", "",
+           "- Each row is one case from golden.jsonl, checked in every run. passes: how many runs got it right.",
+           "- 95% interval: where the agent's true pass rate very likely is, judging from only this many runs. "
+           "If two evals' intervals overlap, they have not shown a difference yet.",
+           "- open: you settled the case as false, so the right answer is undecided. The rate shows which way "
+           "the agent goes, not whether it is right.",
+           "- A run that stopped before the end fails every case. A run that did nothing still passes a never case.",
+           "- When a row surprises you, open that run's run-<n>/ folder: its outputs and traces/ show what it did. "
+           "results.jsonl lists which runs passed which case."]
     (base / "summary.md").write_text("\n".join(md) + "\n")
     print()
     print("\n".join(table))

@@ -119,20 +119,43 @@ python3 mva.py eval setups/task-agent --runs 20
 
 `eval` won't start while any case still has `settled: null`. It copies the setup 20 times into `setups/task-agent/evals/<time>/run-1/` … `run-20/`, puts the five receipts from `eval_inbox` in each copy's inbox, and runs four at a time. Nobody types: when the agent asks, the `answers` line replies, and you can see each question and answer in the terminal. Each run then gets graded against every case. A run the harness stopped, or that crashed, fails every case.
 
+When it finishes, it prints a table and saves the same table as `summary.md` in `setups/task-agent/evals/<time>/`. Here is one, from 20 runs of `anthropic/claude-sonnet-5`:
+
 ```
-case                      grader           passes  rate  95% interval
-menu-left-out             row_value         20/20  100%     [84, 100]
-hotel-asked-first         tool_call         18/20   90%      [70, 97]
-cafe-luna-personal        row_value         10/20   50%      [30, 70]  ○ open: no business purpose stated; the policy says meals need one
+20 runs · anthropic/claude-sonnet-5 · 342,579 tokens · $1.1522 · 30.1s per run
+
+| case | grader | passes | rate | 95% interval | open |
+|---|---|--:|--:|--:|---|
+| menu-left-out | row_value | 20/20 | 100% | [84, 100] |  |
+| duplicate-left-out | row_value | 19/20 | 95% | [76, 99] |  |
+| cafe-luna-personal | row_value | 20/20 | 100% | [84, 100] | ○ open: no business purpose stated; the policy says meals need one |
+| kaffeehaus-personal | row_value | 20/20 | 100% | [84, 100] | ○ open: a coffee and a pastry, no business purpose stated; only one of these two can pass |
+| kaffeehaus-amount | row_value | 0/20 | 0% | [0, 16] | ○ open: 7.60 EUR at the course rate; only one of these two can pass |
+| hotel-asked-first | tool_call | 20/20 | 100% | [84, 100] |  |
+| hotel-amount | row_value | 20/20 | 100% | [84, 100] |  |
+| inbox-untouched | tool_call | 20/20 | 100% | [84, 100] |  |
 ```
 
-**passes/runs** counts the runs that passed this case. **rate** is the same as a percentage. **The interval** is the honest part: the range where the true rate probably is, given only this many runs. 18 of 20 is 90%, but the agent's real rate could be anywhere from 70% to 97%. With 5 runs, 5 of 5 only tells you somewhere from 57% to 100%. Two rows with overlapping intervals haven't shown a difference yet; run more before you believe one.
+### How to read it
 
-A row marked **○ open** is a case you settled as `false`: the answer itself is still undecided. Here the spec says meals need a business purpose, and the café receipt doesn't state one. Is it a personal snack, or should the agent ask? A 50% row there isn't the agent being flaky. The agent is splitting where the spec is unclear. You fix that in the spec, not in the agent. In the lab we settle one of these together.
+**The top line** is what the eval cost: 20 runs took about 343,000 tokens and $1.15, so about 6 cents and 30 seconds a run. Multiply before you run 100.
 
-Read `never` rows like `inbox-untouched` next to the others. A run that does nothing at all never touches the inbox either, so it passes.
+**Each row is one question from your answer key**, asked of every run. "Did the report leave out the menu, saying it isn't a receipt?" is `menu-left-out`. The `grader` column says how it was checked: `row_value` looked in a table in `report.md`, and `tool_call` looked at what the agent did in its trace.
 
-The last line gives the runs, the model, the tokens, the cost and the mean seconds per run. The same table is saved as `summary.md` in the eval's `evals/<time>/` folder, next to `results.jsonl`, which has every run's score. Every run's report and trace are in its own `run-<n>/` folder. When a row surprises you, open those.
+**passes** is how many runs got it right. `19/20` means one run got it wrong. **rate** is the same thing as a percentage.
+
+**The 95% interval** answers: how good is the agent really, judging from only 20 tries? `20/20` doesn't prove the agent is always right; it might fail once in 30 runs, and 20 runs wouldn't catch that. `[84, 100]` means its true success rate is very likely somewhere between 84% and 100%. Fewer runs give wider ranges: 5 out of 5 only tells you somewhere between 57% and 100%. Use the interval when you compare two evals. If the two ranges overlap, you haven't shown a difference yet, however different the rates look.
+
+**The open column** marks the cases you settled as `false`: you checked them and decided the right answer is still undecided. Their rate doesn't say whether the agent is right. It says which way the agent goes, and how often.
+
+### What this eval says
+
+- **The rules it follows every time.** It left out the menu, asked before claiming the $412.02 hotel and then claimed it, and never tried to change the inbox. Twenty out of twenty, each at least 84%.
+- **One miss: read the run before you believe the row.** `duplicate-left-out` failed once. In that run's `run-1/report.md`, the agent did spot the duplicate, but it called the original the copy and the copy the original. Both files were left out, so the claim came out right. Was the agent wrong, or is the case too strict? That's your decision. If it doesn't matter which file is called the copy, loosen the case; if it does, this is a real miss, about 1 run in 20.
+- **The open questions: the model always takes the same side.** Both coffee receipts were called personal in all 20 runs, so the converted Kaffeehaus amount ($8.36) was never claimed: 0/20. The agent isn't unsure here. It decided the question you left open, the same way each time. Consistent isn't correct: if a coffee during a work trip should count, no model will find that out from this spec. Write it into the spec, then settle the case.
+- **A run that does nothing passes a `never` row.** `inbox-untouched` checks something the agent must never do, and an agent that stopped without doing any work never did it either. Read `never` rows next to the others.
+
+When a row surprises you, open that run's folder: `run-<n>/report.md` and `run-<n>/traces/` show exactly what it did, and `results.jsonl` lists which runs passed which case.
 
 ## Change the specification, run eval again
 
