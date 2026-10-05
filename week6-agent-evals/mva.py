@@ -21,7 +21,6 @@ Usage:
   python mva.py usage --runs
   python mva.py golden setups/task-agent [--force]
   python mva.py eval   setups/task-agent [--runs 20] [--model openai/gpt-5-mini] [--jobs 4] [--allow-unverified]
-  python mva.py results setups/task-agent [setups/task-agent/evals/<time>]
 """
 import base64
 import csv
@@ -899,8 +898,8 @@ def draft_golden(agent, force=False):
                 "  and fill in each answer the agent will get when it asks.")
 
 
-def load_golden(agent, p=None):
-    p = p or agent.dir / "golden.jsonl"
+def load_golden(agent):
+    p = agent.dir / "golden.jsonl"
     if not p.exists():
         raise SystemExit(f"no golden.jsonl in {agent.dir.relative_to(ROOT)}: run python3 mva.py golden "
                          f"{agent.dir.relative_to(ROOT)} first")
@@ -995,7 +994,6 @@ def run_eval(agent, runs=20, jobs=4, allow_unverified=False):
     folders = [base / f"run-{n}" for n in range(1, runs + 1)]
     for folder in folders:
         eval_copy(agent, folder)
-    shutil.copy(agent.dir / "golden.jsonl", base / "golden.jsonl")  # the key this eval was graded against
     say("run", f"▶ eval {agent.name} · {len(cases)} case(s) · {runs} run(s), {jobs} at a time · {agent.model}")
     with ThreadPoolExecutor(max_workers=jobs) as pool:
         results = list(pool.map(eval_once, range(1, runs + 1), folders, [answers] * runs))
@@ -1004,41 +1002,27 @@ def run_eval(agent, runs=20, jobs=4, allow_unverified=False):
     with (base / "results.jsonl").open("w") as f:
         for r in results:
             f.write(json.dumps(r) + "\n")
-    print()
-    show_results(agent, base)
-
-
-def show_results(agent, base=None):
-    """The table for one eval, the latest by default: printed, and saved as summary.txt next to results.jsonl."""
-    evals = sorted(p for p in (agent.dir / "evals").glob("*") if (p / "results.jsonl").exists())
-    base = Path(base).resolve() if base else evals[-1] if evals else None
-    if base is None or not (base / "results.jsonl").exists():
-        raise SystemExit(f"no eval results in {agent.dir.relative_to(ROOT)}/evals/: run python3 mva.py eval "
-                         f"{agent.dir.relative_to(ROOT)} first")
-    key = base / "golden.jsonl"
-    cases = load_golden(agent, key if key.exists() else None)[0]
-    results = [json.loads(line) for line in (base / "results.jsonl").read_text().splitlines() if line.strip()]
-    runs = len(results)
-    lines = [f"{'case':<26}{'grader':<15}{'passes':>8}{'rate':>6}{'95% interval':>14}"]
+    rows = [row for folder in folders for row in summary_rows(folder)[0]]
+    _, _, tokens_in, tokens_out, seconds, dollars = totals(rows)
+    last = (f"{runs} runs · {agent.model} · {tokens_in + tokens_out:,} tokens · {money(dollars)} · "
+            f"{seconds / runs:.1f}s per run")
+    table = [f"{'case':<26}{'grader':<15}{'passes':>8}{'rate':>6}{'95% interval':>14}"]
+    md = [f"# Eval: {agent.name}", "", last, "", "| case | grader | passes | rate | 95% interval | open |",
+          "|---|---|--:|--:|--:|---|"]
     for c in cases:
-        if c["id"] not in results[0]["cases"]:  # added to the key after this eval
-            continue
         k = sum(r["cases"][c["id"]] for r in results)
         lo, hi = wilson(k, runs)
-        flag = "" if c.get("settled") else f"  ○ open: {c.get('note', '')}" if c.get("settled") is False \
-            else f"  ? unverified: {c.get('note', '')}"
-        lines.append(f"{c['id'][:25]:<26}{c['grader']:<15}{f'{k}/{runs}':>8}{round(100 * k / runs):>5}%"
-                     f"{f'[{lo}, {hi}]':>14}{flag}")
-    rows = [row for n in range(1, runs + 1) for row in summary_rows(base / f"run-{n}")[0]]
-    _, _, tokens_in, tokens_out, seconds, dollars = totals(rows)
-    failed = sum(mark(r["outcome"]) == "✗" for r in results)
-    last = (f"■ {runs} runs · {results[0]['model']} · {tokens_in + tokens_out:,} tokens · {money(dollars)} · "
-            f"{seconds / runs:.1f}s per run" + (f" · {failed} stopped before the end, failing every case" if failed else ""))
-    (base / "summary.txt").write_text("\n".join(lines) + "\n\n" + last + "\n")
-    print("\n".join(lines))
+        flag = "" if c.get("settled") else f"○ open: {c.get('note', '')}" if c.get("settled") is False \
+            else f"? unverified: {c.get('note', '')}"
+        table.append(f"{c['id'][:25]:<26}{c['grader']:<15}{f'{k}/{runs}':>8}{round(100 * k / runs):>5}%"
+                     f"{f'[{lo}, {hi}]':>14}" + (f"  {flag}" if flag else ""))
+        md.append(f"| {c['id']} | {c['grader']} | {k}/{runs} | {round(100 * k / runs)}% | [{lo}, {hi}] | {flag} |")
+    md += ["", "Each run's report and trace are in its own run-<n>/ folder; every run's score is in results.jsonl."]
+    (base / "summary.md").write_text("\n".join(md) + "\n")
     print()
-    say("done", last)
-    say("info", f"  saved: {(base / 'summary.txt').relative_to(ROOT)} · every run: {base.relative_to(ROOT)}/run-<n>/")
+    print("\n".join(table))
+    print()
+    say("done", f"■ {last} · summary: {(base / 'summary.md').relative_to(ROOT)}")
 
 
 # ---------------------------------------------------------------- commands
@@ -1170,8 +1154,6 @@ def main(argv):
     agent = Agent(argv[2])
     if cmd == "golden":
         draft_golden(agent, force="--force" in argv[3:])
-    elif cmd == "results":
-        show_results(agent, argv[3] if len(argv) > 3 else None)
     elif cmd == "eval":
         run_eval(agent, runs=int(option(argv, "--runs", 20)), jobs=int(option(argv, "--jobs", 4)),
                  allow_unverified="--allow-unverified" in argv[3:])
