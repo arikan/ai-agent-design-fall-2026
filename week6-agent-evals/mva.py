@@ -435,7 +435,7 @@ def t_ask(agent, question):
         say("ask", f"  ? {question}")
         if agent.answers is None:
             answer = input("  your answer › ").strip()
-        else:  # an eval: the answer key speaks for the person
+        else:  # an eval: the golden set speaks for the person
             answer = scripted(agent.answers, question)
             say("ask", f"  › {answer} (from golden.jsonl)")
         return [text(f"The person answered: {answer}")]
@@ -824,7 +824,7 @@ def check_case(case, n):
 
 
 def wilson(k, n, z=1.96):
-    """The 95% interval for a pass rate, in percent. Honest at small n, where k/n alone is not."""
+    """The 95% interval for a pass rate, in percent: how rough a rate from n runs is."""
     if n == 0:
         return 0, 100
     p = k / n
@@ -832,7 +832,7 @@ def wilson(k, n, z=1.96):
     return round(100 * (mid - spread) / (1 + z * z / n)), round(100 * (mid + spread) / (1 + z * z / n))
 
 
-# ---------------------------------------------------------------- answer key and eval
+# ---------------------------------------------------------------- golden set and eval
 def latest_trace(agent):
     traces = sorted(p for p in (agent.dir / "traces").glob("*.jsonl") if p.name != "summary.jsonl")
     return traces[-1] if traces else None
@@ -871,7 +871,7 @@ def is_number(cell):
 
 
 def draft_golden(agent, force=False):
-    """A first answer key, drafted from the latest run. It holds what the model did, not what is right."""
+    """A first golden set, drafted from the latest run. It holds what the model did, not what is right."""
     golden = agent.dir / "golden.jsonl"
     if golden.exists() and not force:
         raise SystemExit(f"{golden.relative_to(ROOT)} exists: correct it by hand, or add --force to draft over it")
@@ -930,7 +930,7 @@ def draft_golden(agent, force=False):
         f.write(json.dumps({"answers": answers}, ensure_ascii=False) + "\n")
     say("done", f"drafted {len(cases)} case(s) and {len(answers)} answer(s) in {golden.relative_to(ROOT)}")
     say("info", f"  from the run in {trace.relative_to(ROOT)}")
-    say("info", "  This draft holds the model's answers, not a verified key. Correct every line and rewrite its\n"
+    say("info", "  This draft holds the model's answers, not a verified golden set. Correct every line and rewrite its\n"
                 "  note: say what passing means, or end it with a question if the answer is still open.\n"
                 "  Fill in each answer the agent will get when it asks.")
 
@@ -1058,34 +1058,35 @@ def eval_summary(agent, cases, results, folders, where):
     for c in cases:
         k = sum(r["cases"][c["id"]]["pass"] for r in results)
         failed = [f"run-{r['run']}" for r in results if not r["cases"][c["id"]]["pass"]]
-        lo, hi = wilson(k, runs)
         passed = f"{k}/{runs} ({round(100 * k / runs)}%)"
         if "verify?" in c["note"]:
             mark_, todo, order = "?", "check it in golden.jsonl", 2
         elif is_open(c):
-            mark_, todo, order, passed = "○", f"answer it in {spec}", 1, f"{k}/{runs} said yes"
+            mark_, todo, order = "○", f"answer it in {spec}", 1
         elif k < runs:
             mark_, todo, order = "✗", "open " + ", ".join(failed[:3]) + (f" +{len(failed) - 3}" if len(failed) > 3 else ""), 0
         else:
             mark_, todo, order = "✓", "", 3
-        rows.append((order, mark_, f"| {mark_} | {c['id']} | {passed} | {lo}-{hi}% | {todo} | {c['note']} |"))
+        rows.append((order, mark_, f"| {mark_} | {c['id']} | {passed} | {todo} | {c['note']} |"))
     out = [f"# Eval: {agent.name}", "",
            f"{runs} runs of {agent.model} · {tokens_in + tokens_out:,} tokens · {money(dollars)} · "
            f"{seconds / runs:.1f}s per run", ""]
     stopped = [f"run-{r['run']}" for r in results if mark(r["outcome"]) == "✗"]
     if stopped:
         out += [f"✗ {len(stopped)} run(s) stopped before the end and fail every case: {', '.join(stopped)}", ""]
-    out += ["| | case | passed | 95% interval | next | what passing means |", "|---|---|--:|--:|---|---|"]
+    out += ["| | case | passed | next | what passing means |", "|---|---|--:|---|---|"]
     out += [row for _, _, row in sorted(rows, key=lambda r: r[0])]
     legend = {"✓": "✓ passed every run", "✗": "✗ failed in at least one run",
               "○": "○ open question: decide it in the spec", "?": "? still a draft"}
     shown = [legend[m] for m in legend if m in {r[1] for r in rows}]
-    out += ["", " · ".join(shown + ["95% interval: the pass rate these runs can vouch for"])]
+    lo, hi = wilson(runs // 2, runs)
+    out += ["", " · ".join(shown),
+            "", f"Note: {runs} runs give a rough rate. {runs // 2}/{runs} could really be anywhere from {lo}% to {hi}%."]
     return "\n".join(out) + "\n"
 
 
 # ---------------------------------------------------------------- commands
-KEEP = {"spec.md", "harness.toml", "traces", "golden.jsonl", "evals"}  # the answer key and eval results outlive a reset
+KEEP = {"spec.md", "harness.toml", "traces", "golden.jsonl", "evals"}  # the golden set and eval results outlive a reset
 
 
 def reset(agent):

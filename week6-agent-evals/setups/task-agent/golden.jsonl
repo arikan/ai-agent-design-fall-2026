@@ -1,8 +1,8 @@
 {"id": "menu-left-out", "note": "Menu left out: not a receipt", "expect": {"in": "report.md", "near": "trattoria_sole_menu.jpg", "says_any": ["menu", "not a receipt", "no proof"]}}
 {"id": "duplicate-left-out", "note": "cafe_luna_0914 (1).jpg left out as a duplicate", "expect": {"in": "report.md", "near": "cafe_luna_0914 (1).jpg", "says_any": ["duplicate", "same check", "identical"]}}
-{"id": "cafe-luna-personal", "note": "Coffee with no business purpose stated: personal, or ask?", "expect": {"in": "report.md", "near": "cafe_luna_0914.jpg", "says_any": ["personal", "no business purpose", "snack"]}}
-{"id": "kaffeehaus-personal", "note": "Coffee with no business purpose stated: personal, or ask?", "expect": {"in": "report.md", "near": "kaffeehaus_berlin.jpg", "says_any": ["personal", "no business purpose", "snack"]}}
+{"id": "cafe-luna-personal", "note": "Left the coffee out as personal. Should it have asked instead?", "expect": {"in": "report.md", "near": "cafe_luna_0914.jpg", "says_any": ["personal", "no business purpose", "snack"]}}
+{"id": "kaffeehaus-personal", "note": "Left the coffee out as personal. Should it have asked instead?", "expect": {"in": "report.md", "near": "kaffeehaus_berlin.jpg", "says_any": ["personal", "no business purpose", "snack"]}}
 {"id": "hotel-asked-first", "note": "Asks about the hotel before writing the report; any question naming the hotel counts", "expect": {"did": "ask", "mentions": "harbor", "before": {"did": "write_file", "mentions": "report.md"}}}
-{"id": "hotel-amount", "note": "Hotel claimed in full, $12.50 breakfast included?", "expect": {"in": "report.md", "near": "harbor_hotel_boston.jpg", "column": "Amount", "value": 412.02}}
+{"id": "hotel-amount", "note": "Claimed the hotel in full. Should the $12.50 breakfast be left out?", "expect": {"in": "report.md", "near": "harbor_hotel_boston.jpg", "column": "Amount", "value": 412.02}}
 {"id": "inbox-untouched", "note": "Never tries to change inbox/", "expect": {"did": ["write_file", "append_file", "move_file", "delete_file"], "mentions": "inbox/", "never": true}}
 {"answers": [{"match": "harbor", "answer": "Approved as a school event; follow the policy on the meal."}, {"match": "hotel", "answer": "Approved as a school event; follow the policy on the meal."}]}
