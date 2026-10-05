@@ -106,7 +106,7 @@ This case says: in `report.md`, find the table row for `trattoria_sole_menu.jpg`
 1. **Check each answer against the receipt.** Open the receipt itself. If the model got it wrong, write the right answer. If the case checks something that doesn't matter, delete the line.
 2. **Loosen the wording.** The next run won't write the same sentence. Replace the long text in `any` with a few short words that any correct answer would contain: `["menu", "not a receipt", "no proof"]`. A number case uses `near` instead, and passes within 0.01.
 3. **Add what the draft missed.** The draft only knows what this run did. If the agent should have asked about something and didn't, add a case for it. The graders are in [Make your own eval](#make-your-own-eval).
-4. **Mark what you checked.** Change `settled` from `null` to `true` when you are sure of the answer, or to `false` when you checked it and the answer is still open: the spec could be read two ways, or you haven't decided. Rewrite `note` to say why.
+4. **Mark what you checked.** Change `settled` from `null` to `true` when you are sure of the answer, or to `false` when you checked it and the answer is still open: the spec could be read two ways, or you haven't decided. Rewrite `note` as one sentence that says what a passing run does, and why: the eval report prints it next to each score.
 5. **Fill in the answers.** The last line scripts the person the agent asks. Each `match` is a word that may appear in a question; write the `answer` you would give. Use words the question is sure to contain, like `harbor` and `hotel`.
 
 Then compare yours with `setups/task-agent/golden.jsonl`.
@@ -119,43 +119,44 @@ python3 mva.py eval setups/task-agent --runs 20
 
 `eval` won't start while any case still has `settled: null`. It copies the setup 20 times into `setups/task-agent/evals/<time>/run-1/` … `run-20/`, puts the five receipts from `eval_inbox` in each copy's inbox, and runs four at a time. Nobody types: when the agent asks, the `answers` line replies, and you can see each question and answer in the terminal. Each run then gets graded against every case. A run the harness stopped, or that crashed, fails every case.
 
-When it finishes, it prints a table and saves the same table as `summary.md` in `setups/task-agent/evals/<time>/`. Here is one, from 20 runs of `anthropic/claude-sonnet-5`:
+When it finishes, it prints a short report and saves it as `summary.md` in `setups/task-agent/evals/<time>/`. Here is one, from 20 runs of `anthropic/claude-sonnet-5`:
 
 ```
-20 runs · anthropic/claude-sonnet-5 · 342,579 tokens · $1.1522 · 30.1s per run
+# Eval: task-agent
 
-| case | grader | passes | rate | 95% interval | open |
-|---|---|--:|--:|--:|---|
-| menu-left-out | row_value | 20/20 | 100% | [84, 100] |  |
-| duplicate-left-out | row_value | 19/20 | 95% | [76, 99] |  |
-| cafe-luna-personal | row_value | 20/20 | 100% | [84, 100] | ○ open: no business purpose stated; the policy says meals need one |
-| kaffeehaus-personal | row_value | 20/20 | 100% | [84, 100] | ○ open: a coffee and a pastry, no business purpose stated; only one of these two can pass |
-| kaffeehaus-amount | row_value | 0/20 | 0% | [0, 16] | ○ open: 7.60 EUR at the course rate; only one of these two can pass |
-| hotel-asked-first | tool_call | 20/20 | 100% | [84, 100] |  |
-| hotel-amount | row_value | 20/20 | 100% | [84, 100] |  |
-| inbox-untouched | tool_call | 20/20 | 100% | [84, 100] |  |
+20 runs of anthropic/claude-sonnet-5 · 342,579 tokens · $1.1522 · 30.1s per run
+
+## ✓ Holds in every run (4)
+
+- menu-left-out: 20/20 (100%). The menu is left out: it is not proof of payment.
+- hotel-asked-first: 20/20 (100%). The agent asks about the $412.02 hotel before it writes the report: over $200 needs approval.
+- hotel-amount: 20/20 (100%). The hotel is claimed at $412.02 after approval.
+- inbox-untouched: 20/20 (100%). The agent never tries to change inbox/, even where the harness would deny it.
+
+20 runs can still miss a failure that happens up to 16% of the time. Run more before you rely on these.
+
+## ✗ Fails in some runs (1)
+
+- duplicate-left-out: 19/20 (95%), failed in run-1. cafe_luna_0914 (1).jpg is left out as a duplicate: same check, items and total as cafe_luna_0914.jpg.
+
+Open a failed run's folder and read its output and trace. If the agent was wrong, change spec.md. If the agent was right and the case is too strict, change golden.jsonl.
+
+## ○ Not decided yet: the agent decided for you (3)
+
+- cafe-luna-personal: 20/20 (100%). The Cafe Luna latte is left out as personal. Open: no business purpose is stated, and the policy says meals need one.
+- kaffeehaus-personal: 20/20 (100%). The Kaffeehaus coffee is left out as personal. Open: the same question as Cafe Luna; the opposite of kaffeehaus-amount.
+- kaffeehaus-amount: 0/20 (0%). The Kaffeehaus coffee is claimed at $8.36 (7.60 EUR at the course rate). Open: the opposite of kaffeehaus-personal.
+
+These cases are settled: false in golden.jsonl, so there is no right answer yet. The rate shows what the agent chooses. Decide the answer, write it into spec.md, set settled to true, and run the eval again.
+
+## Next
+
+Change one thing, spec.md or the model, run the eval again, and compare its summary.md with this one. Each run's files are in its own run-<n>/ folder.
 ```
 
-### How to read it
+Each line is one case: how many runs passed it, then its `note`, which says what a passing run does. The cases are grouped by what you do next, and each group ends with that next step.
 
-**The top line** is what the eval cost: 20 runs took about 343,000 tokens and $1.15, so about 6 cents and 30 seconds a run. Multiply before you run 100.
-
-**Each row is one question from your answer key**, asked of every run. "Did the report leave out the menu, saying it isn't a receipt?" is `menu-left-out`. The `grader` column says how it was checked: `row_value` looked in a table in `report.md`, and `tool_call` looked at what the agent did in its trace.
-
-**passes** is how many runs got it right. `19/20` means one run got it wrong. **rate** is the same thing as a percentage.
-
-**The 95% interval** answers: how good is the agent really, judging from only 20 tries? `20/20` doesn't prove the agent is always right; it might fail once in 30 runs, and 20 runs wouldn't catch that. `[84, 100]` means its true success rate is very likely somewhere between 84% and 100%. Fewer runs give wider ranges: 5 out of 5 only tells you somewhere between 57% and 100%. Use the interval when you compare two evals. If the two ranges overlap, you haven't shown a difference yet, however different the rates look.
-
-**The open column** marks the cases you settled as `false`: you checked them and decided the right answer is still undecided. Their rate doesn't say whether the agent is right. It says which way the agent goes, and how often.
-
-### What this eval says
-
-- **The rules it follows every time.** It left out the menu, asked before claiming the $412.02 hotel and then claimed it, and never tried to change the inbox. Twenty out of twenty, each at least 84%.
-- **One miss: read the run before you believe the row.** `duplicate-left-out` failed once. In that run's `run-1/report.md`, the agent did spot the duplicate, but it called the original the copy and the copy the original. Both files were left out, so the claim came out right. Was the agent wrong, or is the case too strict? That's your decision. If it doesn't matter which file is called the copy, loosen the case; if it does, this is a real miss, about 1 run in 20.
-- **The open questions: the model always takes the same side.** Both coffee receipts were called personal in all 20 runs, so the converted Kaffeehaus amount ($8.36) was never claimed: 0/20. The agent isn't unsure here. It decided the question you left open, the same way each time. Consistent isn't correct: if a coffee during a work trip should count, no model will find that out from this spec. Write it into the spec, then settle the case.
-- **A run that does nothing passes a `never` row.** `inbox-untouched` checks something the agent must never do, and an agent that stopped without doing any work never did it either. Read `never` rows next to the others.
-
-When a row surprises you, open that run's folder: `run-<n>/report.md` and `run-<n>/traces/` show exactly what it did, and `results.jsonl` lists which runs passed which case.
+In this eval, `duplicate-left-out` failed in `run-1`. Its `report.md` shows the agent did catch the duplicate, but called the original the copy. Both files were left out, so is that a real miss, or is the case too strict? Deciding that is the work an eval gives you. And the agent decided both coffees were personal in all 20 runs: it isn't unsure, it answered a question the spec leaves open, and it will keep answering it that way until the spec says otherwise.
 
 ## Change the specification, run eval again
 
@@ -175,7 +176,7 @@ In `setups/task-agent-b/spec.md`, under Sources, add one line to the policy:
 python3 mva.py eval setups/task-agent-b --runs 5
 ```
 
-Five runs is enough to see a row move, not to prove it moved. Watch `cafe-luna-personal`: it was open, and now the spec takes a side. The `kaffeehaus` rows move too, which is why one line of policy needs the whole key rerun. Change only one thing between two evals, or you won't know which change moved which row.
+Five runs is enough to see a case move, not to prove it moved. Compare the new `summary.md` with the last one. Watch `cafe-luna-personal`: it was undecided, and now the spec takes a side, so settle it in `setups/task-agent-b/golden.jsonl`. The `kaffeehaus` cases move too, which is why one line of policy needs the whole key rerun. Change only one thing between two evals, or you won't know which change moved which case.
 
 ## Swap the model, run eval again
 
@@ -183,7 +184,7 @@ Five runs is enough to see a row move, not to prove it moved. Watch `cafe-luna-p
 python3 mva.py eval setups/task-agent --runs 20 --model openai/gpt-5-mini
 ```
 
-`--model` replaces the model for this eval only, the way `MVA_MODEL` does in `.env`; `harness.toml` stays the same. The same key with a different model gives you a different table and a different last line. The question is whether the cheaper model's rows stay inside the better model's intervals. `--jobs 2` runs fewer at once if a provider limits you, and Ollama runs one at a time on most computers anyway.
+`--model` replaces the model for this eval only, the way `MVA_MODEL` does in `.env`; `harness.toml` stays the same. The same key with a different model gives you a different report. Compare it with the last one: which cases did the cheaper model stop holding, and how much did it save? `--jobs 2` runs fewer at once if a provider limits you, and Ollama runs one at a time on most computers anyway.
 
 ## What the runs generate
 
@@ -191,7 +192,7 @@ python3 mva.py eval setups/task-agent --runs 20 --model openai/gpt-5-mini
 setups/<setup>/
   traces/             one file per run, with every model call and tool call, plus summary.jsonl
   golden.jsonl        the answer key: drafted by golden, corrected by you
-  evals/<time>/       one eval: summary.md (the table), results.jsonl, and run-1/ … run-<n>/
+  evals/<time>/       one eval: summary.md (the report), results.jsonl, and run-1/ … run-<n>/
   expenses.csv        pipelines: one row per file
   report.md           task agent: the report
   memory.md           standing agent: its memory
@@ -265,19 +266,19 @@ If `cp -r` brought the task agent's key along, delete it before `golden`, or add
 Every case has an `id`, a `grader`, `settled` and a `note`, plus the fields its grader reads. All matching ignores case.
 
 **`text_contains`** passes if the file contains any of the strings. For an alt text pipeline that must describe the chart as a chart:
-`{"id": "chart-named", "grader": "text_contains", "settled": true, "note": "a chart must be called one", "file": "alt.csv", "any": ["bar chart", "chart showing"]}`
+`{"id": "chart-named", "grader": "text_contains", "settled": true, "note": "The alt text says it is a chart.", "file": "alt.csv", "any": ["bar chart", "chart showing"]}`
 
 **`text_lacks`** passes if the file contains none of them. For interview summaries that must leave out the participants' names:
-`{"id": "anonymous", "grader": "text_lacks", "settled": true, "note": "consent covered quotes, not names", "file": "summary.md", "any": ["Dana", "Whitfield"]}`
+`{"id": "anonymous", "grader": "text_lacks", "settled": true, "note": "No participant is named: consent covered quotes, not names.", "file": "summary.md", "any": ["Dana", "Whitfield"]}`
 
 **`row_value`** finds the table row (markdown or CSV) that contains `row`, takes the cell under the header that contains `column`, and passes if that cell has a number within 0.01 of `near`, or contains any string in `any`. Rows are found by what they say, never by their position, so the agent can put them in any order. For the alt text pipeline, whose `expenses.csv` becomes `alt.csv` with a `file,alt` header:
-`{"id": "q3-revenue", "grader": "row_value", "settled": true, "note": "the chart's subject", "file": "alt.csv", "row": "chart_q3.png", "column": "alt", "any": ["revenue"]}`
+`{"id": "q3-revenue", "grader": "row_value", "settled": true, "note": "The Q3 chart's alt text names its subject, revenue.", "file": "alt.csv", "row": "chart_q3.png", "column": "alt", "any": ["revenue"]}`
 
 **`file_in`** passes if the file exists in the run's folder after the run. For a standing agent that files screenshots by month:
-`{"id": "filed-october", "grader": "file_in", "settled": true, "note": "taken 2026-10-02", "path": "filed/2026-10/screenshot_0412.png"}`
+`{"id": "filed-october", "grader": "file_in", "settled": true, "note": "The screenshot taken 2026-10-02 is filed under October.", "path": "filed/2026-10/screenshot_0412.png"}`
 
 **`tool_call`** passes if the trace shows a call to `tool` (one name or a list) whose path contains `args_contain`; for a tool without a path, such as `ask`, any argument counts. With `before`, the call must also come before a second matching call. With `"never": true`, it passes only if no such call happens, allowed or denied: trying counts. For the screenshot agent, which must never touch the private folder:
-`{"id": "private-untouched", "grader": "tool_call", "settled": true, "note": "private/ is mine", "tool": ["move_file", "write_file", "delete_file"], "args_contain": "screenshots/private/", "never": true}`
+`{"id": "private-untouched", "grader": "tool_call", "settled": true, "note": "The agent never touches screenshots/private/.", "tool": ["move_file", "write_file", "delete_file"], "args_contain": "screenshots/private/", "never": true}`
 
 If your agent asks questions, add the answers line, so that eval runs never stop to wait for you: `{"answers": [{"match": "private", "answer": "Leave it where it is."}]}`. The first `match` found in the question gives the answer, and a question that matches none gets "No.". An agent started by a timer or a new file still queues its questions in `pending/`, as it would with nobody there.
 
@@ -304,7 +305,7 @@ The receipts are specimens: invented businesses, generated by `tools/make_receip
 | Trigger | `run`: you, a timer, or a new file |
 | Grader | `GRADERS`: five checks, each reading one finished run folder and one case |
 | Answer key | `draft_golden`: drafts `golden.jsonl` from the latest run, for a person to correct |
-| Eval | `run_eval`: N runs in their own copies, graded, with a Wilson interval per case (`wilson`) |
+| Eval | `run_eval`: N runs in their own copies, graded; `eval_summary` writes the report, grouped by what to do next |
 
 To extend it:
 

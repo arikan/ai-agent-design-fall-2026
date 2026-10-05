@@ -1002,35 +1002,54 @@ def run_eval(agent, runs=20, jobs=4, allow_unverified=False):
     with (base / "results.jsonl").open("w") as f:
         for r in results:
             f.write(json.dumps(r) + "\n")
-    rows = [row for folder in folders for row in summary_rows(folder)[0]]
-    _, _, tokens_in, tokens_out, seconds, dollars = totals(rows)
-    last = (f"{runs} runs · {agent.model} · {tokens_in + tokens_out:,} tokens · {money(dollars)} · "
-            f"{seconds / runs:.1f}s per run")
-    table = [f"{'case':<26}{'grader':<15}{'passes':>8}{'rate':>6}{'95% interval':>14}"]
-    md = [f"# Eval: {agent.name}", "", last, "", "| case | grader | passes | rate | 95% interval | open |",
-          "|---|---|--:|--:|--:|---|"]
-    for c in cases:
-        k = sum(r["cases"][c["id"]] for r in results)
-        lo, hi = wilson(k, runs)
-        flag = "" if c.get("settled") else f"○ open: {c.get('note', '')}" if c.get("settled") is False \
-            else f"? unverified: {c.get('note', '')}"
-        table.append(f"{c['id'][:25]:<26}{c['grader']:<15}{f'{k}/{runs}':>8}{round(100 * k / runs):>5}%"
-                     f"{f'[{lo}, {hi}]':>14}" + (f"  {flag}" if flag else ""))
-        md.append(f"| {c['id']} | {c['grader']} | {k}/{runs} | {round(100 * k / runs)}% | [{lo}, {hi}] | {flag} |")
-    md += ["", "## How to read this", "",
-           "- Each row is one case from golden.jsonl, checked in every run. passes: how many runs got it right.",
-           "- 95% interval: where the agent's true pass rate very likely is, judging from only this many runs. "
-           "If two evals' intervals overlap, they have not shown a difference yet.",
-           "- open: you settled the case as false, so the right answer is undecided. The rate shows which way "
-           "the agent goes, not whether it is right.",
-           "- A run that stopped before the end fails every case. A run that did nothing still passes a never case.",
-           "- When a row surprises you, open that run's run-<n>/ folder: its outputs and traces/ show what it did. "
-           "results.jsonl lists which runs passed which case."]
-    (base / "summary.md").write_text("\n".join(md) + "\n")
+    report = eval_summary(agent, cases, results, folders)
+    (base / "summary.md").write_text(report)
     print()
-    print("\n".join(table))
-    print()
-    say("done", f"■ {last} · summary: {(base / 'summary.md').relative_to(ROOT)}")
+    print(report)
+    say("done", f"■ saved: {(base / 'summary.md').relative_to(ROOT)}")
+
+
+def eval_summary(agent, cases, results, folders):
+    """The eval as a short report: what holds, what fails and in which runs, what is undecided, and what to do next."""
+    runs = len(results)
+    _, _, tokens_in, tokens_out, seconds, dollars = totals([row for f in folders for row in summary_rows(f)[0]])
+    passes = {c["id"]: sum(r["cases"][c["id"]] for r in results) for c in cases}
+
+    def line(c):
+        k, failed = passes[c["id"]], [f"run-{r['run']}" for r in results if not r["cases"][c["id"]]]
+        where = f", failed in {', '.join(failed[:5])}{' and more' if len(failed) > 5 else ''}" if 0 < k < runs else ""
+        return f"- {c['id']}: {k}/{runs} ({round(100 * k / runs)}%){where}. {c.get('note', '')}"
+
+    checked = [c for c in cases if c.get("settled") is True]
+    groups = [
+        ("✓ Holds in every run", [c for c in checked if passes[c["id"]] == runs],
+         f"{runs} runs can still miss a failure that happens up to {100 - wilson(runs, runs)[0]}% of the time. "
+         "Run more before you rely on these."),
+        ("✗ Fails in some runs", [c for c in checked if 0 < passes[c["id"]] < runs],
+         "Open a failed run's folder and read its output and trace. If the agent was wrong, change spec.md. "
+         "If the agent was right and the case is too strict, change golden.jsonl."),
+        ("✗ Fails in every run", [c for c in checked if passes[c["id"]] == 0],
+         "Check one run to make sure the case is right, then change spec.md or harness.toml."),
+        ("○ Not decided yet: the agent decided for you", [c for c in cases if c.get("settled") is False],
+         "These cases are settled: false in golden.jsonl, so there is no right answer yet. The rate shows what the "
+         "agent chooses. Decide the answer, write it into spec.md, set settled to true, and run the eval again."),
+        ("? Not checked yet", [c for c in cases if c.get("settled") is None],
+         "Still drafts. Check each against the files and set settled to true or false."),
+    ]
+    out = [f"# Eval: {agent.name}", "",
+           f"{runs} runs of {agent.model} · {tokens_in + tokens_out:,} tokens · {money(dollars)} · "
+           f"{seconds / runs:.1f}s per run", ""]
+    stopped = [r for r in results if mark(r["outcome"]) == "✗"]
+    if stopped:
+        out += [f"## ✗ Stopped before the end ({len(stopped)} of {runs})", ""]
+        out += [f"- run-{r['run']}: {r['outcome']}" for r in stopped]
+        out += ["", "These runs fail every case below. Their traces/ show where they stopped.", ""]
+    for title, group, advice in groups:
+        if group:
+            out += [f"## {title} ({len(group)})", ""] + [line(c) for c in group] + ["", advice, ""]
+    out += ["## Next", "", "Change one thing, spec.md or the model, run the eval again, and compare its summary.md "
+            "with this one. Each run's files are in its own run-<n>/ folder."]
+    return "\n".join(out) + "\n"
 
 
 # ---------------------------------------------------------------- commands
