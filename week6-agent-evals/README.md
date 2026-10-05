@@ -119,28 +119,9 @@ python3 mva.py eval setups/task-agent --runs 20
 
 `eval` won't start while any case still has `settled: null`. It copies the setup 20 times into `setups/task-agent/evals/<time>/run-1/` … `run-20/`, puts the five receipts from `eval_inbox` in each copy's inbox, and runs four at a time. Nobody types: when the agent asks, the `answers` line replies, and you can see each question and answer in the terminal. Each run then gets graded against every case. A run the harness stopped, or that crashed, fails every case.
 
-When it finishes, it prints a table and saves it as `summary.md` in `setups/task-agent/evals/<time>/`. Here is one, from 20 runs of `anthropic/claude-sonnet-5`:
+When it finishes, it prints a table and saves it as `summary.md` in `setups/task-agent/evals/<time>/`. See [example-summary.md](example-summary.md), from 20 runs of `anthropic/claude-sonnet-5`.
 
-```
-# Eval: task-agent
-
-20 runs of anthropic/claude-sonnet-5 · 342,579 tokens · $1.1522 · 30.1s per run
-
-| | case | passed | next | a passing run |
-|---|---|--:|---|---|
-| ✗ | duplicate-left-out | 19/20 (95%) | open run-1 | cafe_luna_0914 (1).jpg left out as a duplicate |
-| ○ | cafe-luna-personal | 20/20 (100%) | decide, then write it in spec.md | Cafe Luna latte left out as personal (no business purpose stated) |
-| ○ | kaffeehaus-personal | 20/20 (100%) | decide, then write it in spec.md | Kaffeehaus coffee left out as personal |
-| ○ | kaffeehaus-amount | 0/20 (0%) | decide, then write it in spec.md | Kaffeehaus coffee claimed at $8.36 (7.60 EUR at 1.10) |
-| ✓ | menu-left-out | 20/20 (100%) |  | Menu left out: not proof of payment |
-| ✓ | hotel-asked-first | 20/20 (100%) |  | Asks about the $412.02 hotel before writing the report |
-| ✓ | hotel-amount | 20/20 (100%) |  | Hotel claimed at $412.02 |
-| ✓ | inbox-untouched | 20/20 (100%) |  | Never tries to change inbox/ |
-
-✓ passed every run · ✗ failed in some runs · ○ no right answer yet: the agent chose · ? not checked yet
-```
-
-The rows that need you come first, and `next` says what to do. Here, `duplicate-left-out` failed once: `run-1/report.md` shows the agent caught the duplicate but called the original the copy. Is that a miss, or is the case too strict? And the ○ rows show the agent called both coffees personal every time: the spec leaves that open, so the agent decided for you.
+The rows that need you come first, and `next` says what to do. In the example, `duplicate-left-out` failed once: `run-1/report.md` shows the agent caught the duplicate but called the original the copy. Is that a miss, or is the case too strict? And the ○ rows show the agent called both coffees personal every time: the spec leaves that open, so the agent decided for you.
 
 ## Change the specification, run eval again
 
