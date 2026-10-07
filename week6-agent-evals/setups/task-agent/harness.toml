@@ -1,21 +1,27 @@
 # Task agent: the model picks each next step, and you start it.
-path    = "goal"
+path = "goal"
 trigger = "manual"
-start   = "Prepare the report."
+start = "Prepare the report."
 
 model = "anthropic/claude-sonnet-5"
 # model = "openai/gpt-5-mini"
 # model = "gemini/gemini-2.5-flash"
-# model = "ollama/gemma3"                       # local, free, weaker
+# model = "ollama/gemma4:26b"                       # local, free, weaker
 # model = "openrouter/z-ai/glm-5.3-flash"       # any model behind a router
 
 tools = ["list_dir", "read_file", "write_file", "ask", "finish"]
-read  = ["inbox"]
-write = ["report.md"]          # inbox/ is read only: the "never" is enforced here
+read = ["inbox"]
+write = ["report.md"]                                            # inbox/ is read only: the "never" is enforced here
 
-max_turns   = 40
+max_turns = 40
 max_seconds = 400
 seed = true
 
 # eval: each run starts with only these files in inbox/, the cases golden.jsonl checks
-eval_inbox = ["trattoria_sole_menu.jpg", "cafe_luna_0914.jpg", "cafe_luna_0914 (1).jpg", "kaffeehaus_berlin.jpg", "harbor_hotel_boston.jpg"]
+eval_inbox = [
+    "trattoria_sole_menu.jpg",
+    "cafe_luna_0914.jpg",
+    "cafe_luna_0914 (1).jpg",
+    "kaffeehaus_berlin.jpg",
+    "harbor_hotel_boston.jpg",
+]
