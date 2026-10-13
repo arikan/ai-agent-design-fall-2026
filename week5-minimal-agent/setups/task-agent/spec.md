@@ -16,6 +16,7 @@ Every file in inbox/ is in the table or the left-out list, and every converted a
 The reimbursement policy:
 - Reimbursed: supplies and printing for coursework, travel to school events, meals with a business purpose.
 - Not reimbursed: personal meals and snacks, and anything without an itemized receipt.
+- On a hotel bill, claim room and tax only; meals are left out unless a business purpose is stated
 - Amounts in USD. Convert other currencies at the course rate: 1 EUR = 1.10 USD.
 - Anything over $200 needs approval before it is claimed.
 
