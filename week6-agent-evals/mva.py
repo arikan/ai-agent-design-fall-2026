@@ -1037,6 +1037,7 @@ def eval_summary(agent, cases, results, folders, where):
     where is the folder the report is saved in, so its link to spec.md works from there."""
     runs = len(results)
     spec = f"[{(agent.dir / 'spec.md').relative_to(ROOT)}]({os.path.relpath(agent.dir / 'spec.md', where)})"
+    golden = f"[{(agent.dir / 'golden.jsonl').relative_to(ROOT)}]({os.path.relpath(agent.dir / 'golden.jsonl', where)})"
     _, _, tokens_in, tokens_out, seconds, dollars = totals([row for f in folders for row in summary_rows(f)[0]])
     rows = []
     for c in cases:
@@ -1046,26 +1047,34 @@ def eval_summary(agent, cases, results, folders, where):
         if "verify?" in c["note"]:
             mark_, todo, order = "?", "check it in golden.jsonl", 2
         elif is_open(c):
-            mark_, todo, order = "○", f"answer it in {spec}", 1
+            mark_, todo, order = "○", f"decide it in {spec}", 1
         elif k < runs:
-            mark_, todo, order = "✗", "open " + ", ".join(failed[:3]) + (f" +{len(failed) - 3}" if len(failed) > 3 else ""), 0
+            mark_, todo, order = "✗", "read " + ", ".join(failed[:4]) + (f" and {len(failed) - 4} more" if len(failed) > 4 else ""), 0
         else:
             mark_, todo, order = "✓", "", 3
-        rows.append((order, mark_, f"| {mark_} | {c['line']} | {passed} | {todo} | {c['note']} |"))
+        rows.append((order, mark_, k, f"| {mark_} | {c['line']} | {passed} | {c['note']} | {todo} |"))
     out = [f"# Eval: {agent.name}", "",
            f"{runs} runs of {agent.model} · {tokens_in + tokens_out:,} tokens · {money(dollars)} · "
-           f"{seconds / runs:.1f}s per run", ""]
+           f"{seconds / runs:.1f}s per run", "",
+           f"After each run ends, mva.py checks that run's output (the files it wrote and the trace of its tool calls) "
+           f"against every line of the golden set, {golden}, one line at a time.", ""]
     stopped = [f"run-{r['run']}" for r in results if mark(r["outcome"]) == "✗"]
     if stopped:
-        out += [f"✗ {len(stopped)} run(s) stopped before the end and fail every case: {', '.join(stopped)}", ""]
-    out += ["| | line | passed | next | what passing means |", "|---|--:|--:|---|---|"]
-    out += [row for _, _, row in sorted(rows, key=lambda r: r[0])]
-    legend = {"✓": "✓ passed every run", "✗": "✗ failed in at least one run",
-              "○": "○ open question: decide it in the spec", "?": "? still a draft"}
-    shown = [legend[m] for m in legend if m in {r[1] for r in rows}]
-    lo, hi = wilson(runs // 2, runs)
-    out += ["", " · ".join(shown),
-            "", f"Note: {runs} runs give a rough rate. {runs // 2}/{runs} could really be anywhere from {lo}% to {hi}%."]
+        out += [f"✗ {len(stopped)} run(s) stopped before the end and fail every line: {', '.join(stopped)}", ""]
+    out += ["| | line | passed | note in the golden set | next |", "|---|--:|--:|---|---|"]
+    out += [row for *_, row in sorted(rows, key=lambda r: r[0])]
+    legend = {"✗": "**✗ failed in some runs.** Open those run folders, next to this file, and read what the agent wrote and did. "
+                   "If the agent was wrong, make the spec clearer. If the check was wrong, fix that line of the golden set.",
+              "○": "**○ open question.** The note asks something the spec doesn't decide yet, so the count shows what the agent "
+                   "did, not whether it was right. Decide it in the spec, then rewrite the note as a statement.",
+              "?": "**? draft.** No person has checked this line yet: read it in golden.jsonl and rewrite its note.",
+              "✓": "**✓ passed every run.**"}
+    shown = [f"- {legend[m]}" for m in legend if m in {r[1] for r in rows}]
+    lowest = min(k for _, _, k, _ in rows) if rows else runs
+    lo, hi = wilson(lowest, runs)
+    out += ["", *shown,
+            "", f"{runs} runs give a rough rate: {lowest}/{runs} could really be anywhere from {lo}% to {hi}%. "
+            "Change one thing (the spec, the golden set, or the model), run the eval again, and compare the two summaries."]
     return "\n".join(out) + "\n"
 
 
