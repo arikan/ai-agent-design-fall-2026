@@ -145,6 +145,34 @@ def keyword_hits(keywords, p):
     return score / (2 * len(keywords))
 
 
+# Which of the student's lists informs which dimension. The matcher sees each list
+# next to the dimension it belongs to, so a score can be traced to what it used.
+DIMENSION_INPUTS = {
+    "role": ("target_roles", "The student's target roles"),
+    "industry": ("industries", "The student's target industries"),
+    "background": ("keywords", "The student's background keywords"),
+}
+
+
+def with_inputs(search):
+    """The search's dimensions, each with the student's own input that applies to it."""
+    out = []
+    for d in search["preferences"]["dimensions"]:
+        d = dict(d)
+        field, label = DIMENSION_INPUTS.get(d["key"], (None, None))
+        parts = []
+        if field and search.get(field):
+            parts.append(f"{label}: {', '.join(search[field])}.")
+        if d["key"] == "background":
+            parts.append("Compare them, and the CV text if there is one, with the posting's requirements."
+                         if (search.get("cv_text") or "").strip() or search.get("keywords")
+                         else "No CV or background keywords given: score unknown.")
+        if parts:
+            d["inputs"] = " ".join(parts)
+        out.append(d)
+    return out
+
+
 def norm_title(t):
     """Make job titles comparable: 'Vice President of Product' and 'VP, Product' both become 'vp product'."""
     t = t.lower().replace("&", " and ")
@@ -231,7 +259,7 @@ def prepare(config):
         "searches": [{"id": s["id"], "name": s["name"], "cv_version": s["cv_version"],
                       "prefs_version": s["prefs_version"], "cv_text": s.get("cv_text", ""), "keywords": s.get("keywords", []),
                       "target_roles": s.get("target_roles", []), "industries": s.get("industries", []),
-                      "dimensions": s["preferences"]["dimensions"]} for s in searches],
+                      "dimensions": with_inputs(s)} for s in searches],
         "items": items,
         "answer_format": {
             "file": "work/judgments.json",

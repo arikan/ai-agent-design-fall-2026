@@ -10,9 +10,9 @@ At the end the student has their own Job Agent page, a daily scheduled task that
 
 Ask the student, in one message:
 
-> Which roles are you looking for, which skills or topics matter, and which industries would you like to work in? For example: "Head of Product, VP of Product; design systems, research; fintech, AI". Also, where are you based, so the daily run happens in your morning? Skip anything you like; I'll use sensible defaults and you can change everything later on your page.
+> Which roles are you looking for, which industries would you like to work in, and what's your background in a few keywords? For example: "Head of Product, VP of Product; fintech, AI; 8 years in product, B2B SaaS, design systems". Also, where are you based, so the daily run happens in your morning? Skip anything you like; I'll use sensible defaults and you can change everything later on your page.
 
-Turn the roles into `target_roles`, the skills and topics into `keywords`, and the industries into `industries` (comma separated lists). Use their time zone for the schedule, or `America/New_York` if they skip it.
+Turn the roles into `target_roles`, the industries into `industries`, and the background into `keywords` (comma separated lists). Use their time zone for the schedule, or `America/New_York` if they skip it.
 
 ## 2. Get the files
 

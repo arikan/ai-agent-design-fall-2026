@@ -384,8 +384,8 @@ function renderSearchEditor(){
       <input type="checkbox" id="s-active" checked hidden>
       <label for="s-roles">Target roles<input type="text" id="s-roles" value="${esc((s.target_roles||[]).join(", "))}" placeholder="Head of Product, VP of Product, Product Lead"></label>
       <label for="s-ind">Target industries<input type="text" id="s-ind" value="${esc((s.industries||[]).join(", "))}" placeholder="AI, crypto, fintech, climate tech"></label>
-      <label for="s-kw">Target keywords<input type="text" id="s-kw" value="${esc((s.keywords||[]).join(", "))}" placeholder="design research, prototyping, design systems"></label>
-      <p class="small muted" style="margin:0">Separate with commas. Roles are matched to job titles, industries and keywords to the whole posting. Together they pick which postings get scored.</p>
+      <label for="s-kw">Background keywords<input type="text" id="s-kw" value="${esc((s.keywords||[]).join(", "))}" placeholder="design research, prototyping, 5 years in product design"></label>
+      <p class="small muted" style="margin:0">Separate with commas. Roles guide Role fit, industries guide Industry alignment, and your background keywords (with your CV, if added) guide Background match. They also pick which postings get scored.</p>
     </div>
     <div class="card stack">
       <h3>CV</h3>
@@ -420,7 +420,7 @@ function dimRow(d,i){
   return `<div class="dimrow" data-i="${i}">
     <label for="dn-${i}">Name<input type="text" id="dn-${i}" value="${esc(d.name)}" data-key="${esc(d.key)}"></label>
     <label for="dw-${i}">Weight<span class="weight"><input type="range" id="dw-${i}" min="0" max="5" value="${d.weight}" oninput="this.nextElementSibling.value=this.value"><output>${d.weight}</output></span></label>
-    <label for="dr-${i}">What strong and weak fit mean to you<textarea id="dr-${i}" rows="2">${esc(d.rubric)}</textarea></label>
+    <label for="dr-${i}">What strong and weak fit mean to you${({role:"Target roles", industry:"Target industries", background:"Background keywords and CV"})[d.key] ? ` <span class="muted" style="font-weight:400">· also uses your ${({role:"Target roles", industry:"Target industries", background:"Background keywords and CV"})[d.key]}</span>` : ""}<textarea id="dr-${i}" rows="2">${esc(d.rubric)}</textarea></label>
     <button type="button" class="btn" data-rm="${i}" aria-label="Remove dimension" style="margin-top:20px">×</button></div>`;
 }
 function readDims(){
