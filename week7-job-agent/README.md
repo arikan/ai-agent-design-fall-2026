@@ -146,6 +146,7 @@ week7-job-agent/
 ├── adapters/            one file per adapter type, plus fixtures/
 ├── corpus/postings.jsonl  20 fictional postings for repeatable tests
 ├── examples/            a sample config and a sample source
+├── defaults/agent.json  starting agent settings for a new Job Agent page (corpus off)
 ├── caps.json            course limits
 └── pyproject.toml, uv.lock
 ```

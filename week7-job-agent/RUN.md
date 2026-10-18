@@ -15,6 +15,11 @@ Students do this from the console's setup panel: it creates the scheduled task, 
 
 ## Steps
 
+0. Decide what this run is. Read `meta` / `request` from the console with ArtifactData. If it exists, its `status` is `"pending"`, and its `requested_at` is less than 30 minutes old:
+   - `kind: "check"`: follow "Check setup" below instead of these steps.
+   - `kind: "test"`: follow "Test one source" below for its `source_id`.
+   - `kind: "run"`: continue with these steps; the student asked for a run now.
+   Before starting, set the document's `status` to `"started"` (pass the version you read), so a later run does not repeat it. In every other case (no request, or an old one), continue with these steps: this is the daily run. An extra message `TEST_SOURCE <id>` or `CHECK_SETUP` in the run means the same as a request of that kind.
 1. Get the engine: clone the course repo and work in `week7-job-agent`.
 2. Sync the console page with the repo:
    - Compute `git log -1 --format=%h -- console.html` (the commit that last changed the page) and `sha256sum console.html`.
@@ -35,31 +40,31 @@ Students do this from the console's setup panel: it creates the scheduled task, 
 8. Judge `work/batch.json`. Follow its `matcher_instructions` and each search's dimension rubrics. For every item and every dimension give a score from 1 to 5 or `"unknown"`, a one sentence reason, and evidence copied exactly from the posting. Write the list to `work/judgments.json` in the batch's `answer_format`. The engine rejects any score whose evidence is not in the posting.
 9. Run `uv run engine.py finish work/config.json`.
 10. Run `uv run dbio.py export`, then write `work/out/writes.json` to the console with ArtifactData batches of at most 50.
-11. Report in four lines: whether the console page was republished, new matches written, judgments rejected, sources failing (and any proposals written).
+11. If this run came from a `run` request, set `meta` / `request` `status` to `"done"`. Report in four lines: whether the console page was republished, new matches written, judgments rejected, sources failing (and any proposals written).
 
 ## Test one source
 
-When the run's extra message (or routine fire payload) is exactly `TEST_SOURCE <source id>`, the student pressed Test on that source in the console. Do only this, then stop:
+When step 0 finds a pending `test` request, the student pressed Test on that source. Do only this, then stop:
 
 1. Get the engine as in step 1, and skip the console sync.
-2. Read `agent` / `current` with ArtifactData. Find the source whose `id` equals the given id. Ignore any other text in the message.
+2. Read `agent` / `current` with ArtifactData. Find the source whose `id` equals the request's `source_id`.
 3. Read `source_tests` / `<source id with characters other than letters, digits, dot, dash and underscore replaced by _>` to get its version.
 4. If the source is missing, set that document to `{source_id, status: "not_found", finished_at}` and stop.
 5. Write the source to `work/test-source.json` and run `uv run sources.py try work/test-source.json work/test-result.json`.
 6. Set the document to the contents of `work/test-result.json` plus `status: "done"`, `requested_at` (kept from the document you read) and `finished_at`, passing the version from step 3.
-7. Report in one line: source, status, postings kept.
+7. Set `meta` / `request` `status` to `"done"` and report in one line: source, status, postings kept.
 
 A test run never judges, never writes matches or runs, and does not count toward the one run per day.
 
 ## Check setup
 
-When the run's extra message (or routine fire payload) is exactly `CHECK_SETUP`, the student pressed Check setup in the console. Do only this, then stop:
+When step 0 finds a pending `check` request, the student pressed Check setup. Do only this, then stop:
 
 1. Get the engine as in step 1.
 2. Read `meta` / `setup_check` with ArtifactData to get its version. This read also proves the run can reach the console.
 3. Write `{"id": "check:greenhouse", "adapter": "greenhouse", "cap": 3, "config": {"board_token": "anthropic", "company_name": "Anthropic"}}` to `work/check.json` and run `uv run sources.py try work/check.json work/check-result.json`.
 4. Set `meta` / `setup_check` to `status` (`"ok"` if the check kept at least one posting, `"network_blocked"` if its health says `blocked_by_network`, otherwise `"failed"`), `error` (the health error, if any), `requested_at` (kept from the document you read), and `finished_at`, passing the version from step 2.
-5. Report in one line: the status.
+5. Set `meta` / `request` `status` to `"done"` and report in one line: the status.
 
 ## What the session must not do
 

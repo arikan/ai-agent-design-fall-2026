@@ -135,6 +135,22 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .stepmark.later{color:var(--muted)}
 .stepmark.done{background:var(--accent);border-color:var(--accent);color:var(--surface)}
 .promptbox{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border-radius:6px;padding:10px 12px;margin:0;flex:1;min-width:0;font-size:12px}
+.conn{display:inline-flex;align-items:center;gap:6px;appearance:none;border:0;background:none;padding:2px 4px;margin:-2px -4px;border-radius:6px;font:inherit;color:inherit}
+.conn:not(:disabled){cursor:pointer}.conn:not(:disabled):hover{background:var(--sunk)}
+.conn:disabled{cursor:default;color:inherit}
+.xbtn{appearance:none;border:0;background:none;color:var(--muted);width:28px;height:28px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.xbtn:hover{background:var(--sunk);color:var(--fg)}
+.chev{color:var(--fg);transition:transform .15s;margin-left:-2px}
+.conn{padding:4px 8px;margin:-4px -8px;border:1px solid transparent}
+.conn:not(:disabled):hover{border-color:var(--line)}
+.conn[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.lamp{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.conn[data-state="on"] .lamp{background:#2FB872;box-shadow:0 0 0 3px color-mix(in srgb,#2FB872 22%,transparent),0 0 6px #2FB872}
+.conn[data-state="wait"] .lamp{background:var(--warn)}
+.conn[data-state="off"] .lamp{background:var(--bad)}
+.conn[data-state="off"]{color:var(--bad)}
+@media (prefers-reduced-motion:no-preference){.conn[data-state="wait"] .lamp{animation:blink 1.2s ease-in-out infinite}}
+@keyframes blink{50%{opacity:.35}}
 .linkbtn{appearance:none;border:0;background:none;padding:0;color:var(--accent);font:600 13px var(--font-ui);cursor:pointer}
 #setup{margin-bottom:20px}
 .testbox{border:1px solid var(--line);background:var(--sunk);border-radius:6px;padding:8px 12px}
@@ -157,7 +173,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 <div class="wrap">
   <header>
     <h1>Job Agent</h1>
-    <span class="small muted"><button type="button" class="linkbtn" id="open-setup" hidden>Setup</button> <span id="conn">Connecting to your database…</span><span id="build"></span></span>
+    <span class="small muted"><button type="button" class="conn" id="conn-wrap" data-state="wait" aria-expanded="false" aria-controls="setup" disabled><i class="lamp" aria-hidden="true"></i><span id="conn">Connecting…</span><svg class="chev" id="conn-chev" hidden viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span id="build"></span></span>
   </header>
 
   <section id="setup" hidden></section>
@@ -199,6 +215,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
   </section>
 
   <section id="view-runs" class="panel" hidden>
+    <div id="runs-top"></div>
     <div id="runs"><div class="card empty">Each run of the agent appears here, with what it fetched, what it filtered out, and every step it took.</div></div>
   </section>
 </div>
@@ -216,7 +233,7 @@ const DEFAULT_DIMS = [
   {key:"upside", name:"Upside potential", weight:2, rubric:"Strong: growing company, equity, room to rise. Weak: flat or shrinking."},
   {key:"growth", name:"Growth and learning", weight:4, rubric:"Strong: mentorship, new skills, stretch scope. Weak: repetitive work, no support."}
 ];
-const S = {db:null, searches:[], agent:null, runs:[], matches:[], judgments:{}, proposals:{}, tests:{}, runner:null, view:"matches", editing:null};
+const S = {db:null, searches:[], agent:null, runs:[], matches:[], judgments:{}, proposals:{}, tests:{}, runner:null, request:null, check:null, view:"matches", editing:null};
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money = (a,b) => a==null && b==null ? "Pay not listed" : "$" + [a,b].filter(x=>x!=null).map(x=>Math.round(x/1000)+"k").join("–");
@@ -250,7 +267,11 @@ function renderMatches(){
   rows = [...rows].sort((a,b) => b.total - a.total);
   $("c-matches").textContent = S.matches.length || "";
   $("m-summary").textContent = scope.length ? `${scope.filter(m=>S.judgments[m.id]).length} of ${scope.length} judged` : "";
-  if (!rows.length){ $("matches").innerHTML = `<div class="card empty">${S.matches.length ? "Nothing left to judge here." : "Matches appear here after the agent's first run. Each one shows a score per dimension, the reason, and the words from the posting it relied on."}</div>`; return; }
+  if (!rows.length){
+    if (S.matches.length){ $("matches").innerHTML = `<div class="card empty">Nothing left to judge here.</div>`; return; }
+    $("matches").innerHTML = `<div class="card empty stack" style="justify-items:center;gap:10px"><span>Matches appear here after your agent's first run. Each one shows a score per dimension, the reason, and the words from the posting it relied on.</span>${setupDone() ? `<div style="width:min(100%,520px);text-align:left">${runNowBlock("first")}</div>` : `<button type="button" class="btn" data-opensetup>Finish setup</button>`}</div>`;
+    return;
+  }
   $("matches").innerHTML = rows.map(m => {
     const j = S.judgments[m.id];
     const sname = S.searches.find(s=>s.id===m.search_id)?.name || m.search_id;
@@ -735,7 +756,7 @@ async function testSource(id){
   const ref = S.db.doc("source_tests/" + safeId(id)), requested_at = S.pending[id].at;
   try {
     await ref.set({source_id:id, status:"requested", requested_at});
-    const res = await MCP.callTool(RUNNER, "fire_trigger", {trigger_id:S.runner.trigger_id, text:"TEST_SOURCE " + id});
+    const res = await startTask("test", {source_id:id}, "TEST_SOURCE " + id);
     delete S.pending[id];
     const url = findSession(res.payload ?? res);
     if (url) await ref.update({session_url:url});
@@ -784,7 +805,7 @@ setInterval(() => {
 /* ---------- setup ---------- */
 const COURSE_REPO = "https://github.com/arikan/ai-agent-design-fall-2026";
 const TASK_NAME = "Job agent daily run";
-S.setup = {copied:false, netDone:false, checkAt:null, checkError:"", open:false};
+S.setup = {copied:false, netDone:false, checkAt:null, checkError:"", open:null, changing:false, tasks:null, tasksError:""};
 function taskPrompt(){
   const url = S.app?.console_url || "(this console's link)";
   return `You run a student's job agent. Clone ${COURSE_REPO} (a shallow clone is enough) and work in its week7-job-agent folder. Follow week7-job-agent/RUN.md exactly, starting at "Steps".
@@ -814,8 +835,10 @@ function checkPhase(){
 function renderSetup(){
   const box = $("setup"); if (!box || !S.db) return;
   const done = setupDone();
-  $("open-setup").hidden = !done;
-  if (done && !S.setup.open){ box.hidden = true; return; }
+  const open = S.setup.open === null ? !done : S.setup.open;
+  const cw = $("conn-wrap"); cw.disabled = false; $("conn-chev").hidden = false;
+  cw.title = open ? "Hide setup" : "Show setup"; cw.setAttribute("aria-expanded", String(open));
+  if (!open){ box.hidden = true; return; }
   box.hidden = false;
   const has = !!S.runner?.trigger_id, ph = checkPhase();
   // Only the current step shows its details; finished steps shrink to one line, later steps to their title.
@@ -825,7 +848,12 @@ function renderSetup(){
   const mark = n => state(n) === "done" ? `<span class="stepmark done" aria-label="Step ${n}, done">✓</span>` : `<span class="stepmark ${state(n)}" aria-label="Step ${n}">${n}</span>`;
   const msgDetails = `<details class="small"><summary>See the message</summary><pre class="mono promptbox" id="prompt-text">${esc(setupMessage())}</pre></details>`;
   const body = {
-    1: { done: `<p class="small muted">Daily run: <b>${esc(S.runner?.name || TASK_NAME)}</b> · <button type="button" class="linkbtn" data-setup="change">Change</button></p>`,
+    1: { done: !S.setup.changing
+           ? `<p class="small muted">Daily run: <b>${esc(S.runner?.name || TASK_NAME)}</b> · <button type="button" class="linkbtn" data-setup="change">Change</button></p>`
+           : S.setup.tasks === null && !S.setup.tasksError
+             ? `<p class="small row"><span class="spin" aria-hidden="true"></span>Looking up your scheduled tasks…</p>`
+             : `${S.setup.tasksError ? `<div class="status err">${esc(S.setup.tasksError)}</div>` : ""}
+                <div class="row">${S.setup.tasks?.length ? `<select id="task-sel" aria-label="Scheduled task">${S.setup.tasks.map(t=>`<option value="${esc(t.id)}" ${t.id===S.runner?.trigger_id?"selected":""}>${esc(t.name||t.id)}</option>`).join("")}</select><button type="button" class="btn primary" data-setup="usetask">Use this task</button>` : ""}<button type="button" class="btn" data-setup="cancelchange">Cancel</button></div>`,
          now: !S.setup.copied
            ? `<p>Claude Code runs your agent in the cloud once a day, even when your laptop is closed. Claude sets it up when you send it a message.</p>
               <div class="row"><button type="button" class="btn primary" data-setup="copy">Copy setup message</button></div>${msgDetails}`
@@ -836,11 +864,12 @@ function renderSetup(){
          now: `${ph === "network_blocked" ? `<div class="testbox bad small" role="alert"><b>Your run couldn't reach a job site.</b> The network setting hasn't changed yet, or it was saved on a different environment.</div>` : ""}
            <p>Your daily run needs permission to reach job sites. Do this once:</p>
            <ol class="small">
-             <li>Open <a class="ext" href="https://claude.ai/code/routines" target="_blank" rel="noopener">your scheduled tasks in Claude Code ↗</a>, open <b>${esc(S.runner?.name || TASK_NAME)}</b>, and choose <b>Edit</b>.</li>
-             <li>Below the instructions, click the cloud icon with the environment's name, then the settings icon next to it.</li>
-             <li>Set <b>Network access</b> to <b>Full</b>, then <b>Save changes</b>.</li></ol>
+             <li>Open the Claude Code session where you sent the setup message. It's listed under <b>Recents</b> in <a class="ext" href="https://claude.ai/code" target="_blank" rel="noopener">Claude Code ↗</a>.</li>
+             <li>Click the arrow after the session's title at the top and choose <b>Edit cloud environment</b>.</li>
+             <li>Set <b>Network access</b> to <b>Full</b> and save.</li></ol>
            <div class="row"><button type="button" class="btn primary" data-setup="netdone">I've changed it, check my setup</button></div>` },
-    3: { done: `<p class="small muted">Checked ${esc(when(S.check?.finished_at))}. Your agent can reach job sites and save its results here.</p>`,
+    3: { done: `<p class="small muted">Checked ${esc(when(S.check?.finished_at))}. Your agent can reach job sites and save its results here.</p>
+           ${!S.matches.length ? `<div class="stack" style="gap:6px"><p><b>You're set.</b> Your agent runs every morning. To see matches now instead of tomorrow:</p><div>${runNowBlock("first")}</div></div>` : ""}`,
          now: ph === "starting" ? `<button class="btn busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Starting the check…</button>`
            : ph === "running" ? `<div class="testbox small stack" style="gap:6px" role="status"><div class="row between"><span class="row"><span class="spin" aria-hidden="true"></span><b>Checking</b></span><span class="mono" data-elapsed="${esc(S.check.requested_at)}">0:00</span></div><div class="bar"><i></i></div><span class="muted">A cloud run is starting, reaching a job site, and writing back here. This usually takes 2 to 5 minutes; you can leave this page.</span></div>`
            : `${ph === "not_started" ? `<div class="testbox bad small" role="alert"><b>The check didn't start.</b> ${esc(S.setup.checkError)}</div>` : ""}
@@ -850,7 +879,7 @@ function renderSetup(){
   };
   const step = (n, title) => `<div class="step ${state(n)}">${mark(n)}<div class="stack" style="gap:8px"><h3>${title}</h3>${state(n) === "later" ? "" : body[n][state(n)]}</div></div>`;
   box.innerHTML = `<div class="card stack setup">
-    <div class="row between"><h2>${done ? "Setup" : "Set up your agent"}</h2>${done ? `<button type="button" class="btn" data-setup="close">Close</button>` : `<span class="small muted">Step ${Math.min(cur, 3)} of 3</span>`}</div>
+    <div class="row between"><h2>${done ? "Setup" : "Set up your agent"}</h2><span class="row">${done ? "" : `<span class="small muted">Step ${Math.min(cur, 3)} of 3</span>`}<button type="button" class="xbtn" data-setup="close" aria-label="Hide setup" title="Hide setup"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></span></div>
     ${step(1, "Create your daily run")}
     ${step(2, "Let it reach job sites")}
     ${step(3, "Check that it works")}
@@ -877,7 +906,7 @@ async function checkSetup(){
   try {
     if (!MCP) throw {code:"capability_disabled"};
     await ref.set({status:"requested", requested_at:S.setup.checkAt});
-    await MCP.callTool(RUNNER, "fire_trigger", {trigger_id:S.runner.trigger_id, text:"CHECK_SETUP"});
+    await startTask("check", {}, "CHECK_SETUP");
     S.setup.checkAt = null;
   } catch(e){ S.setup.checkError = mcpMessage(e); }
   renderSetup();
@@ -889,16 +918,69 @@ document.addEventListener("click", async e => {
   else if (act === "check") checkSetup();
   else if (act === "netdone"){ S.setup.netDone = true; checkSetup(); }
   else if (act === "close"){ S.setup.open = false; renderSetup(); }
-  else if (act === "change"){ S.setup.copied = false; await S.db.doc("meta/agent").delete(); }
+  else if (act === "change"){
+    S.setup.changing = true; S.setup.tasks = null; S.setup.tasksError = ""; renderSetup();
+    try { if (!MCP) throw {code:"capability_disabled"}; const res = await MCP.callTool(RUNNER, "list_triggers", {limit:50}); S.setup.tasks = (res.payload?.data || []).filter(t => t && t.id); if (!S.setup.tasks.length) S.setup.tasksError = "No scheduled tasks found."; }
+    catch(err){ S.setup.tasks = []; S.setup.tasksError = mcpMessage(err); }
+    renderSetup();
+  }
+  else if (act === "cancelchange"){ S.setup.changing = false; renderSetup(); }
+  else if (act === "usetask"){
+    const t = S.setup.tasks.find(x => x.id === $("task-sel").value);
+    b.disabled = true; b.innerHTML = `<span class="spin" aria-hidden="true"></span>Saving…`;
+    try {
+      if (t.id !== S.runner?.trigger_id){ await connectRunner(t.id, t.name); await S.db.doc("meta/setup_check").delete().catch(()=>{}); S.setup.netDone = false; }
+      S.setup.changing = false; renderSetup();
+    } catch(err){ S.setup.tasksError = "Could not save: " + (err.message || err.code); renderSetup(); }
+  }
   else if (act === "copy"){
     try { await navigator.clipboard.writeText(setupMessage()); S.setup.copied = true; renderSetup(); }
     catch(err){ const d = b.closest(".stack").querySelector("details"); if (d) d.open = true; const r=document.createRange(); r.selectNodeContents($("prompt-text")); getSelection().removeAllRanges(); getSelection().addRange(r); S.setup.copied = true; b.textContent = "Selected below, copy it"; setTimeout(renderSetup, 2500); }
   }
 });
-$("open-setup").addEventListener("click", () => { S.setup.open = true; renderSetup(); $("setup").scrollIntoView({block:"start"}); });
+$("conn-wrap").addEventListener("click", () => { if (!S.db) return; const cur = S.setup.open === null ? !setupDone() : S.setup.open; S.setup.open = !cur; renderSetup(); if (S.setup.open) $("setup").scrollIntoView({block:"nearest"}); });
+
+/* ---------- requests and run now ---------- */
+// Every button that starts the daily run's task first records what it wants in meta/request.
+// The run reads that before anything else, so it never depends on the order messages arrive in.
+async function startTask(kind, extra, text){
+  await S.db.doc("meta/request").set({kind, status:"pending", requested_at:new Date().toISOString(), ...extra});
+  return MCP.callTool(RUNNER, "fire_trigger", {trigger_id:S.runner.trigger_id, ...(text ? {text} : {})});
+}
+S.runNow = {at:null, error:""};
+function runNowPhase(){
+  const r = S.request;
+  if (S.runNow.at && (!r || r.kind !== "run" || new Date(r.requested_at) < new Date(S.runNow.at))) return S.runNow.error ? "not_started" : "starting";
+  if (!r || r.kind !== "run") return "idle";
+  const finished = S.runs.find(x => x.started && new Date(x.started) >= new Date(r.requested_at) - 60000);
+  if (finished) return "done";
+  return (Date.now() - new Date(r.requested_at)) / 60000 > 30 ? "stale" : "running";
+}
+function runNowBlock(context){
+  const ph = runNowPhase(), r = S.request;
+  if (ph === "starting") return `<button class="btn busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Starting…</button>`;
+  if (ph === "running") return `<div class="testbox small stack" style="gap:6px" role="status"><div class="row between"><span class="row"><span class="spin" aria-hidden="true"></span><b>Finding matches</b></span><span class="mono" data-elapsed="${esc(r.requested_at)}">0:00</span></div><div class="bar"><i></i></div><span class="muted">A cloud run is fetching postings from your sources, filtering them, and scoring the best candidates. This usually takes 3 to 8 minutes; matches appear here when it finishes.</span></div>`;
+  const btn = label => `<button type="button" class="btn primary" data-runnow>${label}</button>`;
+  if (ph === "not_started") return `<div class="testbox bad small" role="alert"><b>The run didn't start.</b> ${esc(S.runNow.error)}</div>${btn("Try again")}`;
+  if (ph === "stale") return `<div class="testbox bad small" role="alert"><b>No result after 30 minutes.</b> Open your scheduled task in Claude Code to see what happened.</div>${btn("Try again")}`;
+  return btn(context === "first" ? "Find my first matches" : "Run now");
+}
+async function runNow(){
+  if (!S.runner?.trigger_id){ S.setup.open = true; renderSetup(); return; }
+  S.runNow = {at:new Date().toISOString(), error:""}; renderAll();
+  try { if (!MCP) throw {code:"capability_disabled"}; await startTask("run", {}); S.runNow.at = null; }
+  catch(e){ S.runNow.error = mcpMessage(e); }
+  renderAll();
+}
+function renderAll(){ renderMatches(); renderRuns(); renderSetup(); }
+document.addEventListener("click", e => {
+  if (e.target.closest("[data-runnow]")) runNow();
+  if (e.target.closest("#matches [data-opensetup]")){ S.setup.open = true; renderSetup(); $("setup").scrollIntoView({block:"start"}); }
+});
 
 /* ---------- runs ---------- */
 function renderRuns(){
+  const top = $("runs-top"); if (top) top.innerHTML = setupDone() ? `<div class="card row between"><span class="small muted">Your agent runs every morning. One run per day; a run you start now counts as today's.</span><div>${runNowBlock("again")}</div></div>` : "";
   $("c-runs").textContent = S.runs.length || "";
   if (!S.runs.length){ $("runs").innerHTML = `<div class="card empty">Each run of the agent appears here, with what it fetched, what it filtered out, and every step it took.</div>`; return; }
   $("runs").innerHTML = S.runs.map((r,idx) => {
@@ -919,16 +1001,18 @@ function renderRuns(){
 /* ---------- data ---------- */
 (async () => {
   const db = await window.claude?.use?.("db");
-  if (!db){ $("conn").textContent = "Your database is unavailable in this view. Open the page signed in to Claude."; return; }
-  S.db = db; $("conn").textContent = "Connected";
-  const fail = e => { $("conn").textContent = "Lost the connection to your database. Reload the page."; };
+  const setConn = (state, text) => { $("conn-wrap").dataset.state = state; $("conn").textContent = text; };
+  if (!db){ setConn("off", "Unavailable here. Open the page signed in to Claude."); return; }
+  S.db = db; setConn("on", "Connected");
+  const fail = e => { setConn("off", "Connection lost. Reload the page."); };
   db.collection("searches").onSnapshot(q => { S.searches = q.docs.map(d => ({id:d.id, ...structuredClone(d.data())})); renderSearchList(); if (S.editing && S.editing!=="new" && !document.activeElement?.closest?.("#sform")) renderSearchEditor(); renderMatches(); }, fail);
   db.doc("agent/current").onSnapshot(d => { S.agent = d.exists ? structuredClone(d.data()) : null; if (!document.activeElement?.closest?.("#aform")) renderAgent(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
   db.collection("runs").orderBy("started","desc").limit(20).onSnapshot(q => { S.runs = q.docs.map(d => d.data()); renderRuns(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
   db.collection("matches").onSnapshot(q => { S.matches = q.docs.map(d => ({id:d.id, ...d.data()})); renderMatches(); }, fail);
   db.collection("source_tests").onSnapshot(q => { S.tests = Object.fromEntries(q.docs.map(d => [d.data().source_id, d.data()])); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
   db.doc("meta/agent").onSnapshot(d => { S.runner = d.exists ? d.data() : null; renderSetup(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
-  db.doc("meta/setup_check").onSnapshot(d => { S.check = d.exists ? d.data() : null; renderSetup(); }, fail);
+  db.doc("meta/setup_check").onSnapshot(d => { const was = S.check?.status; S.check = d.exists ? d.data() : null; if (was && was !== "ok" && S.check?.status === "ok") S.setup.open = true; renderSetup(); }, fail);
+  db.doc("meta/request").onSnapshot(d => { S.request = d.exists ? d.data() : null; renderAll(); }, fail);
   db.doc("meta/app").onSnapshot(d => { S.app = d.exists ? d.data() : null; renderSetup(); }, fail);
   db.doc("meta/console").onSnapshot(d => { const m = d.exists ? d.data() : null;
     $("build").textContent = m ? ` · page from commit ${m.commit}, published ${when(m.published_at)}` : ""; }, fail);
