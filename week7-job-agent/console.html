@@ -184,7 +184,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 
   <nav role="tablist" aria-label="Sections">
     <button role="tab" id="tab-matches" aria-selected="true" data-view="matches">Matches<span class="count" id="c-matches"></span></button>
-    <button role="tab" id="tab-searches" aria-selected="false" data-view="searches">Searches<span class="count" id="c-searches"></span></button>
+    <button role="tab" id="tab-searches" aria-selected="false" data-view="searches">Search<span class="count" id="c-searches" hidden></span></button>
     <button role="tab" id="tab-sources" aria-selected="false" data-view="sources">Sources<span class="count" id="c-sources"></span></button>
     <button role="tab" id="tab-agent" aria-selected="false" data-view="agent">Agent</button>
     <button role="tab" id="tab-runs" aria-selected="false" data-view="runs">Runs<span class="count" id="c-runs"></span></button>
@@ -203,7 +203,8 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
   </section>
 
   <section id="view-searches" class="panel" hidden>
-    <div class="row between">
+    <!-- One search for now. The engine accepts up to caps.json max_searches; unhide this row to allow more. -->
+    <div class="row between" hidden>
       <div class="tabs-inline" id="search-list"></div>
       <button class="btn" id="new-search">New search</button>
     </div>
@@ -360,7 +361,7 @@ function renderSearchList(){
     ? `<div class="segs-tabs" role="tablist" aria-label="Your searches">${S.searches.map(s => `<button role="tab" class="segtab" aria-selected="${S.editing===s.id}" data-sid="${esc(s.id)}">${esc(s.name)}${s.active?"":` <span class="muted">· paused</span>`}</button>`).join("")}${S.editing === "new" ? `<button role="tab" class="segtab" aria-selected="true">New search</button>` : ""}</div>` : "";
   $("search-list").innerHTML = `${tabs}<span class="small muted">${active} of ${COURSE_CAPS.max_searches} searches active</span>`;
   if (!S.editing && S.searches[0]) S.editing = S.searches[0].id;
-  if (!S.searches.length && S.editing !== "new") $("search-editor").innerHTML = `<div class="card empty">No searches yet. A search pairs one CV with one set of preferences. Start with <b>New search</b>.</div>`;
+  if (!S.searches.length && S.editing !== "new"){ S.editing = "new"; renderSearchEditor(); }
 }
 $("search-list").addEventListener("click", e => { const b=e.target.closest("button[data-sid]"); if(!b) return; S.editing=b.dataset.sid; renderSearchList(); renderSearchEditor(); });
 $("new-search").addEventListener("click", () => { S.editing="new"; renderSearchList(); renderSearchEditor(); });
@@ -381,7 +382,7 @@ function renderSearchEditor(){
         <span class="small muted mono">${s.id ? `CV v${s.cv_version} · preferences v${s.prefs_version}` : ""}</span></div>
       <div class="grid2">
         <label for="s-name">Name<input type="text" id="s-name" value="${esc(s.name)}" placeholder="e.g. Design leadership, remote" required></label>
-        <label class="inline" for="s-active" style="align-self:end"><input type="checkbox" id="s-active" ${s.active?"checked":""}> Active in daily runs</label>
+        <input type="checkbox" id="s-active" checked hidden>
       </div>
       <label for="s-roles">Target roles<input type="text" id="s-roles" value="${esc((s.target_roles||[]).join(", "))}" placeholder="Head of Product, VP of Product, Product Lead"></label>
       <label for="s-ind">Target industries<input type="text" id="s-ind" value="${esc((s.industries||[]).join(", "))}" placeholder="AI, crypto, fintech, climate tech"></label>
