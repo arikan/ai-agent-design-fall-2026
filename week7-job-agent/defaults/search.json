@@ -1,0 +1,70 @@
+{
+ "name": "My first search",
+ "active": true,
+ "cv_text": "",
+ "cv_version": 0,
+ "prefs_version": 1,
+ "target_roles": [
+  "Product Designer",
+  "UX Researcher",
+  "Service Designer",
+  "Design Strategist",
+  "Product Manager"
+ ],
+ "keywords": [
+  "design research",
+  "service design",
+  "design strategy",
+  "product strategy",
+  "AI"
+ ],
+ "preferences": {
+  "deal_breakers": {
+   "remote_only": false,
+   "require_pay_listed": false,
+   "min_pay": null,
+   "locations_any": [],
+   "exclude_industries": [],
+   "exclude_keywords": []
+  },
+  "dimensions": [
+   {
+    "key": "industry",
+    "name": "Industry alignment",
+    "weight": 3,
+    "rubric": "Strong: a sector I care about. Weak: a sector I avoid or feel neutral about."
+   },
+   {
+    "key": "role",
+    "name": "Role fit",
+    "weight": 5,
+    "rubric": "Strong: the daily work is what I want to do. Weak: mostly tasks I want to move away from."
+   },
+   {
+    "key": "background",
+    "name": "Background match",
+    "weight": 4,
+    "rubric": "Strong: I meet the requirements. Weak: missing several core requirements."
+   },
+   {
+    "key": "compensation",
+    "name": "Compensation fit",
+    "weight": 3,
+    "rubric": "Strong: at or above my target. Weak: below my floor."
+   },
+   {
+    "key": "upside",
+    "name": "Upside potential",
+    "weight": 2,
+    "rubric": "Strong: growing company, equity, room to rise. Weak: flat or shrinking."
+   },
+   {
+    "key": "growth",
+    "name": "Growth and learning",
+    "weight": 4,
+    "rubric": "Strong: mentorship, new skills, stretch scope. Weak: repetitive work, no support."
+   }
+  ],
+  "unknown_policy": "neutral"
+ }
+}

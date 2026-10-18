@@ -145,12 +145,34 @@ def keyword_hits(keywords, p):
     return score / (2 * len(keywords))
 
 
+def norm_title(t):
+    """Make job titles comparable: 'Vice President of Product' and 'VP, Product' both become 'vp product'."""
+    t = t.lower().replace("&", " and ")
+    for long, short in (("vice president", "vp"), ("senior", "sr"), ("chief product officer", "cpo")):
+        t = t.replace(long, short)
+    t = re.sub(r"[^a-z0-9]+", " ", t)
+    return " " + " ".join(w for w in t.split() if w not in ("of", "the", "and")) + " "
+
+
+def role_match(roles, p):
+    """1 when a target role appears in the posting's title, else 0."""
+    title = norm_title(p["title"])
+    return 1.0 if any(norm_title(r).strip() and norm_title(r) in title for r in roles) else 0.0
+
+
 def prefilter_score(search, p):
     """Cheap, visible ranking that decides which postings get scored by Claude.
-    Keywords lead when the search has them; the CV adds a smaller share."""
-    kw = search.get("keywords") or []
-    cv = overlap(search.get("cv_text"), p)
-    return round(0.7 * keyword_hits(kw, p) + 0.3 * cv if kw else cv, 3)
+    A target role in the title counts most, then keywords, then word overlap with the CV.
+    Each part only counts when the search has it."""
+    parts = []
+    if search.get("target_roles"):
+        parts.append((0.5, role_match(search["target_roles"], p)))
+    if search.get("keywords"):
+        parts.append((0.35, keyword_hits(search["keywords"], p)))
+    if (search.get("cv_text") or "").strip():
+        parts.append((0.15, overlap(search["cv_text"], p)))
+    total = sum(w for w, _ in parts)
+    return round(sum(w * v for w, v in parts) / total, 3) if total else 0.0
 
 
 def prepare(config):
@@ -205,6 +227,7 @@ def prepare(config):
         "matcher_instructions": agent["matcher_instructions"],
         "searches": [{"id": s["id"], "name": s["name"], "cv_version": s["cv_version"],
                       "prefs_version": s["prefs_version"], "cv_text": s.get("cv_text", ""), "keywords": s.get("keywords", []),
+                      "target_roles": s.get("target_roles", []),
                       "dimensions": s["preferences"]["dimensions"]} for s in searches],
         "items": items,
         "answer_format": {

@@ -7,6 +7,14 @@ It runs two ways:
 - **In Claude's cloud**, once a day, even when your laptop is closed. You set it up and use it from the Job Agent page; no terminal needed. See [Run it in Claude's cloud](#run-it-in-claudes-cloud).
 - **On your own computer**, step by step, to see how it works or change it. See [Run it locally](#run-it-locally).
 
+## Start here
+
+Students: open [Claude Code](https://claude.ai/code), start a new session, and send:
+
+> Set up my Job Agent by following week7-job-agent/SETUP.md in https://github.com/arikan/ai-agent-design-fall-2026
+
+Claude asks which roles you're after, then creates your own Job Agent page and its daily run. Change one network setting, press Check on your page, and find your first matches. Needs a paid Claude plan.
+
 ## How it works
 
 ```
@@ -139,6 +147,7 @@ Course limits live in `caps.json` and are enforced in code: one daily run, three
 week7-job-agent/
 ├── README.md            this file
 ├── RUN.md               what the cloud run follows, step by step
+├── SETUP.md             what Claude follows to set up a student's page and daily run
 ├── console.html         the Job Agent page
 ├── engine.py            collect, filter, prepare, check, rank
 ├── sources.py           run sources through adapters
@@ -146,7 +155,7 @@ week7-job-agent/
 ├── adapters/            one file per adapter type, plus fixtures/
 ├── corpus/postings.jsonl  20 fictional postings for repeatable tests
 ├── examples/            a sample config and a sample source
-├── defaults/agent.json  starting agent settings for a new Job Agent page (corpus off)
+├── defaults/            starting agent settings and first search for a new page
 ├── caps.json            course limits
 └── pyproject.toml, uv.lock
 ```
