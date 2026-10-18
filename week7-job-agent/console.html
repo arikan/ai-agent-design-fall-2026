@@ -377,6 +377,8 @@ function renderSearchEditor(){
         <label for="s-name">Name<input type="text" id="s-name" value="${esc(s.name)}" placeholder="e.g. Design leadership, remote" required></label>
         <label class="inline" for="s-active" style="align-self:end"><input type="checkbox" id="s-active" ${s.active?"checked":""}> Active in daily runs</label>
       </div>
+      <label for="s-kw">Keywords<input type="text" id="s-kw" value="${esc((s.keywords||[]).join(", "))}" placeholder="product designer, design strategy, UX research, service design"></label>
+      <p class="small muted" style="margin:0">Roles and topics you're after, separated by commas. They decide which postings get scored first; a keyword in the job title counts double.</p>
     </div>
     <div class="card stack">
       <h3>CV</h3>
@@ -440,13 +442,14 @@ function wireSearchForm(s){
         exclude_industries:list($("d-ind").value), exclude_keywords:list($("d-kw").value)},
       dimensions:readDims(), unknown_policy:$("s-unknown").value};
     const cv = $("s-cv").value.trim();
+    const keywords = list($("s-kw").value);
     const id = s.id || (slug(name) + "-" + Math.random().toString(36).slice(2,6));
-    const cvChanged = cv !== s.cv_text, prefsChanged = JSON.stringify(prefs) !== JSON.stringify(s.preferences);
-    const doc = {name, active, cv_text:cv, preferences:prefs,
+    const cvChanged = cv !== (s.cv_text || ""), prefsChanged = JSON.stringify(prefs) !== JSON.stringify(s.preferences) || JSON.stringify(keywords) !== JSON.stringify(s.keywords || []);
+    const doc = {name, active, cv_text:cv, keywords, preferences:prefs,
       cv_version: s.cv_version + (cvChanged ? 1 : 0), prefs_version: s.prefs_version + (prefsChanged ? 1 : 0), updated:new Date().toISOString()};
     try {
       if (cvChanged) await S.db.doc(`searches/${id}/versions/cv-${doc.cv_version}`).set({kind:"cv", version:doc.cv_version, cv_text:cv, at:doc.updated});
-      if (prefsChanged) await S.db.doc(`searches/${id}/versions/prefs-${doc.prefs_version}`).set({kind:"preferences", version:doc.prefs_version, preferences:prefs, at:doc.updated});
+      if (prefsChanged) await S.db.doc(`searches/${id}/versions/prefs-${doc.prefs_version}`).set({kind:"preferences", version:doc.prefs_version, preferences:prefs, keywords, at:doc.updated});
       await S.db.doc("searches/"+id).set(doc);
       S.editing = id; st.className="status ok";
       st.textContent = cvChanged || prefsChanged ? `Saved as CV v${doc.cv_version}, preferences v${doc.prefs_version}. The next run uses these.` : "Saved.";

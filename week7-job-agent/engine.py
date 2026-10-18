@@ -129,10 +129,28 @@ def deal_breaker(p, db):
 
 
 def overlap(cv_text, p):
-    """Cheap, visible prefilter: share of the posting's longer words that appear in the CV."""
+    """Share of the posting's longer words that also appear in the CV."""
     words = lambda s: {w for w in re.findall(r"[a-z]{5,}", s.lower())}
-    pw, cw = words(p["title"] + " " + p["text"]), words(cv_text)
-    return round(len(pw & cw) / max(1, len(pw)), 3)
+    pw, cw = words(p["title"] + " " + p["text"]), words(cv_text or "")
+    return len(pw & cw) / max(1, len(pw))
+
+
+def keyword_hits(keywords, p):
+    """Share of the search's keywords found in the posting; a keyword in the title counts double."""
+    if not keywords:
+        return 0.0
+    title, text = p["title"].lower(), p["text"].lower()
+    pat = lambda k: re.compile(r"(?<![a-z])" + re.escape(k.lower()) + r"(?![a-z])")
+    score = sum(2 if pat(k).search(title) else 1 if pat(k).search(text) else 0 for k in keywords)
+    return score / (2 * len(keywords))
+
+
+def prefilter_score(search, p):
+    """Cheap, visible ranking that decides which postings get scored by Claude.
+    Keywords lead when the search has them; the CV adds a smaller share."""
+    kw = search.get("keywords") or []
+    cv = overlap(search.get("cv_text"), p)
+    return round(0.7 * keyword_hits(kw, p) + 0.3 * cv if kw else cv, 3)
 
 
 def prepare(config):
@@ -169,13 +187,13 @@ def prepare(config):
             if reason:
                 filtered.append({"search": s["id"], "posting": p["id"], "title": p["title"], "company": p["company"], "reason": reason})
             else:
-                passed.append((overlap(s["cv_text"], p), p))
+                passed.append((prefilter_score(s, p), p))
         passed.sort(key=lambda t: -t[0])
         chosen = passed[:per_search_cap]
         step(trace, "filter", search=s["id"], already_matched=already, passed=len(passed), dropped=len(postings) - len(passed) - already,
              sent_to_judge=len(chosen), not_judged_over_cap=max(0, len(passed) - per_search_cap))
         for ov, p in chosen:
-            items.append({"search_id": s["id"], "posting_id": p["id"], "overlap": ov,
+            items.append({"search_id": s["id"], "posting_id": p["id"], "prefilter": ov,
                           "company": p["company"], "title": p["title"], "location": p["location"],
                           "remote": p.get("remote"), "pay_min": p.get("pay_min"), "pay_max": p.get("pay_max"),
                           "industry": p.get("industry"), "url": p.get("url") or None,
@@ -186,7 +204,7 @@ def prepare(config):
         "agent_version": agent["version"],
         "matcher_instructions": agent["matcher_instructions"],
         "searches": [{"id": s["id"], "name": s["name"], "cv_version": s["cv_version"],
-                      "prefs_version": s["prefs_version"], "cv_text": s["cv_text"],
+                      "prefs_version": s["prefs_version"], "cv_text": s.get("cv_text", ""), "keywords": s.get("keywords", []),
                       "dimensions": s["preferences"]["dimensions"]} for s in searches],
         "items": items,
         "answer_format": {

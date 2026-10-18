@@ -130,7 +130,7 @@ Course limits live in `caps.json` and are enforced in code: one daily run, three
 ## Known limits
 
 - Getro boards list jobs without descriptions, and web page sources read only the listing unless a description selector is set; expect more unknown scores from these.
-- The prefilter that decides which postings get scored is a simple word overlap with your CV. It decides what the agent sees.
+- Which postings get scored is decided by a cheap prefilter: your search's keywords (a keyword in the title counts double), plus word overlap with your CV. It decides what the agent sees, so choose keywords with care.
 - Your verdicts are stored with a frozen copy of each posting, ready to become an answer key, but there is no eval command yet.
 
 ## Files
