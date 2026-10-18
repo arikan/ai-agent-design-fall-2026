@@ -1,0 +1,25 @@
+{
+ "source": {
+  "id": "ashby:exampleai",
+  "adapter": "ashby",
+  "config": {
+   "company": "exampleai",
+   "company_name": "Example AI"
+  },
+  "cap": 50
+ },
+ "responses": {
+  "POST https://jobs.ashbyhq.com/api/non-user-graphql {\"org\": \"exampleai\"}": "{\"data\": {\"jobBoard\": {\"teams\": [{\"id\": \"t1\", \"name\": \"Design\"}], \"jobPostings\": [{\"id\": \"p1\", \"title\": \"Design Lead, Agents\", \"locationName\": \"Remote (US)\", \"teamId\": \"t1\", \"employmentType\": \"FullTime\"}]}}}",
+  "POST https://jobs.ashbyhq.com/api/non-user-graphql {\"jobPostingId\": \"p1\", \"org\": \"exampleai\"}": "{\"data\": {\"jobPosting\": {\"id\": \"p1\", \"descriptionHtml\": \"<p>Define how people supervise agents.</p><p>Requires 6+ years of product design.</p>\", \"compensationTierSummary\": \"$170K \\u2013 $210K \\u2022 Offers Equity\"}}}"
+ },
+ "expect": {
+  "kept": 1,
+  "first": {
+   "title": "Design Lead, Agents",
+   "pay_min": 170000,
+   "pay_max": 210000,
+   "remote": true,
+   "url": "https://jobs.ashbyhq.com/exampleai/p1"
+  }
+ }
+}

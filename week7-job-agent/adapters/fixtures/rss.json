@@ -1,0 +1,23 @@
+{
+ "source": {
+  "id": "rss:design-jobs",
+  "adapter": "rss",
+  "config": {
+   "url": "https://design-jobs.example/feed.xml",
+   "default_location": "Remote"
+  },
+  "cap": 50
+ },
+ "responses": {
+  "GET https://design-jobs.example/feed.xml": "<?xml version=\"1.0\"?><rss><channel><item><title>UX Researcher at Civic Lab</title><link>https://design-jobs.example/1</link><description>&lt;p&gt;Mixed methods research. Salary: $95k - $115k.&lt;/p&gt;</description><guid>job-1</guid><pubDate>Mon, 13 Oct 2026 10:00:00 GMT</pubDate></item></channel></rss>"
+ },
+ "expect": {
+  "kept": 1,
+  "first": {
+   "title": "UX Researcher",
+   "company": "Civic Lab",
+   "pay_min": 95000,
+   "pay_max": 115000
+  }
+ }
+}

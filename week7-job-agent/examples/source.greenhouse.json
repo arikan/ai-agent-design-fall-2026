@@ -1,0 +1,2 @@
+{"id": "greenhouse:anthropic", "adapter": "greenhouse", "cap": 10,
+ "config": {"board_token": "anthropic", "company_name": "Anthropic"}}

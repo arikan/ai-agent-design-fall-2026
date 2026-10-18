@@ -1,0 +1,29 @@
+{
+ "source": {
+  "id": "html:example-studio",
+  "adapter": "html_scraper",
+  "config": {
+   "url": "https://example-studio.example/careers",
+   "company_name": "Example Studio",
+   "selectors": {
+    "job_card": "li.job-row",
+    "title": ".title",
+    "location": ".loc",
+    "link": "a"
+   }
+  },
+  "cap": 50
+ },
+ "responses": {
+  "GET https://example-studio.example/careers": "<ul><li class=\"job-row\"><a href=\"/jobs/strategist\"><span class=\"title\">Design Strategist</span></a><span class=\"loc\">New York</span><p>Lead research and strategy for civic clients.</p></li><li class=\"job-row\"><span class=\"loc\">Remote</span></li></ul>"
+ },
+ "expect": {
+  "kept": 1,
+  "first": {
+   "title": "Design Strategist",
+   "company": "Example Studio",
+   "location": "New York",
+   "url": "https://example-studio.example/jobs/strategist"
+  }
+ }
+}

@@ -1,0 +1,25 @@
+{
+ "source": {
+  "id": "greenhouse:examplecorp",
+  "adapter": "greenhouse",
+  "config": {
+   "board_token": "examplecorp",
+   "company_name": "Example Corp"
+  },
+  "cap": 50
+ },
+ "responses": {
+  "GET https://boards-api.greenhouse.io/v1/boards/examplecorp/jobs?content=true": "{\"jobs\": [{\"id\": 101, \"title\": \"Product Designer\", \"location\": {\"name\": \"New York, NY | Remote\"}, \"offices\": [{\"name\": \"New York\"}], \"departments\": [{\"name\": \"Design\"}], \"content\": \"&lt;p&gt;Design the tools teams use to plan work.&lt;/p&gt;&lt;ul&gt;&lt;li&gt;4+ years of product design&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;The annual base salary range for this role is $150,000 - $190,000 USD.&lt;/p&gt;\", \"absolute_url\": \"https://job-boards.greenhouse.io/examplecorp/jobs/101\", \"updated_at\": \"2026-10-01T12:00:00-04:00\"}, {\"id\": 102, \"title\": \"Office Manager\", \"location\": {\"name\": \"\"}, \"offices\": [{\"name\": \"Boston\"}], \"departments\": [], \"content\": \"&lt;p&gt;Run our Boston office.&lt;/p&gt;\", \"absolute_url\": \"https://job-boards.greenhouse.io/examplecorp/jobs/102\", \"updated_at\": \"2026-10-02T12:00:00-04:00\"}]}"
+ },
+ "expect": {
+  "kept": 2,
+  "first": {
+   "title": "Product Designer",
+   "pay_min": 150000,
+   "pay_max": 190000,
+   "remote": true,
+   "location": "New York, NY | Remote",
+   "url": "https://job-boards.greenhouse.io/examplecorp/jobs/101"
+  }
+ }
+}

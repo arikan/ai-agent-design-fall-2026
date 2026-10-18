@@ -1,0 +1,23 @@
+{
+ "source": {
+  "id": "getro:jobs.example-vc.com",
+  "adapter": "getro",
+  "config": {
+   "domain": "jobs.example-vc.com"
+  },
+  "cap": 50
+ },
+ "responses": {
+  "GET https://jobs.example-vc.com": "<html><script src=\"/_next/static/AbC123_x/_buildManifest.js\"></script></html>",
+  "GET https://jobs.example-vc.com/_next/data/AbC123_x/jobs.json": "{\"pageProps\": {\"initialState\": {\"jobs\": {\"total\": 1, \"found\": [{\"id\": 77, \"slug\": \"head-of-design-portfolio-co\", \"title\": \"Head of Design\", \"organization\": {\"name\": \"Portfolio Co\"}, \"locations\": [\"New York, NY\"], \"workMode\": \"hybrid\", \"skills\": [\"Product design\", \"Research\"], \"compensationAmountMinCents\": 18000000, \"compensationAmountMaxCents\": 22000000, \"createdAt\": 1759300000, \"url\": \"https://portfolio.example/careers/head-of-design\"}]}}}}"
+ },
+ "expect": {
+  "kept": 1,
+  "first": {
+   "title": "Head of Design",
+   "company": "Portfolio Co",
+   "pay_min": 180000,
+   "pay_max": 220000
+  }
+ }
+}

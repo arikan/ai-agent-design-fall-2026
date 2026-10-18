@@ -1,0 +1,151 @@
+# Job Agent
+
+An agent that finds jobs for your CV and preferences. Every day it collects new postings from the job boards you choose, drops the ones that break your deal breakers, scores the rest against what matters to you, and shows the results on a web page where you judge them.
+
+It runs two ways:
+
+- **In Claude's cloud**, once a day, even when your laptop is closed. You set it up and use it from the Job Agent page; no terminal needed. See [Run it in Claude's cloud](#run-it-in-claudes-cloud).
+- **On your own computer**, step by step, to see how it works or change it. See [Run it locally](#run-it-locally).
+
+## How it works
+
+```
+ job boards ──► adapters ──► engine: collect, dedupe, filter ──► Claude: score ──► engine: rank ──► Job Agent page
+ (Greenhouse,    (sources.py)  (engine.py prepare)                  (judgments)      (engine.py finish)  (matches, runs)
+  Lever, Ashby…)
+```
+
+| Part | What it does |
+|---|---|
+| **Adapters** (`adapters/`) | One per kind of job board. Each knows how to fetch postings from that kind of board and turn them into one common shape. |
+| **Sources** | Your list of boards: which adapter, plus its settings, like a company's board token. Adding a board is a new source, not new code. |
+| **Engine** (`engine.py`) | Deterministic code, never a model. Collects postings, removes duplicates, skips postings already seen, applies deal breakers and caps, prepares the batch for judging, checks every judgment, and computes the weighted totals. |
+| **Claude** | The only step that needs judgment: scores each posting on each of your dimensions, 1 to 5 or unknown, with a reason and a quote from the posting as evidence. |
+| **Job Agent page** | Where you set up searches (your CV and preferences), manage sources, judge matches, and read what every run did. |
+
+Everything the engine decides is written to a trace, so any match can be traced back to the postings, settings and versions that produced it.
+
+## Run it locally
+
+### Requirements
+
+- Python 3.10 or newer
+- [uv](https://docs.astral.sh/uv/getting-started/installation/), which installs the one dependency (beautifulsoup4) for you
+- [Claude Code](https://claude.com/claude-code), for the scoring step
+
+### 1. Test the adapters offline
+
+```bash
+cd week7-job-agent
+uv run sources.py test
+```
+
+Each adapter runs against a saved response in `adapters/fixtures/`. All seven should print `ok`. The first `uv run` sets up the environment.
+
+### 2. Try one live source
+
+```bash
+uv run sources.py try examples/source.greenhouse.json
+```
+
+You should see how many postings were fetched and kept, and three samples. Change the board token in the file to try another company. This is also how you check a source after fixing it.
+
+### 3. Fetch every source and prepare a run
+
+`examples/config.example.json` holds one search and three sources. Copy it and edit the CV text, deal breakers and dimensions to your own:
+
+```bash
+mkdir -p work
+cp examples/config.example.json work/config.json
+uv run sources.py fetch work/config.json
+uv run engine.py prepare work/config.json
+```
+
+`fetch` prints one line per source. `prepare` writes two files:
+
+- `work/batch.json`: the postings Claude will score, with your dimensions and rubrics
+- `work/state.json`: the trace so far, including what the deal breakers dropped and why
+
+### 4. Score with Claude
+
+Open the folder in Claude Code and ask:
+
+> Judge work/batch.json following its matcher_instructions and answer_format, and write work/judgments.json. Evidence must be copied exactly from each posting.
+
+### 5. Rank
+
+```bash
+uv run engine.py finish work/config.json
+```
+
+`work/results.json` holds the ranked matches and the full run record. If any judgment was rejected, for example because its evidence isn't in the posting, the trace says why.
+
+Locally, nothing is written to the Job Agent page. That step needs a Claude session with access to your page, which the cloud run has.
+
+## Run it in Claude's cloud
+
+The daily run is a scheduled task in Claude Code that clones this repository and follows [`RUN.md`](RUN.md). It needs a paid Claude plan. Setup happens on the Job Agent page, in three steps:
+
+1. **Create your daily run.** The page gives you a message to paste into a new Claude Code session. Claude creates the scheduled task, and the page connects to it.
+2. **Let it reach job sites.** In the task's cloud environment, set Network access to Full. (For tighter control, use Custom with the domains the page lists under Sources.)
+3. **Check that it works.** The page starts a quick cloud run that reaches a job board and writes back. Green means you're done.
+
+After that:
+
+- The agent runs once a day and new matches appear on the page.
+- **Test** on any source runs just that source in the cloud, so a new source can be checked before the next daily run.
+- Code changes reach the cloud on the next run: each run clones the repository's default branch fresh.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `uv run sources.py test` | Run every adapter against its saved responses, offline |
+| `uv run sources.py try <source.json> [out.json]` | Run one source live and show a sample |
+| `uv run sources.py fetch <config.json>` | Fetch every enabled source into `work/fetched/` |
+| `uv run sources.py domains <config.json>` | List the domains the enabled sources need |
+| `uv run engine.py prepare <config.json>` | Collect, filter and prepare `work/batch.json` |
+| `uv run engine.py finish <config.json>` | Check judgments, rank, write `work/results.json` |
+| `uv run dbio.py config` / `export` | Convert between the page's database and these files (used by the cloud run) |
+
+## Sources and adapters
+
+Built in adapters: Greenhouse, Lever, Ashby, Getro (venture firm portfolio boards), JSON API, web page (CSS selectors), RSS. Two more types exist only as sources: the frozen corpus of 20 fictional postings for repeatable tests, and "check by hand" reminders for boards that block automated access.
+
+**When a source breaks**, the fix is usually in its settings, not code: new selectors for a web page, new field paths for a JSON API, a corrected board token. The page flags sources that fail or suddenly return nothing, and the daily run proposes fixes it has tested. You apply or discard them.
+
+**To add an adapter type**, add a file in `adapters/` with a class that subclasses `BaseSource` and implements `fetch()` and `normalize()`, register it in `adapters/__init__.py`, and add a fixture in `adapters/fixtures/` so `sources.py test` covers it. The existing adapters are short and make good templates. On the page, a custom adapter can also be written as code for a single source.
+
+**Requests go only to a source's own domains.** The code checks this. In the cloud, the environment's network setting is the real limit.
+
+## Limits
+
+Course limits live in `caps.json` and are enforced in code: one daily run, three active searches, 100 postings per source, 200 per run, 12 judged per search. The page can lower them, never raise them.
+
+## Your data
+
+- Your CV file never leaves your computer. The page extracts its text in your browser, you edit what the agent may read, and only that text is saved.
+- Searches, matches, verdicts and run records live in the Job Agent page's database on Claude's servers, readable only by you. Nothing personal goes into this repository; `work/` is ignored by git.
+
+## Known limits
+
+- Getro boards list jobs without descriptions, and web page sources read only the listing unless a description selector is set; expect more unknown scores from these.
+- The prefilter that decides which postings get scored is a simple word overlap with your CV. It decides what the agent sees.
+- Your verdicts are stored with a frozen copy of each posting, ready to become an answer key, but there is no eval command yet.
+
+## Files
+
+```
+week7-job-agent/
+├── README.md            this file
+├── RUN.md               what the cloud run follows, step by step
+├── console.html         the Job Agent page
+├── engine.py            collect, filter, prepare, check, rank
+├── sources.py           run sources through adapters
+├── dbio.py              page database <-> local files
+├── adapters/            one file per adapter type, plus fixtures/
+├── corpus/postings.jsonl  20 fictional postings for repeatable tests
+├── examples/            a sample config and a sample source
+├── caps.json            course limits
+└── pyproject.toml, uv.lock
+```

@@ -1,0 +1,32 @@
+{
+  "runs_today": 0,
+  "seen": {},
+  "agent": {
+    "version": 1,
+    "settings": {"max_judged_per_search": 8},
+    "matcher_instructions": "Score each posting against the student's CV and preferences, one dimension at a time, using the student's own rubric for that dimension. Give a score from 1 to 5, or \"unknown\" when the posting gives no basis for a judgment. Never guess pay, company growth, or mentorship that the posting does not state. For every score, give one sentence of reason and copy the exact words from the posting that support it.",
+    "sources": [
+      {"id": "corpus", "adapter": "corpus", "enabled": true, "cap": 100, "config": {}},
+      {"id": "greenhouse:anthropic", "adapter": "greenhouse", "enabled": true, "cap": 25,
+       "config": {"board_token": "anthropic", "company_name": "Anthropic"}},
+      {"id": "ashby:openai", "adapter": "ashby", "enabled": true, "cap": 10,
+       "config": {"company": "openai", "company_name": "OpenAI", "max_details": 10}}
+    ]
+  },
+  "searches": [
+    {
+      "id": "local-test", "name": "Local test", "active": true, "cv_version": 1, "prefs_version": 1,
+      "cv_text": "Product designer, 4 years. Service design, design research, prototyping with LLM tools. Interests: AI agents, civic tech, climate.",
+      "preferences": {
+        "unknown_policy": "neutral",
+        "deal_breakers": {"min_pay": 90000, "locations_any": ["New York", "Brooklyn"], "exclude_industries": ["Defense"]},
+        "dimensions": [
+          {"key": "role", "name": "Role fit", "weight": 5, "rubric": "Strong: design with research and strategy. Weak: pure production work."},
+          {"key": "background", "name": "Background match", "weight": 4, "rubric": "Strong: asks for 3 to 5 years. Weak: asks for 8+ years or management."},
+          {"key": "compensation", "name": "Compensation fit", "weight": 3, "rubric": "Strong: 120k or more. Weak: below 95k."},
+          {"key": "growth", "name": "Growth and learning", "weight": 4, "rubric": "Strong: mentorship, learning budget. Weak: narrow, repetitive role."}
+        ]
+      }
+    }
+  ]
+}

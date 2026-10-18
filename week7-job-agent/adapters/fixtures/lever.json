@@ -1,0 +1,24 @@
+{
+ "source": {
+  "id": "lever:examplestart",
+  "adapter": "lever",
+  "config": {
+   "company": "examplestart",
+   "company_name": "Example Start"
+  },
+  "cap": 50
+ },
+ "responses": {
+  "GET https://api.lever.co/v0/postings/examplestart?mode=json": "[{\"id\": \"a1b2\", \"text\": \"Service Designer\", \"categories\": {\"location\": \"Brooklyn, NY\", \"team\": \"Design\"}, \"descriptionPlain\": \"Map services end to end with city partners.\", \"lists\": [{\"text\": \"Requirements\", \"content\": \"<li>3+ years of service design</li>\"}], \"salaryRange\": {\"min\": 110000, \"max\": 130000, \"currency\": \"USD\"}, \"hostedUrl\": \"https://jobs.lever.co/examplestart/a1b2\", \"createdAt\": 1759300000000, \"workplaceType\": \"hybrid\"}]"
+ },
+ "expect": {
+  "kept": 1,
+  "first": {
+   "title": "Service Designer",
+   "pay_min": 110000,
+   "pay_max": 130000,
+   "remote": false,
+   "location": "Brooklyn, NY"
+  }
+ }
+}

@@ -1,0 +1,37 @@
+{
+ "source": {
+  "id": "json_api:remote-board",
+  "adapter": "json_api",
+  "config": {
+   "url": "https://remote-board.example/api",
+   "items_path": "",
+   "fields": {
+    "title": "position",
+    "company": "company",
+    "location": "location",
+    "url": "url",
+    "text": "description",
+    "pay_min": "salary_min",
+    "pay_max": "salary_max",
+    "id": "id",
+    "posted": "date"
+   },
+   "filter_words": [
+    "design"
+   ]
+  },
+  "cap": 50
+ },
+ "responses": {
+  "GET https://remote-board.example/api": "[{\"legal\": \"API terms notice\"}, {\"id\": \"9\", \"position\": \"Product Designer\", \"company\": \"Remote Co\", \"location\": \"Remote\", \"url\": \"https://remote-board.example/9\", \"description\": \"<p>Design our mobile app.</p>\", \"salary_min\": 120000, \"salary_max\": 140000, \"date\": \"2026-10-10\"}, {\"id\": \"10\", \"position\": \"Backend Engineer\", \"company\": \"Remote Co\", \"location\": \"Remote\", \"url\": \"https://remote-board.example/10\", \"description\": \"Build APIs.\", \"salary_min\": 0, \"salary_max\": 0}]"
+ },
+ "expect": {
+  "kept": 1,
+  "first": {
+   "title": "Product Designer",
+   "text": "Design our mobile app.",
+   "pay_min": 120000,
+   "remote": true
+  }
+ }
+}

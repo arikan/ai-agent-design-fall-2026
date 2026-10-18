@@ -1,0 +1,11 @@
+[project]
+name = "job-agent"
+version = "0.1.0"
+description = "Course job agent: source adapters and a deterministic engine around a Claude run"
+requires-python = ">=3.10"
+dependencies = [
+    "beautifulsoup4>=4.12",
+]
+
+[tool.uv]
+package = false

@@ -1,0 +1,938 @@
+<title>Job Agent</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column console; a tab bar switches between the four records the agent keeps (matches, searches, agent, runs). */
+:root{
+  --bg:#F4F6F3; --surface:#FFFFFF; --sunk:#E9EDE8; --line:#D5DCD4; --fg:#18201B; --muted:#5D6A61;
+  --accent:#1F6B4F; --accent-soft:#DDEEE5; --warn:#9A5B0C; --warn-soft:#F6E9D3; --bad:#A33A2C; --bad-soft:#F6DFDA;
+  --font-ui:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-data:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:8px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111613; --surface:#18201B; --sunk:#0D110F; --line:#2C3830; --fg:#E4EBE5; --muted:#93A198;
+  --accent:#5FBF94; --accent-soft:#1B3328; --warn:#E0A54F; --warn-soft:#33270F; --bad:#E58475; --bad-soft:#3A1E19; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111613; --surface:#18201B; --sunk:#0D110F; --line:#2C3830; --fg:#E4EBE5; --muted:#93A198;
+  --accent:#5FBF94; --accent-soft:#1B3328; --warn:#E0A54F; --warn-soft:#33270F; --bad:#E58475; --bad-soft:#3A1E19; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--font-ui)}
+.wrap{max-width:980px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 16px;margin-bottom:16px}
+h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.01em}
+h2{font-size:17px;font-weight:600;margin:0}
+h3{font-size:14px;font-weight:600;margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.mono{font-family:var(--font-data);font-size:12.5px}
+nav{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:20px;overflow-x:auto}
+nav button{appearance:none;border:0;background:none;color:var(--muted);font:600 14px var(--font-ui);padding:10px 12px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+nav button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+nav button .count{font-family:var(--font-data);font-weight:400;font-size:12px;color:var(--muted);margin-left:4px}
+.panel{display:grid;gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.between{justify-content:space-between}
+.stack{display:grid;gap:12px}
+label{font-size:13px;font-weight:600;display:grid;gap:4px}
+label.inline{display:flex;align-items:center;gap:8px;font-weight:500}
+input[type=text],input[type=number],select,textarea{font:inherit;font-size:14px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-width:0}
+textarea{resize:vertical;line-height:1.5}
+textarea.cv{min-height:180px;font-family:var(--font-data);font-size:12.5px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn{appearance:none;font:600 13px var(--font-ui);border-radius:6px;padding:7px 12px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.btn.good[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.btn.bad[aria-pressed="true"]{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:default}
+.pill{display:inline-block;font:500 12px var(--font-ui);padding:2px 8px;border-radius:999px;background:var(--sunk);color:var(--muted)}
+.pill.ok{background:var(--accent-soft);color:var(--accent)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.match{display:grid;grid-template-columns:64px 1fr;gap:4px 16px}
+.score{font:600 26px/1 var(--font-data);font-variant-numeric:tabular-nums;color:var(--accent);padding-top:2px}
+.score.mid{color:var(--warn)}
+.score.lo{color:var(--muted)}
+.score small{display:block;font:400 11px var(--font-ui);color:var(--muted);margin-top:4px}
+.match .body{min-width:0;display:grid;gap:10px}
+.head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 16px}
+.head h2{display:flex;flex-wrap:wrap;gap:0 8px;font-size:17px;font-weight:600;min-width:0}
+.head .dot{color:var(--muted);font-weight:400}
+.pay{font:700 16px var(--font-data);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pay.none{font:500 13px var(--font-ui);color:var(--warn)}
+.meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 16px;font-size:13px;color:var(--muted);margin-top:-6px}
+.ext{color:var(--accent);font-weight:600;text-decoration:none;white-space:nowrap}
+.ext:hover{text-decoration:underline}
+.ext.none{color:var(--muted);font-weight:400}
+.cells{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px 20px;padding:10px 0 2px;border-top:1px solid var(--line)}
+.cell{display:grid;gap:5px;min-width:0}
+.cname{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meter{display:flex;align-items:center;gap:8px}
+.segs{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;flex:1;max-width:84px}
+.segs i{height:6px;border-radius:1px;background:var(--line)}
+.segs i.hi{background:var(--accent)}
+.segs i.mid{background:var(--warn)}
+.segs i.lo{background:var(--bad)}
+.segs i.u{background:none;border:1px dashed var(--muted);height:6px}
+.pips{font-family:var(--font-data);font-size:11px;letter-spacing:1px;color:var(--accent);white-space:nowrap}
+.pips .off{color:var(--line)}
+.unknown{font:500 12px var(--font-ui);color:var(--warn)}
+details summary{cursor:pointer;font-size:13px;color:var(--muted)}
+.whys{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 20px;margin:10px 0;font-size:13px}
+.evidence{border-left:2px solid var(--line);padding-left:8px;margin-top:4px;color:var(--muted)}
+.foot{text-align:right}
+details{padding-bottom:2px}
+.tip{appearance:none;position:relative;width:16px;height:16px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);font:600 10px/14px var(--font-data);padding:0;margin-left:4px;cursor:help;vertical-align:1px}
+.tip:hover::after,.tip:focus-visible::after{content:attr(data-tip);position:absolute;left:0;top:22px;z-index:5;width:min(280px,70vw);background:var(--fg);color:var(--surface);font:400 12px/1.45 var(--font-ui);text-align:left;padding:8px 10px;border-radius:6px}
+.judge{border-top:1px solid var(--line);padding-top:10px;display:grid;gap:8px}
+.jl{font-size:13px;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{appearance:none;font:500 12px var(--font-ui);border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:3px 10px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--surface);border-color:var(--fg)}
+.note-in{max-width:520px}
+.hint{margin:0;font-size:12px;color:var(--muted)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:12px;letter-spacing:.02em}
+td.num{font-family:var(--font-data);font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto}
+.tabs-inline{display:flex;flex-wrap:wrap;gap:6px}
+.dimrow{display:grid;grid-template-columns:minmax(120px,1fr) 150px 2fr 32px;gap:8px;align-items:start}
+.weight{display:flex;align-items:center;gap:6px}
+.weight output{font-family:var(--font-data);width:14px}
+.step{display:grid;grid-template-columns:90px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.step:last-child{border-bottom:0}
+.step .k{font-weight:600}
+.src{display:grid;gap:8px}
+.src h3{font-size:14px;word-break:break-all}
+.strip{display:inline-flex;gap:2px;margin-right:4px}
+.strip i{width:7px;height:16px;border-radius:1px;background:var(--line)}
+.strip i.ok{background:var(--accent)}.strip i.empty{background:var(--warn)}.strip i.failed{background:var(--bad)}
+.err-line{background:var(--bad-soft);color:var(--bad);border-radius:6px;padding:6px 10px;word-break:break-word}
+.proposal{border:1px solid var(--accent);background:var(--accent-soft);border-radius:6px;padding:10px 12px}
+.sample{margin:0;padding-left:18px}
+.cfg{white-space:pre-wrap;word-break:break-word;margin:6px 0 0}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin-right:6px;vertical-align:-2px;animation:spin .8s linear infinite}
+.btn.busy{display:inline-flex;align-items:center;cursor:progress;opacity:1;color:var(--muted)}
+.bar{height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+.bar i{display:block;width:40%;height:100%;background:var(--accent);animation:slide 1.6s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.spin,.bar i{animation:none}.bar i{width:100%;opacity:.5}}
+.setup{gap:16px}
+.step{display:grid;grid-template-columns:28px 1fr;gap:12px;align-items:start}
+.step p{margin:0}
+.step .stack > .btn, .step .stack > div > .btn{justify-self:start}
+.step details .promptbox{margin-top:8px}
+a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:18px;display:grid;gap:4px}
+.step.later{opacity:.55}
+.stepmark{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);display:inline-flex;align-items:center;justify-content:center;font:600 12px var(--font-ui);margin-top:-1px}
+.stepmark.now{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.stepmark.later{color:var(--muted)}
+.stepmark.done{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.promptbox{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border-radius:6px;padding:10px 12px;margin:0;flex:1;min-width:0;font-size:12px}
+.linkbtn{appearance:none;border:0;background:none;padding:0;color:var(--accent);font:600 13px var(--font-ui);cursor:pointer}
+#setup{margin-bottom:20px}
+.testbox{border:1px solid var(--line);background:var(--sunk);border-radius:6px;padding:8px 12px}
+.testbox.good{border-color:var(--accent)}.testbox.bad{border-color:var(--bad);color:var(--bad)}
+.testbox a{color:var(--accent)}
+.src-edit{border-top:1px solid var(--line);padding-top:12px}
+.domlist{display:block;white-space:pre;background:var(--sunk);border-radius:6px;padding:8px 10px;flex:1;min-width:0;overflow-x:auto}
+.empty{text-align:center;padding:32px 16px;color:var(--muted)}
+.status{font-size:13px;min-height:1.4em}
+.status.ok{color:var(--accent)}.status.err{color:var(--bad)}
+.note{font-size:13px;color:var(--muted);background:var(--sunk);border-radius:6px;padding:8px 10px}
+@media (max-width:860px){.cells{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:620px){
+  .cells{grid-template-columns:repeat(3,minmax(0,1fr))}.whys{grid-template-columns:1fr}.jl{width:100%}
+  .match{grid-template-columns:1fr}.dimrow{grid-template-columns:1fr 1fr}.dimrow textarea{grid-column:1/-1}
+}
+@media (prefers-reduced-motion:no-preference){.btn,nav button{transition:border-color .15s,background .15s,color .15s}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Job Agent</h1>
+    <span class="small muted"><button type="button" class="linkbtn" id="open-setup" hidden>Setup</button> <span id="conn">Connecting to your database…</span><span id="build"></span></span>
+  </header>
+
+  <section id="setup" hidden></section>
+
+  <nav role="tablist" aria-label="Sections">
+    <button role="tab" id="tab-matches" aria-selected="true" data-view="matches">Matches<span class="count" id="c-matches"></span></button>
+    <button role="tab" id="tab-searches" aria-selected="false" data-view="searches">Searches<span class="count" id="c-searches"></span></button>
+    <button role="tab" id="tab-sources" aria-selected="false" data-view="sources">Sources<span class="count" id="c-sources"></span></button>
+    <button role="tab" id="tab-agent" aria-selected="false" data-view="agent">Agent</button>
+    <button role="tab" id="tab-runs" aria-selected="false" data-view="runs">Runs<span class="count" id="c-runs"></span></button>
+  </nav>
+
+  <section id="view-matches" class="panel">
+    <div class="row between">
+      <div class="row">
+        <label class="inline" for="f-search">Search
+          <select id="f-search"><option value="">All searches</option></select></label>
+        <label class="inline" for="f-hide"><input type="checkbox" id="f-hide"> Hide judged</label>
+      </div>
+      <span class="small muted" id="m-summary"></span>
+    </div>
+    <div id="matches" class="panel"><div class="card empty">Matches appear here after the agent's first run. Each one shows a score per dimension, the reason, and the words from the posting it relied on.</div></div>
+  </section>
+
+  <section id="view-searches" class="panel" hidden>
+    <div class="row between">
+      <div class="tabs-inline" id="search-list"></div>
+      <button class="btn" id="new-search">New search</button>
+    </div>
+    <div id="search-editor"></div>
+  </section>
+
+  <section id="view-sources" class="panel" hidden>
+    <div id="sources" class="panel"><div class="card empty">Sources appear here once the agent is set up.</div></div>
+  </section>
+
+  <section id="view-agent" class="panel" hidden>
+    <div id="agent-editor"><div class="card empty">The agent's settings appear here once they are set up.</div></div>
+  </section>
+
+  <section id="view-runs" class="panel" hidden>
+    <div id="runs"><div class="card empty">Each run of the agent appears here, with what it fetched, what it filtered out, and every step it took.</div></div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script>
+const COURSE_CAPS = {max_runs_per_day:1, max_searches:3, max_postings_per_source:100, max_postings_per_run:200, max_judged_per_search:12, trace_runs_kept:14};
+const DEFAULT_DIMS = [
+  {key:"industry", name:"Industry alignment", weight:3, rubric:"Strong: a sector I care about. Weak: a sector I avoid or feel neutral about."},
+  {key:"role", name:"Role fit", weight:5, rubric:"Strong: the daily work is what I want to do. Weak: mostly tasks I want to move away from."},
+  {key:"background", name:"Background match", weight:4, rubric:"Strong: I meet the requirements. Weak: missing several core requirements."},
+  {key:"compensation", name:"Compensation fit", weight:3, rubric:"Strong: at or above my target. Weak: below my floor."},
+  {key:"upside", name:"Upside potential", weight:2, rubric:"Strong: growing company, equity, room to rise. Weak: flat or shrinking."},
+  {key:"growth", name:"Growth and learning", weight:4, rubric:"Strong: mentorship, new skills, stretch scope. Weak: repetitive work, no support."}
+];
+const S = {db:null, searches:[], agent:null, runs:[], matches:[], judgments:{}, proposals:{}, tests:{}, runner:null, view:"matches", editing:null};
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = (a,b) => a==null && b==null ? "Pay not listed" : "$" + [a,b].filter(x=>x!=null).map(x=>Math.round(x/1000)+"k").join("–");
+const list = s => String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
+const slug = s => String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "search";
+const when = iso => iso ? new Date(iso).toLocaleString([], {dateStyle:"medium", timeStyle:"short"}) : "";
+
+/* ---------- tabs ---------- */
+document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => {
+  S.view = b.dataset.view;
+  document.querySelectorAll("nav button").forEach(x => x.setAttribute("aria-selected", x === b));
+  ["matches","searches","sources","agent","runs"].forEach(v => $("view-"+v).hidden = v !== S.view);
+  try { localStorage.setItem("view", S.view); } catch(e){}
+}));
+try { const v = localStorage.getItem("view"); if (v) document.querySelector(`nav button[data-view="${v}"]`)?.click(); } catch(e){}
+
+/* ---------- matches ---------- */
+function pips(n){ return `<span class="pips" aria-label="${n} of 5">${"●".repeat(n)}<span class="off">${"●".repeat(5-n)}</span></span>`; }
+function seen(m){
+  if (m.first_seen_at) return when(m.first_seen_at);
+  const r = /run-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/.exec(m.first_seen||"");
+  return r ? when(`${r[1]}-${r[2]}-${r[3]}T${r[4]}:${r[5]}:00Z`) : "";
+}
+function renderMatches(){
+  const sel = $("f-search"), cur = sel.value;
+  sel.innerHTML = `<option value="">All searches</option>` + S.searches.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
+  sel.value = S.searches.some(s=>s.id===cur) ? cur : "";
+  const dimsFor = id => (S.searches.find(s=>s.id===id)?.preferences?.dimensions) || DEFAULT_DIMS;
+  const scope = S.matches.filter(m => !sel.value || m.search_id === sel.value);
+  let rows = $("f-hide").checked ? scope.filter(m => !S.judgments[m.id]) : scope;
+  rows = [...rows].sort((a,b) => b.total - a.total);
+  $("c-matches").textContent = S.matches.length || "";
+  $("m-summary").textContent = scope.length ? `${scope.filter(m=>S.judgments[m.id]).length} of ${scope.length} judged` : "";
+  if (!rows.length){ $("matches").innerHTML = `<div class="card empty">${S.matches.length ? "Nothing left to judge here." : "Matches appear here after the agent's first run. Each one shows a score per dimension, the reason, and the words from the posting it relied on."}</div>`; return; }
+  $("matches").innerHTML = rows.map(m => {
+    const j = S.judgments[m.id];
+    const sname = S.searches.find(s=>s.id===m.search_id)?.name || m.search_id;
+    const dims = dimsFor(m.search_id);
+    const cells = dims.map(d => {
+      const sc = m.scores?.[d.key]; if (!sc) return "";
+      const unk = sc.score === "unknown", n = unk ? 0 : sc.score;
+      const tone = n >= 4 ? "hi" : n === 3 ? "mid" : "lo";
+      const segs = [1,2,3,4,5].map(i => `<i class="${unk ? "u" : i <= n ? tone : ""}"></i>`).join("");
+      return `<div class="cell${unk ? " is-unknown" : ""}" title="${esc(sc.reason)}">
+        <span class="cname">${esc(d.name)}</span>
+        <span class="meter" role="img" aria-label="${esc(d.name)}: ${unk ? "unknown" : n + " of 5"}"><span class="segs">${segs}</span></span></div>`;
+    }).join("");
+    const why = dims.map(d => { const sc = m.scores?.[d.key]; if (!sc) return "";
+      return `<div class="why"><div><b>${esc(d.name)}</b> <span class="muted">${sc.score==="unknown"?"unknown":sc.score+" of 5"}</span></div><div>${esc(sc.reason)}</div>${sc.evidence?`<div class="evidence">“${esc(sc.evidence)}”</div>`:""}</div>`; }).join("");
+    const pay = m.pay_min==null && m.pay_max==null ? `<span class="pay none">Pay not listed</span>` : `<span class="pay">${esc(money(m.pay_min,m.pay_max))}</span>`;
+    const link = m.url ? `<a class="ext" href="${esc(m.url)}" target="_blank" rel="noopener">View posting ↗</a>` : `<span class="ext none" title="Postings in the frozen corpus are fictional">Example posting, no live page</span>`;
+    const verdict = j?.verdict;
+    return `<article class="card match" data-id="${esc(m.id)}">
+      <div class="score ${m.total >= 80 ? "hi" : m.total >= 60 ? "mid" : "lo"}">${m.total}<small>of 100</small></div>
+      <div class="body">
+        <div class="head">
+          <h2><span>${esc(m.title)}</span><span class="dot" aria-hidden="true">·</span><span>${esc(m.company)}</span></h2>
+          ${pay}
+        </div>
+        <div class="meta"><span>${esc(m.location)}${m.industry?` · ${esc(m.industry)}`:""}</span>${link}</div>
+        <div class="cells">${cells}</div>
+        <details><summary>Why these scores</summary><div class="whys">${why}</div>
+          <p class="small">${esc(m.text)}</p>
+          <p class="small muted mono">agent v${esc(m.agent_version)} · CV v${esc(m.cv_version)} · preferences v${esc(m.prefs_version)} · unknown counts as ${esc(m.unknown_policy)}</p></details>
+        <div class="judge">
+          <div class="row between">
+           <div class="row">
+            <button class="btn good" data-act="accept" aria-pressed="${verdict==="accept"}">Good match</button>
+            <button class="btn bad" data-act="dismiss" aria-pressed="${verdict==="dismiss"}">Not a fit</button>
+            <button type="button" class="tip" aria-label="What a verdict does" data-tip="Your verdicts are the answer key the agent is tested against. Each is saved with a copy of the posting, so a later version of the agent can be scored on the same jobs.">i</button>
+           </div>
+           <span class="foot small muted">${esc(sname)} · first seen ${esc(seen(m))}</span>
+          </div>
+          ${verdict ? `<div class="row">
+            <span class="jl">Mainly because of</span>
+            <span class="chips">${dims.map(d=>`<button class="chip" data-dim="${esc(d.key)}" aria-pressed="${j.main_dimension===d.key}">${esc(d.name)}</button>`).join("")}</span>
+          </div>
+          <input type="text" id="note-${esc(m.id)}" class="note-in" data-note placeholder="Optional note, for example: pay is fine but the commute is long" value="${esc(j.reason)}" aria-label="Optional note">` : ""}
+        </div>
+      </div></article>`;
+  }).join("");
+}
+$("f-search").addEventListener("change", renderMatches);
+$("f-hide").addEventListener("change", renderMatches);
+async function saveJudgment(id, patch, el){
+  const m = S.matches.find(x=>x.id===id), prev = S.judgments[id] || {};
+  const doc = {match_id:id, search_id:m.search_id, posting_id:m.posting_id, verdict:prev.verdict||null, reason:prev.reason||"", main_dimension:prev.main_dimension||null,
+    cv_version:m.cv_version, prefs_version:m.prefs_version, agent_total:m.total,
+    posting:{company:m.company, title:m.title, location:m.location, pay_min:m.pay_min, pay_max:m.pay_max, industry:m.industry, url:m.url||null, text:m.text},
+    ...patch, at:new Date().toISOString()};
+  try { await S.db.doc("judgments/"+id).set(doc); }
+  catch(err){ const s=document.createElement("div"); s.className="status err"; s.textContent="Could not save: "+(err.message||err.code); el.closest(".judge").append(s); setTimeout(()=>s.remove(),5000); }
+}
+$("matches").addEventListener("click", e => {
+  if (!S.db) return;
+  const art = e.target.closest("article"); if (!art) return;
+  const id = art.dataset.id, cur = S.judgments[id] || {};
+  const v = e.target.closest("button[data-act]");
+  const busy = el => { art.querySelectorAll(".judge button").forEach(b => b.disabled = true); el.setAttribute("aria-busy","true"); el.classList.add("busy"); };
+  const done = () => art.querySelectorAll(".judge button").forEach(b => { b.disabled = false; b.removeAttribute("aria-busy"); b.classList.remove("busy"); });
+  if (v){ busy(v); return saveJudgment(id, cur.verdict===v.dataset.act ? {verdict:null, main_dimension:null, reason:""} : {verdict:v.dataset.act}, v).finally(done); }
+  const c = e.target.closest("button[data-dim]");
+  if (c){ busy(c); return saveJudgment(id, {main_dimension: cur.main_dimension===c.dataset.dim ? null : c.dataset.dim}, c).finally(done); }
+});
+$("matches").addEventListener("change", e => {
+  const n = e.target.closest("[data-note]"); if (!n || !S.db) return;
+  const id = n.closest("article").dataset.id;
+  if ((S.judgments[id]?.reason||"") !== n.value.trim()) saveJudgment(id, {reason:n.value.trim()}, n);
+});
+
+/* ---------- searches ---------- */
+function renderSearchList(){
+  $("c-searches").textContent = S.searches.length || "";
+  const active = S.searches.filter(s=>s.active).length;
+  $("search-list").innerHTML = S.searches.map(s => `<button class="btn ${S.editing===s.id?"primary":""}" data-sid="${esc(s.id)}">${esc(s.name)}${s.active?"":" (paused)"}</button>`).join("")
+    + `<span class="small muted" style="align-self:center">${active} of ${COURSE_CAPS.max_searches} active</span>`;
+  if (!S.editing && S.searches[0]) S.editing = S.searches[0].id;
+  if (!S.searches.length && S.editing !== "new") $("search-editor").innerHTML = `<div class="card empty">No searches yet. A search pairs one CV with one set of preferences. Start with <b>New search</b>.</div>`;
+}
+$("search-list").addEventListener("click", e => { const b=e.target.closest("button[data-sid]"); if(!b) return; S.editing=b.dataset.sid; renderSearchList(); renderSearchEditor(); });
+$("new-search").addEventListener("click", () => { S.editing="new"; renderSearchList(); renderSearchEditor(); });
+
+function renderSearchEditor(){
+  if (!S.editing) return;
+  const s = S.editing === "new"
+    ? {id:"", name:"", active:S.searches.filter(x=>x.active).length < COURSE_CAPS.max_searches, cv_text:"", cv_version:0, prefs_version:0,
+       preferences:{deal_breakers:{remote_only:false, min_pay:null, require_pay_listed:false, locations_any:[], exclude_industries:[], exclude_keywords:[]}, dimensions:structuredClone(DEFAULT_DIMS), unknown_policy:"neutral"}}
+    : S.searches.find(x=>x.id===S.editing);
+  if (!s) return;
+  const db = s.preferences.deal_breakers || {};
+  $("search-editor").innerHTML = `
+  <form class="panel" id="sform">
+    <div class="card stack">
+      <div class="row between"><h2>${s.id ? esc(s.name) : "New search"}</h2>
+        <span class="small muted mono">${s.id ? `CV v${s.cv_version} · preferences v${s.prefs_version}` : ""}</span></div>
+      <div class="grid2">
+        <label for="s-name">Name<input type="text" id="s-name" value="${esc(s.name)}" placeholder="e.g. Design leadership, remote" required></label>
+        <label class="inline" for="s-active" style="align-self:end"><input type="checkbox" id="s-active" ${s.active?"checked":""}> Active in daily runs</label>
+      </div>
+    </div>
+    <div class="card stack">
+      <h3>CV</h3>
+      <div class="note">Pick a PDF, Word or text file. The file stays on your device; only the text below is saved, so remove anything you don't want the agent to read.</div>
+      <div class="row"><input type="file" id="s-file" accept=".pdf,.docx,.txt,.md"><span class="status" id="s-file-status"></span></div>
+      <label for="s-cv">CV text<textarea class="cv" id="s-cv">${esc(s.cv_text)}</textarea></label>
+    </div>
+    <div class="card stack">
+      <h3>Deal breakers</h3>
+      <p class="small muted" style="margin:0">Checked in code before any judging. A posting that fails one is dropped, and the run log says why.</p>
+      <div class="grid2">
+        <label class="inline" for="d-remote"><input type="checkbox" id="d-remote" ${db.remote_only?"checked":""}> Remote only</label>
+        <label class="inline" for="d-paylisted"><input type="checkbox" id="d-paylisted" ${db.require_pay_listed?"checked":""}> Pay must be listed</label>
+        <label for="d-minpay">Pay floor (USD a year)<input type="number" id="d-minpay" min="0" step="5000" value="${db.min_pay ?? ""}"></label>
+        <label for="d-locs">Locations, if not remote<input type="text" id="d-locs" value="${esc((db.locations_any||[]).join(", "))}" placeholder="New York, Brooklyn"></label>
+        <label for="d-ind">Industries to exclude<input type="text" id="d-ind" value="${esc((db.exclude_industries||[]).join(", "))}" placeholder="Defense"></label>
+        <label for="d-kw">Words to exclude<input type="text" id="d-kw" value="${esc((db.exclude_keywords||[]).join(", "))}" placeholder="clearance, 60 percent travel"></label>
+      </div>
+    </div>
+    <div class="card stack">
+      <div class="row between"><h3>Dimensions</h3><button type="button" class="btn" id="add-dim">Add dimension</button></div>
+      <p class="small muted" style="margin:0">The agent scores each dimension 1 to 5, or unknown, with a reason and a quote from the posting. The total is a weighted average computed in code.</p>
+      <div id="dims" class="stack">${s.preferences.dimensions.map((d,i)=>dimRow(d,i)).join("")}</div>
+      <label for="s-unknown" style="max-width:320px">When a dimension is unknown
+        <select id="s-unknown"><option value="neutral" ${s.preferences.unknown_policy!=="penalty"?"selected":""}>Count it as neutral (3 of 5)</option><option value="penalty" ${s.preferences.unknown_policy==="penalty"?"selected":""}>Count it as a miss (1 of 5)</option></select></label>
+    </div>
+    <div class="row"><button class="btn primary" type="submit">Save search</button><span class="status" id="s-status"></span></div>
+  </form>`;
+  wireSearchForm(s);
+}
+function dimRow(d,i){
+  return `<div class="dimrow" data-i="${i}">
+    <label for="dn-${i}">Name<input type="text" id="dn-${i}" value="${esc(d.name)}" data-key="${esc(d.key)}"></label>
+    <label for="dw-${i}">Weight<span class="weight"><input type="range" id="dw-${i}" min="0" max="5" value="${d.weight}" oninput="this.nextElementSibling.value=this.value"><output>${d.weight}</output></span></label>
+    <label for="dr-${i}">What strong and weak fit mean to you<textarea id="dr-${i}" rows="2">${esc(d.rubric)}</textarea></label>
+    <button type="button" class="btn" data-rm="${i}" aria-label="Remove dimension" style="margin-top:20px">×</button></div>`;
+}
+function readDims(){
+  return [...document.querySelectorAll("#dims .dimrow")].map(r => {
+    const i = r.dataset.i, n = $("dn-"+i);
+    return {key: n.dataset.key || slug(n.value), name:n.value.trim(), weight:Number($("dw-"+i).value), rubric:$("dr-"+i).value.trim()};
+  }).filter(d => d.name);
+}
+function wireSearchForm(s){
+  $("add-dim").onclick = () => { const i = Date.now(); $("dims").insertAdjacentHTML("beforeend", dimRow({key:"",name:"",weight:3,rubric:""}, i)); };
+  $("dims").onclick = e => { const b = e.target.closest("[data-rm]"); if (b) b.closest(".dimrow").remove(); };
+  $("s-file").onchange = async e => {
+    const f = e.target.files[0], st = $("s-file-status"); if (!f) return;
+    st.className = "status"; st.textContent = "Reading " + f.name + "…";
+    try { $("s-cv").value = await extractText(f); st.className = "status ok"; st.textContent = "Text extracted. Review it below before saving."; }
+    catch(err){ st.className = "status err"; st.textContent = "Could not read this file. If it is a scanned PDF, paste the text instead."; }
+  };
+  $("sform").onsubmit = async e => {
+    e.preventDefault();
+    const st = $("s-status");
+    const name = $("s-name").value.trim(); if (!name){ st.className="status err"; st.textContent="Give the search a name."; return; }
+    const active = $("s-active").checked;
+    if (active && !s.active && S.searches.filter(x=>x.active).length >= COURSE_CAPS.max_searches){ st.className="status err"; st.textContent=`At most ${COURSE_CAPS.max_searches} searches can be active. Pause one first.`; return; }
+    const prefs = {deal_breakers:{remote_only:$("d-remote").checked, require_pay_listed:$("d-paylisted").checked,
+        min_pay:$("d-minpay").value ? Number($("d-minpay").value) : null, locations_any:list($("d-locs").value),
+        exclude_industries:list($("d-ind").value), exclude_keywords:list($("d-kw").value)},
+      dimensions:readDims(), unknown_policy:$("s-unknown").value};
+    const cv = $("s-cv").value.trim();
+    const id = s.id || (slug(name) + "-" + Math.random().toString(36).slice(2,6));
+    const cvChanged = cv !== s.cv_text, prefsChanged = JSON.stringify(prefs) !== JSON.stringify(s.preferences);
+    const doc = {name, active, cv_text:cv, preferences:prefs,
+      cv_version: s.cv_version + (cvChanged ? 1 : 0), prefs_version: s.prefs_version + (prefsChanged ? 1 : 0), updated:new Date().toISOString()};
+    try {
+      if (cvChanged) await S.db.doc(`searches/${id}/versions/cv-${doc.cv_version}`).set({kind:"cv", version:doc.cv_version, cv_text:cv, at:doc.updated});
+      if (prefsChanged) await S.db.doc(`searches/${id}/versions/prefs-${doc.prefs_version}`).set({kind:"preferences", version:doc.prefs_version, preferences:prefs, at:doc.updated});
+      await S.db.doc("searches/"+id).set(doc);
+      S.editing = id; st.className="status ok";
+      st.textContent = cvChanged || prefsChanged ? `Saved as CV v${doc.cv_version}, preferences v${doc.prefs_version}. The next run uses these.` : "Saved.";
+    } catch(err){ st.className="status err"; st.textContent = "Could not save: " + (err.message || err.code); }
+  };
+}
+async function extractText(file){
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".pdf")){
+    const pdf = await pdfjsLib.getDocument({data: new Uint8Array(await file.arrayBuffer())}).promise;
+    let out = [];
+    for (let p = 1; p <= pdf.numPages; p++){ const c = await (await pdf.getPage(p)).getTextContent(); out.push(c.items.map(i=>i.str).join(" ")); }
+    const t = out.join("\n\n").replace(/[ \t]+/g," ").trim(); if (!t) throw new Error("empty"); return t;
+  }
+  if (name.endsWith(".docx")){ const r = await mammoth.extractRawText({arrayBuffer: await file.arrayBuffer()}); return r.value.trim(); }
+  return (await file.text()).trim();
+}
+
+/* ---------- agent ---------- */
+function renderAgent(){
+  const a = S.agent;
+  if (!a){ $("agent-editor").innerHTML = `<div class="card empty">The agent's settings appear here once they are set up.</div>`; return; }
+  $("agent-editor").innerHTML = `
+  <form class="panel" id="aform">
+    <div class="card stack">
+      <div class="row between"><h2>Agent</h2><span class="small muted mono">version ${a.version} · saved ${esc(when(a.updated))}</span></div>
+      <label for="a-instr">Matcher instructions<textarea id="a-instr" rows="7">${esc(a.matcher_instructions)}</textarea></label>
+      <p class="small muted" style="margin:0">Requested: the model is asked to follow these. The caps below are enforced in code whatever the instructions say.</p>
+    </div>
+    <div class="card stack">
+      <h3>Limits</h3>
+      <div class="grid2">
+        <label for="a-judged">Postings judged per search, per run<input type="number" id="a-judged" min="1" max="${COURSE_CAPS.max_judged_per_search}" value="${a.settings.max_judged_per_search}"></label>
+      </div>
+      <div class="scroll"><table><thead><tr><th>Course cap, enforced</th><th>Value</th></tr></thead><tbody>
+        <tr><td>Runs per day</td><td class="num">${COURSE_CAPS.max_runs_per_day}</td></tr>
+        <tr><td>Active searches</td><td class="num">${COURSE_CAPS.max_searches}</td></tr>
+        <tr><td>Postings per source</td><td class="num">${COURSE_CAPS.max_postings_per_source}</td></tr>
+        <tr><td>Postings per run</td><td class="num">${COURSE_CAPS.max_postings_per_run}</td></tr>
+        <tr><td>Judged per search</td><td class="num">${COURSE_CAPS.max_judged_per_search}</td></tr>
+        <tr><td>Runs with full traces kept</td><td class="num">${COURSE_CAPS.trace_runs_kept}</td></tr>
+      </tbody></table></div>
+    </div>
+    <div class="row"><button class="btn primary" type="submit">Save as new version</button><span class="status" id="a-status"></span></div>
+  </form>`;
+  $("aform").onsubmit = async e => {
+    e.preventDefault(); const st = $("a-status");
+    const judged = Math.min(Math.max(1, Number($("a-judged").value)||1), COURSE_CAPS.max_judged_per_search);
+    const next = {version:a.version+1, matcher_instructions:$("a-instr").value.trim(), sources:a.sources, settings:{...a.settings, max_judged_per_search:judged}, updated:new Date().toISOString()};
+    try {
+      await S.db.doc(`agent/current/versions/v${next.version}`).set({...next});
+      await S.db.doc("agent/current").set(next);
+      st.className="status ok"; st.textContent=`Saved as version ${next.version}. The next run uses it.`;
+    } catch(err){ st.className="status err"; st.textContent="Could not save: "+(err.message||err.code); }
+  };
+}
+/* ---------- sources ---------- */
+const ADAPTERS = {
+  corpus:{label:"Frozen corpus", fields:[], help:"Fixed, fictional postings kept in the course repo, for repeatable tests."},
+  greenhouse:{label:"Greenhouse", key:"board_token", fields:[["board_token","Board token","figma"],["company_name","Company name","Figma"]], help:"A company's Greenhouse board. The token is the last part of boards.greenhouse.io/<token>."},
+  lever:{label:"Lever", key:"company", fields:[["company","Company","examplestart"],["company_name","Company name",""]], help:"A company's Lever board, from jobs.lever.co/<company>."},
+  ashby:{label:"Ashby", key:"company", fields:[["company","Board name","openai"],["company_name","Company name",""],["max_details","Postings to read in full","50"]], help:"A company's Ashby board, from jobs.ashbyhq.com/<board name>. Each posting needs its own request, so keep the number modest."},
+  getro:{label:"Getro portfolio board", key:"domain", fields:[["domain","Board domain","jobs.example-vc.com"]], help:"Job boards that venture firms run for their portfolio companies. Lists the 20 newest jobs, without descriptions."},
+  json_api:{label:"JSON API", key:"url", fields:[["url","API address","https://..."],["items_path","Where the list sits","jobs or data.items, empty for a bare list"],["fields","Where each field sits (JSON)",'{"title":"position","company":"company","location":"location","url":"url","text":"description"}'],["filter_words","Keep only jobs mentioning","design, research"],["company_name","Company name, if items have none",""]], help:"Any API that returns a list of jobs. When it changes shape, fix the paths here; no code needed."},
+  html_scraper:{label:"Web page", key:"url", fields:[["url","Careers page address","https://..."],["sel_job_card","Job card selector","li.job-row"],["sel_title","Title selector",".title"],["sel_company","Company selector",""],["sel_location","Location selector",".location"],["sel_link","Link selector","a"],["detail_text","Description selector on each job page",""],["company_name","Company name, if cards have none",""]], help:"A careers page read with CSS selectors. When it stops working, the selectors usually need updating. Pages built with JavaScript come back empty."},
+  rss:{label:"RSS feed", key:"url", fields:[["url","Feed address","https://.../feed.xml"],["company_name","Company name, if items have none",""],["default_location","Location, if items have none","Remote"]], help:"Job feeds in RSS or Atom format."},
+  manual:{label:"Check by hand", fields:[["url","Address","https://..."]], help:"A reminder, not fetched. Use it for sources that block automated access."},
+  custom:{label:"Custom adapter", key:"name", fields:[["name","Name","my-board"],["domains","Domains it may reach","careers.example.com"]], help:"Your own code, for a source no other type handles. Ask Claude to write or repair it."}
+};
+const host = u => { try { return new URL(u).hostname; } catch(e){ return ""; } };
+function srcDomains(s){
+  const c = s.config || {};
+  return ({greenhouse:["boards-api.greenhouse.io"], lever:["api.lever.co"], ashby:["jobs.ashbyhq.com"], getro:[c.domain],
+    json_api:[host(c.url)], html_scraper:[host(c.url)], rss:[host(c.url)], custom:c.domains||[]}[s.adapter] || []).filter(Boolean);
+}
+function srcHealth(id){
+  const runs = S.runs.map(r => ({at:r.started, h:(r.sources||[]).find(x=>x.source===id)})).filter(x=>x.h);
+  if (!runs.length) return {status:"new", history:[]};
+  const latest = runs[0].h, fails = runs.findIndex(x=>x.h.status!=="failed");
+  const everKept = runs.slice(1).some(x => (x.h.kept||0) > 0);
+  const lastOk = runs.find(x=>x.h.status==="ok");
+  return {status:latest.status, error:latest.error || latest.reason, kept:latest.kept||0, history:runs.slice(0,14).reverse(),
+    failures: fails === -1 ? runs.length : fails, lastOk: lastOk?.at,
+    blocked: !!latest.blocked_by_network,
+    repair: (latest.status==="failed" && !latest.blocked_by_network) || (latest.status==="empty" && everKept)};
+}
+const PILL = {ok:["ok","Working"], empty:["warn","Returned nothing"], failed:["bad","Failing"], manual:["","Check by hand"], new:["","Not run yet"], off:["","Off"]};
+function renderSources(){
+  const a = S.agent;
+  if (!a){ $("sources").innerHTML = `<div class="card empty">Sources appear here once the agent is set up.</div>`; return; }
+  clearTimeout(S.flashTimer); if (S.flash) S.flashTimer = setTimeout(() => { S.flash = null; renderSources(); }, 6000);
+  const doms = [...new Set(a.sources.filter(s=>s.enabled).flatMap(srcDomains))].sort();
+  const repairs = a.sources.filter(s => s.enabled && srcHealth(s.id).repair).length;
+  $("c-sources").textContent = repairs ? `${repairs} need repair` : a.sources.length;
+  $("sources").innerHTML = `
+    <div class="card stack">
+      <div class="row between"><h2>Sources</h2><button class="btn" id="add-source">Add source</button></div>
+      <p class="small muted" style="margin:0">Each source names an adapter, the code that knows how to read one kind of job board. Most repairs mean editing a source's settings, like a board token or a selector. Changes save as a new agent version.</p>
+      ${runnerBlock()}
+      <details><summary>Domains to allow in your cloud environment (${doms.length})</summary>
+        <p class="small muted">The daily run can only reach these. Paste them into your environment's network setting under Custom, allowed domains.</p>
+        <div class="row"><code class="mono domlist" id="domlist">${esc(doms.join("\n"))}</code><button type="button" class="btn" id="copy-doms">Copy</button></div></details>
+    </div>
+    ${S.flash && !S.flash.id ? `<div class="status ok">${esc(S.flash.msg)}</div>` : ""}
+    <div id="src-new"></div>
+    ${a.sources.map(s => sourceCard(s)).join("")}`;
+  if ($("pick-runner")) $("pick-runner").onclick = pickRunner;
+  $("add-source").onclick = () => { $("src-new").innerHTML = sourceEditor({id:"", adapter:"greenhouse", enabled:true, category:"", cap:50, config:{}}, true); wireEditor($("src-new").firstElementChild); };
+  $("copy-doms").onclick = async e => { try { await navigator.clipboard.writeText(doms.join("\n")); e.target.textContent = "Copied"; } catch(err){ const r=document.createRange(); r.selectNodeContents($("domlist")); getSelection().removeAllRanges(); getSelection().addRange(r); } };
+}
+function sourceCard(s){
+  const h = s.enabled ? srcHealth(s.id) : {status:"off", history:[]};
+  const st = s.adapter==="manual" ? PILL.manual : (PILL[h.status] || PILL.new);
+  const prop = S.proposals[s.id];
+  const strip = h.history?.length ? `<span class="strip" aria-label="Last ${h.history.length} runs">${h.history.map(x=>`<i class="${x.h.status}" title="${esc(when(x.at))}: ${esc(x.h.status)}${x.h.kept!=null?", "+x.h.kept+" kept":""}"></i>`).join("")}</span>` : "";
+  return `<article class="card src" data-sid="${esc(s.id)}">
+    <div class="row between">
+      <div class="stack" style="gap:2px;min-width:0">
+        <div class="row"><h3 class="mono">${esc(s.id)}</h3><span class="pill ${st[0]}">${st[1]}</span>${h.repair?`<span class="pill bad">Needs repair</span>`:""}${h.blocked && s.enabled?`<span class="pill warn">Domain not allowed yet</span>`:""}</div>
+        <div class="small muted">${esc(ADAPTERS[s.adapter]?.label || s.adapter)}${s.category?` · ${esc(s.category)}`:""}${s.adapter!=="corpus"&&s.adapter!=="manual"?` · up to ${s.cap} postings`:""}${h.lastOk?` · last worked ${esc(when(h.lastOk))}`:""}</div>
+      </div>
+      <div class="row">${strip}${s.enabled && s.adapter!=="corpus" && s.adapter!=="manual" ? testButton(s) : ""}<label class="inline small" for="on-${esc(s.id)}"><input type="checkbox" id="on-${esc(s.id)}" data-toggle ${s.enabled?"checked":""}> On</label><button class="btn" data-edit>Edit</button></div>
+    </div>
+    ${h.error && s.enabled ? `<div class="err-line small"><b>${h.failures>1?`Failed ${h.failures} runs in a row: `:"Last run: "}</b><span class="mono">${esc(h.error)}</span></div>` : ""}
+    ${s.note ? `<div class="small muted">${esc(s.note)}</div>` : ""}
+    ${prop ? `<div class="proposal stack">
+      <div class="row between"><b>Proposed fix</b><span class="small muted">${esc(when(prop.at))}</span></div>
+      <div class="small">${esc(prop.reason)}</div>
+      <div class="small">Before: <b>${esc(prop.before?.status||"")}</b>, ${prop.before?.kept ?? 0} postings · After: <b>${esc(prop.after?.status||"")}</b>, ${prop.after?.kept ?? 0} postings</div>
+      ${prop.sample?.length?`<ul class="small sample">${prop.sample.map(t=>`<li>${esc(t)}</li>`).join("")}</ul>`:""}
+      <details><summary>Changed settings</summary><pre class="mono small cfg">${esc(JSON.stringify(prop.source?.config, null, 1))}</pre></details>
+      <div class="row"><button class="btn primary" data-approve>Apply fix</button><button class="btn" data-discard>Discard</button></div></div>` : ""}
+    ${testBlock(s)}
+    ${S.flash?.id === s.id && S.flash.msg ? `<div class="status ok">${esc(S.flash.msg)}</div>` : ""}
+    <div class="editor-slot"></div></article>`;
+}
+function sourceEditor(s, isNew){
+  const c = s.config || {}, sel = c.selectors || {};
+  const val = k => k.startsWith("sel_") ? sel[k.slice(4)] : k==="fields" ? (c.fields ? JSON.stringify(c.fields) : "") : Array.isArray(c[k]) ? c[k].join(", ") : (k==="name" ? (c.name || "") : c[k]);
+  const opts = Object.entries(ADAPTERS).map(([k,v])=>`<option value="${k}" ${s.adapter===k?"selected":""}>${esc(v.label)}</option>`).join("");
+  const A = ADAPTERS[s.adapter] || ADAPTERS.manual;
+  const fields = A.fields.map(([k,label,ph]) => `<label>${esc(label)}${k==="fields"?`<textarea data-k="${k}" rows="3" class="mono" placeholder="${esc(ph)}">${esc(val(k))}</textarea>`:`<input type="text" data-k="${k}" value="${esc(val(k)??"")}" placeholder="${esc(ph)}">`}</label>`).join("");
+  return `<form class="stack src-edit" data-new="${isNew?1:""}" data-orig="${esc(s.id)}">
+    <div class="grid2">
+      <label>Adapter<select data-adapter>${opts}</select></label>
+      <label>Category<input type="text" data-common="category" value="${esc(s.category||"")}" placeholder="design, ai, civic"></label>
+      ${s.adapter!=="corpus"&&s.adapter!=="manual"?`<label>Most postings per run<input type="number" data-common="cap" min="1" max="${COURSE_CAPS.max_postings_per_source}" value="${s.cap||50}"></label>`:""}
+      ${fields}
+    </div>
+    <p class="small muted" style="margin:0">${esc(A.help)}</p>
+    ${s.adapter==="custom"?`<label>Code<textarea data-code rows="12" class="mono" spellcheck="false" placeholder="class Adapter(BaseSource):\n    def fetch(self):\n        return self.http.get_json(&quot;https://careers.example.com/api/jobs&quot;)\n    def normalize(self, raw):\n        return self.posting(id=raw[&quot;id&quot;], title=raw[&quot;title&quot;], company=&quot;Example&quot;, location=raw[&quot;location&quot;], text=raw[&quot;description&quot;], url=raw[&quot;url&quot;])">${esc(c.code||"")}</textarea></label>`:""}
+    <label>Note<input type="text" data-common="note" value="${esc(s.note||"")}" placeholder="Why it is off, what to watch for"></label>
+    <div class="row"><button class="btn primary" type="submit">Save source</button><button class="btn" type="button" data-cancel>Cancel</button>${isNew?"":`<button class="btn" type="button" data-delete>Remove source</button>`}<span class="status"></span></div>
+  </form>`;
+}
+function readEditor(f){
+  const adapter = f.querySelector("[data-adapter]").value, A = ADAPTERS[adapter];
+  const config = {}, selectors = {};
+  f.querySelectorAll("[data-k]").forEach(i => {
+    const k = i.dataset.k, v = i.value.trim(); if (!v) return;
+    if (k.startsWith("sel_")) selectors[k.slice(4)] = v;
+    else if (k==="fields") config.fields = JSON.parse(v);
+    else if (k==="filter_words" || k==="domains") config[k] = list(v);
+    else if (k==="max_details") config[k] = Number(v);
+    else config[k] = v;
+  });
+  if (Object.keys(selectors).length) config.selectors = selectors;
+  const code = f.querySelector("[data-code]"); if (code) config.code = code.value;
+  const common = k => f.querySelector(`[data-common="${k}"]`)?.value.trim();
+  const keyVal = A.key ? (A.key === "url" ? host(config.url) : config[A.key]) : "";
+  const id = adapter === "corpus" ? "corpus" : adapter === "manual" ? "manual:" + (host(config.url) || slug(common("note"))) : `${adapter}:${keyVal}`;
+  if (A.key && !keyVal) throw new Error(`Fill in ${A.fields.find(x=>x[0]===A.key || (A.key==="url"&&x[0]==="url"))?.[1] || A.key}.`);
+  return {id, adapter, enabled:true, category:common("category")||"", cap:Math.min(Number(common("cap"))||50, COURSE_CAPS.max_postings_per_source), note:common("note")||"", config};
+}
+async function saveSources(sources, msg){
+  const a = S.agent, next = {...a, version:a.version+1, sources, updated:new Date().toISOString()};
+  await S.db.doc(`agent/current/versions/v${next.version}`).set({...next, note:msg});
+  await S.db.doc("agent/current").set(next);
+  return next.version;
+}
+function wireEditor(f){
+  f.querySelector("[data-adapter]").onchange = e => {
+    const cur = {id:f.dataset.orig, adapter:e.target.value, enabled:true, cap:50, config:{}};
+    const fresh = document.createElement("div"); fresh.innerHTML = sourceEditor(cur, !!f.dataset.new);
+    const nf = fresh.firstElementChild; f.replaceWith(nf); wireEditor(nf);
+  };
+  f.querySelector("[data-cancel]").onclick = () => f.remove();
+  f.querySelector("[data-delete]")?.addEventListener("click", async ev => {
+    const st = f.querySelector(".status"); ev.target.disabled = true; ev.target.textContent = "Removing…";
+    try {
+      const v = await saveSources(S.agent.sources.filter(s=>s.id!==f.dataset.orig), `Removed ${f.dataset.orig}`);
+      S.flash = {id:null, msg:`Removed ${f.dataset.orig}. Saved as agent version ${v}.`};
+      f.remove(); renderSources();
+    }
+    catch(err){ st.className="status err"; st.textContent="Could not save: "+(err.message||err.code); }
+  });
+  f.onsubmit = async e => {
+    e.preventDefault(); const st = f.querySelector(".status");
+    let src; try { src = readEditor(f); } catch(err){ st.className="status err"; st.textContent = err instanceof SyntaxError ? "The field paths are not valid JSON." : err.message; return; }
+    const orig = f.dataset.orig, old = S.agent.sources.find(s=>s.id===orig);
+    if (old) src.enabled = old.enabled;
+    if (src.id !== orig && S.agent.sources.some(s=>s.id===src.id)){ st.className="status err"; st.textContent=`A source named ${src.id} already exists.`; return; }
+    const sources = old ? S.agent.sources.map(s => s.id===orig ? src : s) : [...S.agent.sources, src];
+    const sb = f.querySelector('button[type="submit"]'); sb.disabled = true; sb.innerHTML = `<span class="spin" aria-hidden="true"></span>Saving…`;
+    try {
+      const v = await saveSources(sources, `${old?"Edited":"Added"} ${src.id}`);
+      S.flash = {id:src.id, msg:`Saved as agent version ${v}. The next run uses it.`};
+      f.remove(); renderSources();
+    }
+    catch(err){ st.className="status err"; st.textContent="Could not save: "+(err.message||err.code); sb.disabled = false; sb.textContent = "Save source"; }
+  };
+}
+$("sources").addEventListener("click", async e => {
+  const card = e.target.closest("article.src"); if (!card || !S.db) return;
+  const id = card.dataset.sid, s = S.agent.sources.find(x=>x.id===id);
+  if (e.target.closest("[data-test]")){ testSource(id); return; }
+  if (e.target.closest("[data-opensetup]")){ S.setup.open = true; renderSetup(); $("setup").scrollIntoView({block:"start"}); return; }
+  if (e.target.closest("[data-edit]")){
+    const slot = card.querySelector(".editor-slot");
+    if (slot.firstElementChild){ slot.innerHTML = ""; return; }
+    slot.innerHTML = sourceEditor(s, false); wireEditor(slot.firstElementChild);
+  } else if (e.target.closest("[data-approve]")){
+    const p = S.proposals[id];
+    card.querySelectorAll(".proposal button").forEach(b => b.disabled = true); e.target.closest("[data-approve]").innerHTML = `<span class="spin" aria-hidden="true"></span>Applying…`;
+    await saveSources(S.agent.sources.map(x => x.id===id ? {...p.source, id, enabled:x.enabled} : x), `Applied proposed fix for ${id}`);
+    await S.db.doc("proposals/"+safeId(id)).delete();
+  } else if (e.target.closest("[data-discard]")){
+    card.querySelectorAll(".proposal button").forEach(b => b.disabled = true); e.target.closest("[data-discard]").textContent = "Discarding…";
+    await S.db.doc("proposals/"+safeId(id)).delete();
+  }
+});
+$("sources").addEventListener("change", async e => {
+  const t = e.target.closest("[data-toggle]"); if (!t) return;
+  const id = t.closest("article").dataset.sid;
+  await saveSources(S.agent.sources.map(s => s.id===id ? {...s, enabled:t.checked} : s), `${t.checked?"Turned on":"Turned off"} ${id}`);
+});
+const safeId = id => id.replace(/[^A-Za-z0-9_.-]+/g, "_");
+
+
+/* ---------- testing one source ---------- */
+const RUNNER = "Claude Code Remote";
+const MCP_HELP = {
+  server_not_connected: "Starting runs from this page needs Claude Code connected to your account. Open Claude Code on the web once, then reload this page.",
+  selection_required: "Choose which Claude Code connection this page should use when claude.ai asks, then try again.",
+  needs_reauth: "Your Claude Code connection needs signing in again. Open Claude Code on the web, then try again.",
+  approval_required: "This page needs your permission to start your scheduled task. Press the button again and choose Allow.",
+  not_in_manifest: "Starting runs is turned off for this page. Turn it back on in the page's Permissions menu.",
+  blocked_by_policy: "Your organization's settings don't allow this page to start scheduled tasks.",
+  not_granted: "Starting runs isn't available in this view of the page.",
+  capability_disabled: "Starting runs isn't available in this view of the page."
+};
+const mcpMessage = e => MCP_HELP[e?.code] || (e?.code === "tool_error" ? "The scheduled task refused: " + (e.message || "") : "Could not reach your scheduled task right now (" + (e?.code || "error") + "). Try again in a minute.");
+let MCP = null; (async () => { MCP = await window.claude?.use?.("mcp"); })();
+const findSession = v => (JSON.stringify(v || "").match(/https:\/\/claude\.ai\/code\/session_[A-Za-z0-9_]+/) || [])[0] || null;
+
+function runnerBlock(){
+  const r = S.runner;
+  if (!r?.trigger_id) return "";
+  if (r?.trigger_id) return `<div class="row small"><span>Tests run on your scheduled task <b>${esc(r.name || r.trigger_id)}</b>.</span><button type="button" class="btn" id="pick-runner">Change</button></div><div id="runner-pick"></div>`;
+  return `<div class="note stack" style="gap:6px"><span>To test a source from here, connect the scheduled task that runs your agent.</span><div class="row"><button type="button" class="btn" id="pick-runner">Connect scheduled task</button></div><div id="runner-pick"></div></div>`;
+}
+async function pickRunner(){
+  const box = $("runner-pick");
+  if (!MCP){ box.innerHTML = `<div class="status err">${esc(MCP_HELP.capability_disabled)}</div>`; return; }
+  box.innerHTML = `<div class="status row"><span class="spin" aria-hidden="true"></span>Looking up your scheduled tasks…</div>`;
+  try {
+    const res = await MCP.callTool(RUNNER, "list_triggers", {limit: 50, recurring: true});
+    const list = (res.payload?.data || res.payload?.triggers || (Array.isArray(res.payload) ? res.payload : [])).filter(t => t && t.id);
+    if (!list.length){ box.innerHTML = `<div class="status err">No scheduled tasks found. Create the daily run first, then connect it here.</div>`; return; }
+    box.innerHTML = `<div class="row"><select id="runner-sel" aria-label="Scheduled task">${list.map(t=>`<option value="${esc(t.id)}">${esc(t.name || t.id)}</option>`).join("")}</select><button type="button" class="btn primary" id="runner-save">Use this task</button></div>`;
+    $("runner-save").onclick = async () => {
+      const t = list.find(x => x.id === $("runner-sel").value);
+      $("runner-save").disabled = true; $("runner-save").textContent = "Saving…";
+      try {
+        await S.db.doc("meta/agent").set({trigger_id:t.id, name:t.name || "", connected_at:new Date().toISOString()});
+        Object.keys(S.pending).forEach(k => { if (S.pending[k].phase === "needs_runner") delete S.pending[k]; });
+      }
+      catch(err){ box.innerHTML = `<div class="status err">Could not save: ${esc(err.message||err.code)}</div>`; }
+    };
+  } catch(e){ box.innerHTML = `<div class="status err">${esc(mcpMessage(e))}</div>`; }
+}
+const TEST_STALE_MIN = 20;
+const clock = ms => { const t = Math.max(0, Math.floor(ms/1000)); return Math.floor(t/60) + ":" + String(t%60).padStart(2,"0"); };
+// Local state shows feedback the moment Test is clicked, before the database answers.
+S.pending = {};
+function testPhase(id){
+  const p = S.pending[id], t = S.tests[id];
+  if (p && (!t || new Date(t.requested_at) < new Date(p.at))) return {phase:p.phase, at:p.at, error:p.error};
+  if (!t) return {phase:"idle"};
+  if (t.status === "requested"){
+    const age = (Date.now() - new Date(t.requested_at)) / 60000;
+    return {phase: age > TEST_STALE_MIN ? "stale" : "running", at:t.requested_at, url:t.session_url};
+  }
+  return {phase:t.status, at:t.requested_at, test:t};
+}
+function testButton(s){
+  const ph = testPhase(s.id).phase;
+  if (ph === "starting") return `<button class="btn busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Starting…</button>`;
+  if (ph === "running") return `<button class="btn busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Testing <span data-elapsed="${esc(testPhase(s.id).at)}">0:00</span></button>`;
+  return `<button class="btn" data-test>${ph === "idle" ? "Test" : "Test again"}</button>`;
+}
+async function testSource(id){
+  S.pending[id] = {phase:"starting", at:new Date().toISOString()};
+  renderSources();
+  if (!S.runner?.trigger_id){ S.pending[id] = {phase:"needs_runner", at:S.pending[id].at}; renderSources(); return; }
+  if (!MCP){ S.pending[id] = {phase:"not_started", at:S.pending[id].at, error:MCP_HELP.capability_disabled}; renderSources(); return; }
+  const ref = S.db.doc("source_tests/" + safeId(id)), requested_at = S.pending[id].at;
+  try {
+    await ref.set({source_id:id, status:"requested", requested_at});
+    const res = await MCP.callTool(RUNNER, "fire_trigger", {trigger_id:S.runner.trigger_id, text:"TEST_SOURCE " + id});
+    delete S.pending[id];
+    const url = findSession(res.payload ?? res);
+    if (url) await ref.update({session_url:url});
+  } catch(e){
+    const error = mcpMessage(e);
+    S.pending[id] = {phase:"not_started", at:requested_at, error};
+    await ref.set({source_id:id, status:"not_started", requested_at, error}).catch(()=>{});
+  }
+  renderSources();
+}
+function testBlock(s){
+  const st = testPhase(s.id);
+  const watch = st.url ? ` <a class="ext" href="${esc(st.url)}" target="_blank" rel="noopener">Watch the run ↗</a>` : "";
+  if (st.phase === "idle") return "";
+  if (st.phase === "starting") return `<div class="testbox small" role="status"><div class="row"><span class="spin" aria-hidden="true"></span><b>Starting the test…</b></div><div class="bar"><i></i></div></div>`;
+  if (st.phase === "needs_runner") return `<div class="testbox bad small stack" style="gap:6px" role="alert"><b>Finish setting up your agent first.</b><span>Tests run in the cloud, on your agent's daily run. Setup takes about five minutes.</span><div><button type="button" class="btn" data-opensetup>Go to setup</button></div></div>`;
+  if (st.phase === "running") return `<div class="testbox small stack" style="gap:6px" role="status">
+      <div class="row between"><span class="row"><span class="spin" aria-hidden="true"></span><b>Test running</b></span><span class="mono" data-elapsed="${esc(st.at)}">0:00</span></div>
+      <div class="bar"><i></i></div>
+      <span class="muted">Your scheduled task is starting a cloud run, reading this source, and saving the result here. This usually takes 2 to 5 minutes; you can leave this page open or come back.${watch}</span></div>`;
+  if (st.phase === "stale") return `<div class="testbox bad small" role="alert"><b>No result after ${TEST_STALE_MIN} minutes.</b> The run may have failed or still be waiting to start.${watch || " Open your scheduled task's runs to see what happened."} You can test again.</div>`;
+  if (st.phase === "not_started") return `<div class="testbox bad small" role="alert"><b>The test didn't start.</b> ${esc(st.error || st.test?.error || "")}</div>`;
+  if (st.phase === "not_found") return `<div class="testbox bad small" role="alert"><b>The run couldn't find this source in your saved settings.</b> Save the source, then test again.</div>`;
+  const t = st.test, h = t.health || {}, pill = PILL[h.status] || PILL.new;
+  const took = t.finished_at && t.requested_at ? clock(new Date(t.finished_at) - new Date(t.requested_at)) : "";
+  const rows = (t.sample || []).map(p => `<li><span>${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.title)}</a>` : esc(p.title)}</span> <span class="muted">· ${esc(p.company||"")} · ${esc(p.location||"")}${p.pay_min||p.pay_max ? " · " + esc(money(p.pay_min,p.pay_max)) : ""}</span></li>`).join("");
+  return `<div class="testbox ${h.status==="ok"?"good":h.status==="failed"?"bad":""} small stack" style="gap:6px">
+    <div class="row between"><span><b>Test result</b> <span class="pill ${pill[0]}">${pill[1]}</span></span><span class="muted">${esc(when(t.finished_at))}${took ? ` · took ${took}` : ""}</span></div>
+    <div>Fetched ${h.fetched ?? 0} · kept ${h.kept ?? 0}${h.rejected ? ` · rejected ${h.rejected}` : ""}${h.capped ? ` · ${h.capped} over the cap` : ""}</div>
+    ${h.error ? `<div class="mono">${esc(h.error)}</div>` : ""}
+    ${h.rejections ? `<div class="muted">Rejected because: ${esc(Object.entries(h.rejections).map(([k,v])=>`${k} (${v})`).join("; "))}</div>` : ""}
+    ${rows ? `<ul class="sample">${rows}</ul>` : ""}
+    ${t.session_url ? `<a class="ext" href="${esc(t.session_url)}" target="_blank" rel="noopener">Open the run ↗</a>` : ""}</div>`;
+}
+// One ticker updates every visible timer; when a running test goes stale it redraws once.
+setInterval(() => {
+  let stale = false;
+  document.querySelectorAll("[data-elapsed]").forEach(el => {
+    const ms = Date.now() - new Date(el.dataset.elapsed);
+    el.textContent = clock(ms);
+    if (ms > TEST_STALE_MIN * 60000) stale = true;
+  });
+  if (stale && !document.activeElement?.closest?.(".src-edit")){ renderSources(); renderSetup(); }
+}, 1000);
+
+/* ---------- setup ---------- */
+const COURSE_REPO = "https://github.com/arikan/ai-agent-design-fall-2026";
+const TASK_NAME = "Job agent daily run";
+S.setup = {copied:false, netDone:false, checkAt:null, checkError:"", open:false};
+function taskPrompt(){
+  const url = S.app?.console_url || "(this console's link)";
+  return `You run a student's job agent. Clone ${COURSE_REPO} (a shallow clone is enough) and work in its week7-job-agent folder. Follow week7-job-agent/RUN.md exactly, starting at "Steps".
+CONSOLE_URL is ${url}
+If this run includes a message or fire payload of the exact form "TEST_SOURCE <source id>" or "CHECK_SETUP", follow the matching section of RUN.md ("Test one source" or "Check setup") instead of "Steps".
+Do not commit or push anything. If a step fails, stop, and report which step failed and the error, in two lines.`;
+}
+function setupMessage(){
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
+  return `Create a scheduled task for my job agent, using this session's cloud environment, with exactly these settings:
+- Name: ${TASK_NAME}
+- Schedule: every day at 7:47 AM in ${tz}
+- Instructions, used exactly as the task's prompt:
+
+${taskPrompt()}
+
+Do not change anything else. When it is created, reply with the task's name and its next run time.`;
+}
+function setupDone(){ return !!(S.runner?.trigger_id && S.check?.status === "ok"); }
+function checkPhase(){
+  const c = S.check, local = S.setup.checkAt;
+  if (local && (!c || new Date(c.requested_at || 0) < new Date(local))) return S.setup.checkError ? "not_started" : "starting";
+  if (!c) return "idle";
+  if (c.status === "requested") return (Date.now() - new Date(c.requested_at)) / 60000 > TEST_STALE_MIN ? "stale" : "running";
+  return c.status;
+}
+function renderSetup(){
+  const box = $("setup"); if (!box || !S.db) return;
+  const done = setupDone();
+  $("open-setup").hidden = !done;
+  if (done && !S.setup.open){ box.hidden = true; return; }
+  box.hidden = false;
+  const has = !!S.runner?.trigger_id, ph = checkPhase();
+  // Only the current step shows its details; finished steps shrink to one line, later steps to their title.
+  const netDone = has && (ph === "ok" || (ph !== "network_blocked" && (S.setup.netDone || ph !== "idle")));
+  const cur = !has ? 1 : !netDone ? 2 : ph === "ok" ? 4 : 3;
+  const state = n => n < cur ? "done" : n === cur ? "now" : "later";
+  const mark = n => state(n) === "done" ? `<span class="stepmark done" aria-label="Step ${n}, done">✓</span>` : `<span class="stepmark ${state(n)}" aria-label="Step ${n}">${n}</span>`;
+  const msgDetails = `<details class="small"><summary>See the message</summary><pre class="mono promptbox" id="prompt-text">${esc(setupMessage())}</pre></details>`;
+  const body = {
+    1: { done: `<p class="small muted">Daily run: <b>${esc(S.runner?.name || TASK_NAME)}</b> · <button type="button" class="linkbtn" data-setup="change">Change</button></p>`,
+         now: !S.setup.copied
+           ? `<p>Claude Code runs your agent in the cloud once a day, even when your laptop is closed. Claude sets it up when you send it a message.</p>
+              <div class="row"><button type="button" class="btn primary" data-setup="copy">Copy setup message</button></div>${msgDetails}`
+           : `<p><b>Copied.</b> Open Claude Code, start a new session, paste the message, and send it. When Claude replies that the task is created, come back here.</p>
+              <div class="row"><a class="btn" href="https://claude.ai/code" target="_blank" rel="noopener">Open Claude Code ↗</a><button type="button" class="btn primary" data-setup="find">I've created it</button><span class="status" id="find-status"></span></div>
+              <div class="row small"><button type="button" class="linkbtn" data-setup="copy">Copy again</button></div>${msgDetails}` },
+    2: { done: `<p class="small muted">Network access set to Full.</p>`,
+         now: `${ph === "network_blocked" ? `<div class="testbox bad small" role="alert"><b>Your run couldn't reach a job site.</b> The network setting hasn't changed yet, or it was saved on a different environment.</div>` : ""}
+           <p>Your daily run needs permission to reach job sites. Do this once:</p>
+           <ol class="small">
+             <li>Open <a class="ext" href="https://claude.ai/code/routines" target="_blank" rel="noopener">your scheduled tasks in Claude Code ↗</a>, open <b>${esc(S.runner?.name || TASK_NAME)}</b>, and choose <b>Edit</b>.</li>
+             <li>Below the instructions, click the cloud icon with the environment's name, then the settings icon next to it.</li>
+             <li>Set <b>Network access</b> to <b>Full</b>, then <b>Save changes</b>.</li></ol>
+           <div class="row"><button type="button" class="btn primary" data-setup="netdone">I've changed it, check my setup</button></div>` },
+    3: { done: `<p class="small muted">Checked ${esc(when(S.check?.finished_at))}. Your agent can reach job sites and save its results here.</p>`,
+         now: ph === "starting" ? `<button class="btn busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Starting the check…</button>`
+           : ph === "running" ? `<div class="testbox small stack" style="gap:6px" role="status"><div class="row between"><span class="row"><span class="spin" aria-hidden="true"></span><b>Checking</b></span><span class="mono" data-elapsed="${esc(S.check.requested_at)}">0:00</span></div><div class="bar"><i></i></div><span class="muted">A cloud run is starting, reaching a job site, and writing back here. This usually takes 2 to 5 minutes; you can leave this page.</span></div>`
+           : `${ph === "not_started" ? `<div class="testbox bad small" role="alert"><b>The check didn't start.</b> ${esc(S.setup.checkError)}</div>` : ""}
+              ${ph === "failed" ? `<div class="testbox bad small" role="alert"><b>The check failed.</b> <span class="mono">${esc(S.check.error || "")}</span></div>` : ""}
+              ${ph === "stale" ? `<div class="testbox bad small" role="alert"><b>No answer after ${TEST_STALE_MIN} minutes.</b> Open your scheduled task's runs in Claude Code to see what happened.</div>` : ""}
+              <div class="row"><button type="button" class="btn primary" data-setup="check">${ph === "idle" ? "Check setup" : "Check again"}</button></div>` }
+  };
+  const step = (n, title) => `<div class="step ${state(n)}">${mark(n)}<div class="stack" style="gap:8px"><h3>${title}</h3>${state(n) === "later" ? "" : body[n][state(n)]}</div></div>`;
+  box.innerHTML = `<div class="card stack setup">
+    <div class="row between"><h2>${done ? "Setup" : "Set up your agent"}</h2>${done ? `<button type="button" class="btn" data-setup="close">Close</button>` : `<span class="small muted">Step ${Math.min(cur, 3)} of 3</span>`}</div>
+    ${step(1, "Create your daily run")}
+    ${step(2, "Let it reach job sites")}
+    ${step(3, "Check that it works")}
+    ${done ? "" : ""}
+  </div>`;
+}
+function findTriggerId(v){ return (JSON.stringify(v || "").match(/trig_[A-Za-z0-9]+/) || [])[0] || null; }
+async function connectRunner(id, name){ await S.db.doc("meta/agent").set({trigger_id:id, name:name || TASK_NAME, connected_at:new Date().toISOString()}); }
+async function findRunner(btn){
+  const st = $("find-status"); btn.disabled = true; btn.innerHTML = `<span class="spin" aria-hidden="true"></span>Looking…`;
+  try {
+    if (!MCP) throw {code:"capability_disabled"};
+    const res = await MCP.callTool(RUNNER, "list_triggers", {limit:50});
+    const list = (res.payload?.data || []).filter(t => t && t.id);
+    const hit = list.find(t => (t.name || "").trim().toLowerCase() === TASK_NAME.toLowerCase());
+    if (hit){ await connectRunner(hit.id, hit.name); renderSetup(); renderSources(); return; }
+    st.className = "status err"; st.textContent = list.length ? `None of your scheduled tasks is named "${TASK_NAME}" yet. If Claude used another name, ask it to rename the task.` : "No scheduled tasks found yet. Send the message in Claude Code first; once Claude confirms, press this again.";
+  } catch(e){ st.className = "status err"; st.textContent = mcpMessage(e); }
+  btn.disabled = false; btn.textContent = "I've created it";
+}
+async function checkSetup(){
+  S.setup.checkAt = new Date().toISOString(); S.setup.checkError = ""; renderSetup();
+  const ref = S.db.doc("meta/setup_check");
+  try {
+    if (!MCP) throw {code:"capability_disabled"};
+    await ref.set({status:"requested", requested_at:S.setup.checkAt});
+    await MCP.callTool(RUNNER, "fire_trigger", {trigger_id:S.runner.trigger_id, text:"CHECK_SETUP"});
+    S.setup.checkAt = null;
+  } catch(e){ S.setup.checkError = mcpMessage(e); }
+  renderSetup();
+}
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-setup]"); if (!b || !S.db) return;
+  const act = b.dataset.setup;
+  if (act === "find") findRunner(b);
+  else if (act === "check") checkSetup();
+  else if (act === "netdone"){ S.setup.netDone = true; checkSetup(); }
+  else if (act === "close"){ S.setup.open = false; renderSetup(); }
+  else if (act === "change"){ S.setup.copied = false; await S.db.doc("meta/agent").delete(); }
+  else if (act === "copy"){
+    try { await navigator.clipboard.writeText(setupMessage()); S.setup.copied = true; renderSetup(); }
+    catch(err){ const d = b.closest(".stack").querySelector("details"); if (d) d.open = true; const r=document.createRange(); r.selectNodeContents($("prompt-text")); getSelection().removeAllRanges(); getSelection().addRange(r); S.setup.copied = true; b.textContent = "Selected below, copy it"; setTimeout(renderSetup, 2500); }
+  }
+});
+$("open-setup").addEventListener("click", () => { S.setup.open = true; renderSetup(); $("setup").scrollIntoView({block:"start"}); });
+
+/* ---------- runs ---------- */
+function renderRuns(){
+  $("c-runs").textContent = S.runs.length || "";
+  if (!S.runs.length){ $("runs").innerHTML = `<div class="card empty">Each run of the agent appears here, with what it fetched, what it filtered out, and every step it took.</div>`; return; }
+  $("runs").innerHTML = S.runs.map((r,idx) => {
+    const sources = (r.sources||[]).map(s => `<tr><td class="mono">${esc(s.source)}</td><td><span class="pill ${s.status==="ok"?"ok":s.status==="empty"?"warn":s.status==="manual"?"":"bad"}">${esc(s.status)}</span></td><td class="num">${s.fetched ?? ""}</td><td class="num">${s.rejected ?? ""}</td><td class="num">${s.kept ?? ""}</td><td class="mono">${esc(s.error||s.reason||s.note||"")}</td></tr>`).join("");
+    const filtered = (r.filtered||[]).map(f => `<tr><td>${esc(f.title)}</td><td>${esc(f.company)}</td><td>${esc(f.reason)}</td><td class="mono">${esc(f.search)}</td></tr>`).join("");
+    const steps = (r.trace||[]).map(t => { const {step, at, ...rest} = t; return `<div class="step"><span class="k">${esc(step)}</span><span class="mono" style="white-space:pre-wrap;word-break:break-word">${esc(JSON.stringify(rest, null, 1))}</span></div>`; }).join("");
+    return `<details class="card" ${idx===0?"open":""}><summary class="row between" style="color:var(--fg)">
+        <span><b>${esc(when(r.started))}</b> <span class="muted mono small">${esc(r.id)}</span></span>
+        <span class="row"><span class="pill ${r.status==="ok"?"ok":"warn"}">${esc(r.status)}${r.cap_hit?": "+esc(r.cap_hit):""}</span><span class="small muted">${r.matches ?? 0} matches · agent v${esc(r.agent_version)}</span></span></summary>
+      <div class="stack" style="margin-top:12px">
+        <h3>Sources</h3><div class="scroll"><table><thead><tr><th>Source</th><th>Status</th><th>Fetched</th><th>Rejected</th><th>Kept</th><th>Note</th></tr></thead><tbody>${sources}</tbody></table></div>
+        ${filtered ? `<h3>Dropped by deal breakers (${r.filtered.length})</h3><div class="scroll"><table><thead><tr><th>Posting</th><th>Company</th><th>Reason</th><th>Search</th></tr></thead><tbody>${filtered}</tbody></table></div>` : ""}
+        <h3>Steps</h3><div>${steps}</div>
+      </div></details>`;
+  }).join("");
+}
+
+/* ---------- data ---------- */
+(async () => {
+  const db = await window.claude?.use?.("db");
+  if (!db){ $("conn").textContent = "Your database is unavailable in this view. Open the page signed in to Claude."; return; }
+  S.db = db; $("conn").textContent = "Connected";
+  const fail = e => { $("conn").textContent = "Lost the connection to your database. Reload the page."; };
+  db.collection("searches").onSnapshot(q => { S.searches = q.docs.map(d => ({id:d.id, ...structuredClone(d.data())})); renderSearchList(); if (S.editing && S.editing!=="new" && !document.activeElement?.closest?.("#sform")) renderSearchEditor(); renderMatches(); }, fail);
+  db.doc("agent/current").onSnapshot(d => { S.agent = d.exists ? structuredClone(d.data()) : null; if (!document.activeElement?.closest?.("#aform")) renderAgent(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
+  db.collection("runs").orderBy("started","desc").limit(20).onSnapshot(q => { S.runs = q.docs.map(d => d.data()); renderRuns(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
+  db.collection("matches").onSnapshot(q => { S.matches = q.docs.map(d => ({id:d.id, ...d.data()})); renderMatches(); }, fail);
+  db.collection("source_tests").onSnapshot(q => { S.tests = Object.fromEntries(q.docs.map(d => [d.data().source_id, d.data()])); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
+  db.doc("meta/agent").onSnapshot(d => { S.runner = d.exists ? d.data() : null; renderSetup(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
+  db.doc("meta/setup_check").onSnapshot(d => { S.check = d.exists ? d.data() : null; renderSetup(); }, fail);
+  db.doc("meta/app").onSnapshot(d => { S.app = d.exists ? d.data() : null; renderSetup(); }, fail);
+  db.doc("meta/console").onSnapshot(d => { const m = d.exists ? d.data() : null;
+    $("build").textContent = m ? ` · page from commit ${m.commit}, published ${when(m.published_at)}` : ""; }, fail);
+  db.collection("proposals").onSnapshot(q => { S.proposals = Object.fromEntries(q.docs.map(d => [d.data().source_id, d.data()])); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
+  db.collection("judgments").onSnapshot(q => { S.judgments = Object.fromEntries(q.docs.map(d => [d.id, d.data()])); renderMatches(); }, fail);
+})();
+</script>
