@@ -138,6 +138,10 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .conn{display:inline-flex;align-items:center;gap:6px;appearance:none;border:0;background:none;padding:2px 4px;margin:-2px -4px;border-radius:6px;font:inherit;color:inherit}
 .conn:not(:disabled){cursor:pointer}.conn:not(:disabled):hover{background:var(--sunk)}
 .conn:disabled{cursor:default;color:inherit}
+.segs-tabs{display:flex;flex-wrap:wrap;gap:4px;background:var(--sunk);border-radius:8px;padding:3px}
+.segtab{appearance:none;border:0;background:none;font:500 13px var(--font-ui);color:var(--muted);padding:5px 10px;border-radius:6px;cursor:pointer}
+.segtab[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 0 0 1px var(--line)}
+#search-list{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .xbtn{appearance:none;border:0;background:none;color:var(--muted);width:28px;height:28px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .xbtn:hover{background:var(--sunk);color:var(--fg)}
 .chev{color:var(--fg);transition:transform .15s;margin-left:-2px}
@@ -352,8 +356,9 @@ $("matches").addEventListener("change", e => {
 function renderSearchList(){
   $("c-searches").textContent = S.searches.length || "";
   const active = S.searches.filter(s=>s.active).length;
-  $("search-list").innerHTML = S.searches.map(s => `<button class="btn ${S.editing===s.id?"primary":""}" data-sid="${esc(s.id)}">${esc(s.name)}${s.active?"":" (paused)"}</button>`).join("")
-    + `<span class="small muted" style="align-self:center">${active} of ${COURSE_CAPS.max_searches} active</span>`;
+  const tabs = S.searches.length > 1 || S.editing === "new"
+    ? `<div class="segs-tabs" role="tablist" aria-label="Your searches">${S.searches.map(s => `<button role="tab" class="segtab" aria-selected="${S.editing===s.id}" data-sid="${esc(s.id)}">${esc(s.name)}${s.active?"":` <span class="muted">· paused</span>`}</button>`).join("")}${S.editing === "new" ? `<button role="tab" class="segtab" aria-selected="true">New search</button>` : ""}</div>` : "";
+  $("search-list").innerHTML = `${tabs}<span class="small muted">${active} of ${COURSE_CAPS.max_searches} searches active</span>`;
   if (!S.editing && S.searches[0]) S.editing = S.searches[0].id;
   if (!S.searches.length && S.editing !== "new") $("search-editor").innerHTML = `<div class="card empty">No searches yet. A search pairs one CV with one set of preferences. Start with <b>New search</b>.</div>`;
 }
@@ -379,9 +384,9 @@ function renderSearchEditor(){
         <label class="inline" for="s-active" style="align-self:end"><input type="checkbox" id="s-active" ${s.active?"checked":""}> Active in daily runs</label>
       </div>
       <label for="s-roles">Target roles<input type="text" id="s-roles" value="${esc((s.target_roles||[]).join(", "))}" placeholder="Head of Product, VP of Product, Product Lead"></label>
-      <label for="s-kw">Keywords<input type="text" id="s-kw" value="${esc((s.keywords||[]).join(", "))}" placeholder="design research, prototyping, design systems"></label>
-      <label for="s-ind">Industries<input type="text" id="s-ind" value="${esc((s.industries||[]).join(", "))}" placeholder="AI, crypto, fintech, climate tech"></label>
-      <p class="small muted" style="margin:0">Separate entries with commas. Target roles are matched against job titles and count most; "VP of Product" also finds "Vice President, Product". Keywords are skills or topics looked for in the whole posting. Industries you'd like to work in add a smaller boost and guide the Industry alignment score. Together they decide which postings get scored. A CV is optional: without one, Background match is scored as unknown.</p>
+      <label for="s-ind">Target industries<input type="text" id="s-ind" value="${esc((s.industries||[]).join(", "))}" placeholder="AI, crypto, fintech, climate tech"></label>
+      <label for="s-kw">Target keywords<input type="text" id="s-kw" value="${esc((s.keywords||[]).join(", "))}" placeholder="design research, prototyping, design systems"></label>
+      <p class="small muted" style="margin:0">Separate with commas. Roles are matched to job titles, industries and keywords to the whole posting. Together they pick which postings get scored.</p>
     </div>
     <div class="card stack">
       <h3>CV</h3>
