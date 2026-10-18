@@ -364,6 +364,7 @@ function renderSearchEditor(){
   if (!S.editing) return;
   const s = S.editing === "new"
     ? {id:"", name:"", active:S.searches.filter(x=>x.active).length < COURSE_CAPS.max_searches, cv_text:"", cv_version:0, prefs_version:0,
+       target_roles:["Product Designer", "UX Researcher", "Service Designer", "Design Strategist", "Product Manager", "Design Lead"], keywords:["design research", "service design", "design strategy", "product strategy", "prototyping"], industries:["AI", "crypto", "fintech", "climate tech", "health tech", "civic tech"],
        preferences:{deal_breakers:{remote_only:false, min_pay:null, require_pay_listed:false, locations_any:[], exclude_industries:[], exclude_keywords:[]}, dimensions:structuredClone(DEFAULT_DIMS), unknown_policy:"neutral"}}
     : S.searches.find(x=>x.id===S.editing);
   if (!s) return;
@@ -378,8 +379,9 @@ function renderSearchEditor(){
         <label class="inline" for="s-active" style="align-self:end"><input type="checkbox" id="s-active" ${s.active?"checked":""}> Active in daily runs</label>
       </div>
       <label for="s-roles">Target roles<input type="text" id="s-roles" value="${esc((s.target_roles||[]).join(", "))}" placeholder="Head of Product, VP of Product, Product Lead"></label>
-      <label for="s-kw">Keywords<input type="text" id="s-kw" value="${esc((s.keywords||[]).join(", "))}" placeholder="fintech, AI agents, design systems, service design"></label>
-      <p class="small muted" style="margin:0">Separate entries with commas. Target roles are matched against job titles and count most; "VP of Product" also finds "Vice President, Product". Keywords are skills, topics or industries looked for in the whole posting. Together they decide which postings get scored. A CV is optional: without one, Background match is scored as unknown.</p>
+      <label for="s-kw">Keywords<input type="text" id="s-kw" value="${esc((s.keywords||[]).join(", "))}" placeholder="design research, prototyping, design systems"></label>
+      <label for="s-ind">Industries<input type="text" id="s-ind" value="${esc((s.industries||[]).join(", "))}" placeholder="AI, crypto, fintech, climate tech"></label>
+      <p class="small muted" style="margin:0">Separate entries with commas. Target roles are matched against job titles and count most; "VP of Product" also finds "Vice President, Product". Keywords are skills or topics looked for in the whole posting. Industries you'd like to work in add a smaller boost and guide the Industry alignment score. Together they decide which postings get scored. A CV is optional: without one, Background match is scored as unknown.</p>
     </div>
     <div class="card stack">
       <h3>CV</h3>
@@ -443,14 +445,14 @@ function wireSearchForm(s){
         exclude_industries:list($("d-ind").value), exclude_keywords:list($("d-kw").value)},
       dimensions:readDims(), unknown_policy:$("s-unknown").value};
     const cv = $("s-cv").value.trim();
-    const keywords = list($("s-kw").value), target_roles = list($("s-roles").value);
+    const keywords = list($("s-kw").value), target_roles = list($("s-roles").value), industries = list($("s-ind").value);
     const id = s.id || (slug(name) + "-" + Math.random().toString(36).slice(2,6));
-    const cvChanged = cv !== (s.cv_text || ""), prefsChanged = JSON.stringify(prefs) !== JSON.stringify(s.preferences) || JSON.stringify(keywords) !== JSON.stringify(s.keywords || []) || JSON.stringify(target_roles) !== JSON.stringify(s.target_roles || []);
-    const doc = {name, active, cv_text:cv, target_roles, keywords, preferences:prefs,
+    const cvChanged = cv !== (s.cv_text || ""), prefsChanged = JSON.stringify(prefs) !== JSON.stringify(s.preferences) || JSON.stringify(keywords) !== JSON.stringify(s.keywords || []) || JSON.stringify(target_roles) !== JSON.stringify(s.target_roles || []) || JSON.stringify(industries) !== JSON.stringify(s.industries || []);
+    const doc = {name, active, cv_text:cv, target_roles, keywords, industries, preferences:prefs,
       cv_version: s.cv_version + (cvChanged ? 1 : 0), prefs_version: s.prefs_version + (prefsChanged ? 1 : 0), updated:new Date().toISOString()};
     try {
       if (cvChanged) await S.db.doc(`searches/${id}/versions/cv-${doc.cv_version}`).set({kind:"cv", version:doc.cv_version, cv_text:cv, at:doc.updated});
-      if (prefsChanged) await S.db.doc(`searches/${id}/versions/prefs-${doc.prefs_version}`).set({kind:"preferences", version:doc.prefs_version, preferences:prefs, target_roles, keywords, at:doc.updated});
+      if (prefsChanged) await S.db.doc(`searches/${id}/versions/prefs-${doc.prefs_version}`).set({kind:"preferences", version:doc.prefs_version, preferences:prefs, target_roles, keywords, industries, at:doc.updated});
       await S.db.doc("searches/"+id).set(doc);
       S.editing = id; st.className="status ok";
       st.textContent = cvChanged || prefsChanged ? `Saved as CV v${doc.cv_version}, preferences v${doc.prefs_version}. The next run uses these.` : "Saved.";

@@ -9,14 +9,15 @@
   "UX Researcher",
   "Service Designer",
   "Design Strategist",
-  "Product Manager"
+  "Product Manager",
+  "Design Lead"
  ],
  "keywords": [
   "design research",
   "service design",
   "design strategy",
   "product strategy",
-  "AI"
+  "prototyping"
  ],
  "preferences": {
   "deal_breakers": {
@@ -66,5 +67,13 @@
    }
   ],
   "unknown_policy": "neutral"
- }
+ },
+ "industries": [
+  "AI",
+  "crypto",
+  "fintech",
+  "climate tech",
+  "health tech",
+  "civic tech"
+ ]
 }

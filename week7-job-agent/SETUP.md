@@ -10,9 +10,9 @@ At the end the student has their own Job Agent page, a daily scheduled task that
 
 Ask the student, in one message:
 
-> Which roles are you looking for, and any topics or industries? For example: "Head of Product, VP of Product; fintech, AI". Also, where are you based, so the daily run happens in your morning? You can skip either; I'll use sensible defaults and you can change everything later on your page.
+> Which roles are you looking for, which skills or topics matter, and which industries would you like to work in? For example: "Head of Product, VP of Product; design systems, research; fintech, AI". Also, where are you based, so the daily run happens in your morning? Skip anything you like; I'll use sensible defaults and you can change everything later on your page.
 
-Turn the roles into `target_roles` and the topics into `keywords` (comma separated lists). Use their time zone for the schedule, or `America/New_York` if they skip it.
+Turn the roles into `target_roles`, the skills and topics into `keywords`, and the industries into `industries` (comma separated lists). Use their time zone for the schedule, or `America/New_York` if they skip it.
 
 ## 2. Get the files
 
@@ -35,7 +35,7 @@ Write these with one ArtifactData batch to `PAGE_URL`, using the current time fo
 - `meta` / `app`: `{"console_url": PAGE_URL}`
 - `agent` / `current`: the contents of `defaults/agent.json`, plus `updated`
 - `agent/current/versions` / `v1`: `{"version": 1, "note": "Starting settings", "updated": ...}`
-- `searches` / `my-first-search`: the contents of `defaults/search.json`, with `target_roles` and `keywords` replaced by the student's answers when given (and `name` set to a short description of those roles), plus `updated`
+- `searches` / `my-first-search`: the contents of `defaults/search.json`, with `target_roles`, `keywords` and `industries` replaced by the student's answers when given (and `name` set to a short description of those roles), plus `updated`
 
 ## 5. Create the daily run
 

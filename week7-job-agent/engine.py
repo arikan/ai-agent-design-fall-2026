@@ -162,13 +162,16 @@ def role_match(roles, p):
 
 def prefilter_score(search, p):
     """Cheap, visible ranking that decides which postings get scored by Claude.
-    A target role in the title counts most, then keywords, then word overlap with the CV.
-    Each part only counts when the search has it."""
+    A target role in the title counts most, then keywords, then industries, then word
+    overlap with the CV. Each part only counts when the search has it."""
     parts = []
     if search.get("target_roles"):
-        parts.append((0.5, role_match(search["target_roles"], p)))
+        parts.append((0.45, role_match(search["target_roles"], p)))
     if search.get("keywords"):
-        parts.append((0.35, keyword_hits(search["keywords"], p)))
+        parts.append((0.3, keyword_hits(search["keywords"], p)))
+    if search.get("industries"):
+        q = {**p, "text": f"{p['text']} {p.get('industry') or ''} {p.get('category') or ''}"}
+        parts.append((0.1, 1.0 if keyword_hits(search["industries"], q) > 0 else 0.0))
     if (search.get("cv_text") or "").strip():
         parts.append((0.15, overlap(search["cv_text"], p)))
     total = sum(w for w, _ in parts)
@@ -227,7 +230,7 @@ def prepare(config):
         "matcher_instructions": agent["matcher_instructions"],
         "searches": [{"id": s["id"], "name": s["name"], "cv_version": s["cv_version"],
                       "prefs_version": s["prefs_version"], "cv_text": s.get("cv_text", ""), "keywords": s.get("keywords", []),
-                      "target_roles": s.get("target_roles", []),
+                      "target_roles": s.get("target_roles", []), "industries": s.get("industries", []),
                       "dimensions": s["preferences"]["dimensions"]} for s in searches],
         "items": items,
         "answer_format": {
