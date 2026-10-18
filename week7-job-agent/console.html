@@ -266,6 +266,7 @@ function renderMatches(){
   const sel = $("f-search"), cur = sel.value;
   sel.innerHTML = `<option value="">All searches</option>` + S.searches.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
   sel.value = S.searches.some(s=>s.id===cur) ? cur : "";
+  sel.closest("label").hidden = S.searches.length <= 1;
   const dimsFor = id => (S.searches.find(s=>s.id===id)?.preferences?.dimensions) || DEFAULT_DIMS;
   const scope = S.matches.filter(m => !sel.value || m.search_id === sel.value);
   let rows = $("f-hide").checked ? scope.filter(m => !S.judgments[m.id]) : scope;
@@ -314,7 +315,7 @@ function renderMatches(){
             <button class="btn bad" data-act="dismiss" aria-pressed="${verdict==="dismiss"}">Not a fit</button>
             <button type="button" class="tip" aria-label="What a verdict does" data-tip="Your verdicts are the answer key the agent is tested against. Each is saved with a copy of the posting, so a later version of the agent can be scored on the same jobs.">i</button>
            </div>
-           <span class="foot small muted">${esc(sname)} · first seen ${esc(seen(m))}</span>
+           <span class="foot small muted">First seen ${esc(seen(m))}</span>
           </div>
           ${verdict ? `<div class="row">
             <span class="jl">Mainly because of</span>
@@ -378,12 +379,9 @@ function renderSearchEditor(){
   $("search-editor").innerHTML = `
   <form class="panel" id="sform">
     <div class="card stack">
-      <div class="row between"><h2>${s.id ? esc(s.name) : "New search"}</h2>
+      <div class="row between"><h2>What you're looking for</h2>
         <span class="small muted mono">${s.id ? `CV v${s.cv_version} · preferences v${s.prefs_version}` : ""}</span></div>
-      <div class="grid2">
-        <label for="s-name">Name<input type="text" id="s-name" value="${esc(s.name)}" placeholder="e.g. Design leadership, remote" required></label>
-        <input type="checkbox" id="s-active" checked hidden>
-      </div>
+      <input type="checkbox" id="s-active" checked hidden>
       <label for="s-roles">Target roles<input type="text" id="s-roles" value="${esc((s.target_roles||[]).join(", "))}" placeholder="Head of Product, VP of Product, Product Lead"></label>
       <label for="s-ind">Target industries<input type="text" id="s-ind" value="${esc((s.industries||[]).join(", "))}" placeholder="AI, crypto, fintech, climate tech"></label>
       <label for="s-kw">Target keywords<input type="text" id="s-kw" value="${esc((s.keywords||[]).join(", "))}" placeholder="design research, prototyping, design systems"></label>
@@ -443,7 +441,7 @@ function wireSearchForm(s){
   $("sform").onsubmit = async e => {
     e.preventDefault();
     const st = $("s-status");
-    const name = $("s-name").value.trim(); if (!name){ st.className="status err"; st.textContent="Give the search a name."; return; }
+    const name = s.name || "My search";
     const active = $("s-active").checked;
     if (active && !s.active && S.searches.filter(x=>x.active).length >= COURSE_CAPS.max_searches){ st.className="status err"; st.textContent=`At most ${COURSE_CAPS.max_searches} searches can be active. Pause one first.`; return; }
     const prefs = {deal_breakers:{remote_only:$("d-remote").checked, require_pay_listed:$("d-paylisted").checked,

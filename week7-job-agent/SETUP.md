@@ -35,7 +35,7 @@ Write these with one ArtifactData batch to `PAGE_URL`, using the current time fo
 - `meta` / `app`: `{"console_url": PAGE_URL}`
 - `agent` / `current`: the contents of `defaults/agent.json`, plus `updated`
 - `agent/current/versions` / `v1`: `{"version": 1, "note": "Starting settings", "updated": ...}`
-- `searches` / `my-first-search`: the contents of `defaults/search.json`, with `target_roles`, `keywords` and `industries` replaced by the student's answers when given (and `name` set to a short description of those roles), plus `updated`
+- `searches` / `my-first-search`: the contents of `defaults/search.json`, with `target_roles`, `keywords` and `industries` replaced by the student's answers when given, plus `updated`
 
 ## 5. Create the daily run
 
