@@ -299,17 +299,6 @@
    }
   },
   {
-   "id": "workable:huggingface",
-   "adapter": "workable",
-   "enabled": true,
-   "category": "ai",
-   "note": "",
-   "config": {
-    "account": "huggingface",
-    "company_name": "Hugging Face"
-   }
-  },
-  {
    "id": "manual:nousresearch",
    "adapter": "manual",
    "enabled": false,
