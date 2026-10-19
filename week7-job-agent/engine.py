@@ -151,6 +151,33 @@ def judge_text(p):
     return f"{head} … {tail[start:end].strip()}"
 
 
+def prompt_sample(batch, judgments, matches):
+    """One real example of what Claude read and answered this run, in labeled parts, for the
+    Agent tab: the run's own instruction, the agent's, the student's, the post, and the answer."""
+    if not matches:
+        return None
+    m = matches[0]
+    item = next(i for i in batch["items"] if i["search_id"] == m["search_id"] and i["posting_id"] == m["posting_id"])
+    search = next(s for s in batch["searches"] if s["id"] == m["search_id"])
+    run_md = (HERE / "RUN.md").read_text()
+    step = next((l.strip() for l in run_md.splitlines() if l.strip().startswith("5. **Judge**")), "")
+    dims = "\n".join(f"{d['name']} ({d.get('weight')}% weight): {d.get('rubric', '')}" + (f" {d['inputs']}" if d.get("inputs") else "")
+                     for d in search["dimensions"])
+    pay = "" if item.get("pay_min") is None and item.get("pay_max") is None else f"Pay: {item.get('pay_min')} to {item.get('pay_max')}\n"
+    answer = next((j for j in judgments if j["search_id"] == m["search_id"] and j["posting_id"] == m["posting_id"]), {})
+    parts = [
+        {"label": "How to judge", "from": "RUN.md, the run's own instructions", "text": step},
+        {"label": "Scoring instructions", "from": "Agent tab", "text": batch["matcher_instructions"]},
+        {"label": "Your dimensions", "from": "Profile tab", "text": dims},
+        {"label": "Your CV", "from": "Profile tab", "text": search.get("cv_text") or "(none)"},
+        {"label": "The post", "from": ", ".join(item.get("sources") or []) or "job board",
+         "text": f"{item['title']} · {item['company']} · {item['location']}\n{pay}\n{item['text']}"},
+        {"label": "Answer format", "from": "engine.py", "text": json.dumps(batch["answer_format"]["shape"], indent=1)},
+        {"label": "What Claude answered", "from": "the model", "text": json.dumps(answer.get("scores", {}), indent=1)},
+    ]
+    return {"posting_id": m["posting_id"], "title": item["title"], "company": item["company"], "total": m["total"], "parts": parts}
+
+
 def snapshot_item(p):
     """What the page keeps of a collected posting: the fields the ranking and the judge use."""
     return {**{k: p.get(k) for k in SNAPSHOT_FIELDS}, "text": p["text"][:RANK_TEXT_CHARS]}
@@ -479,6 +506,7 @@ def finish(config):
          top=[{"search": m["search_id"], "title": m["title"], "total": m["total"]} for m in matches[:5]])
 
     run = {"id": batch["run_id"], "status": "ok", "trigger": config.get("trigger", "scheduled"),
+           "prompt_sample": prompt_sample(batch, judgments, matches),
            "started": state["started"], "ended": now(), "agent_version": batch["agent_version"], "searches": [s["id"] for s in batch["searches"]],
            "sources": state["sources"], "filtered": state["filtered"][:FILTERED_KEPT],
            "filtered_total": len(state["filtered"]), "filtered_by_reason": dict(Counter(f["reason"] for f in state["filtered"]).most_common()),
