@@ -102,13 +102,20 @@ th{font-weight:600;color:var(--muted);font-size:12px;letter-spacing:.02em}
 td.num{font-family:var(--font-data);font-variant-numeric:tabular-nums}
 .scroll{overflow-x:auto}
 .tabs-inline{display:flex;flex-wrap:wrap;gap:6px}
-.dimrow{display:grid;grid-template-columns:minmax(120px,1fr) 128px 2fr 32px;gap:8px;align-items:start}
+.dimrow{display:grid;grid-template-columns:minmax(120px,1fr) 120px 2fr;gap:8px 12px;align-items:start}
+.dimrow + .dimrow{border-top:1px solid var(--line);padding-top:12px}
+.field{display:grid;gap:4px;min-width:0}
+.fhead{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:20px;font-size:13px}
+.fhead label{display:inline-flex;align-items:center;gap:2px}
+.fhead output{font:500 12.5px var(--font-data);font-variant-numeric:tabular-nums;color:var(--fg)}
+.field input[type=range]{width:100%;height:34px;accent-color:var(--accent)}
+.linkbtn.rm{font-size:12px;font-weight:500;color:var(--muted)}.linkbtn.rm:hover{color:var(--bad)}
 .weight{display:flex;align-items:center;gap:6px;height:34px}
 .weight input{width:76px;accent-color:var(--accent)}
 .weight output{font:500 12.5px var(--font-data);font-variant-numeric:tabular-nums;width:36px;text-align:right}
-.wtotal{display:flex;align-items:center;gap:10px}
+.wtotal{display:flex;align-items:center;gap:8px;white-space:nowrap;flex:none}
 .wtotal.warn{color:var(--warn)}.wtotal.ok{color:var(--muted)}
-.wbar{flex:0 0 80px;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.wbar{flex:0 0 64px;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
 .wbar i{display:block;height:100%;background:var(--accent)}
 .wtotal.warn .wbar i{background:var(--warn)}
 .step{display:grid;grid-template-columns:90px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
@@ -220,7 +227,7 @@ label > span{display:inline-flex;align-items:center;gap:2px}
 @media (max-width:860px){.cells{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:620px){
   .cells{grid-template-columns:repeat(3,minmax(0,1fr))}.whys{grid-template-columns:1fr}.jl{width:100%}
-  .match{grid-template-columns:1fr}.dimrow{grid-template-columns:1fr 1fr}.dimrow textarea{grid-column:1/-1}
+  .match{grid-template-columns:1fr}.dimrow{grid-template-columns:1fr 1fr}.dimrow .field:last-child{grid-column:1/-1}
 }
 @media (prefers-reduced-motion:no-preference){.btn,nav button{transition:border-color .15s,background .15s,color .15s}}
 </style>
@@ -598,11 +605,14 @@ function toPercent(dims){
   return dims.map((d,i) => ({...d, weight: out[i]}));
 }
 function dimRow(d,i){
+  const uses = ({role:"Target roles", industry:"Target industries", background:"Background keywords and CV"})[d.key];
   return `<div class="dimrow" data-i="${i}">
-    <label for="dn-${i}">Name<input type="text" id="dn-${i}" value="${esc(d.name)}" data-key="${esc(d.key)}"></label>
-    <label for="dw-${i}">Weight<span class="weight"><input type="range" id="dw-${i}" min="0" max="100" step="1" value="${d.weight}" data-w><output>${d.weight}%</output></span></label>
-    <label for="dr-${i}">What strong and weak fit mean to you${({role:"Target roles", industry:"Target industries", background:"Background keywords and CV"})[d.key] ? ` <span>· also uses your ${({role:"Target roles", industry:"Target industries", background:"Background keywords and CV"})[d.key]}</span>` : ""}<textarea id="dr-${i}" rows="2">${esc(d.rubric)}</textarea></label>
-    <button type="button" class="btn" data-rm="${i}" aria-label="Remove dimension" style="margin-top:20px">×</button></div>`;
+    <div class="field"><div class="fhead"><label for="dn-${i}">Name</label><button type="button" class="linkbtn rm" data-rm="${i}" aria-label="Remove this dimension">Remove</button></div>
+      <input type="text" id="dn-${i}" value="${esc(d.name)}" data-key="${esc(d.key)}"></div>
+    <div class="field"><div class="fhead"><label for="dw-${i}">Weight</label><output id="dwo-${i}">${d.weight}%</output></div>
+      <input type="range" id="dw-${i}" min="0" max="100" step="1" value="${d.weight}" data-w></div>
+    <div class="field"><div class="fhead"><label for="dr-${i}">What strong and weak fit mean${uses ? ` <button type="button" class="tip" aria-label="What else this uses" data-tip="Claude also reads your ${uses} when scoring this.">i</button>` : ""}</label></div>
+      <textarea id="dr-${i}" rows="2">${esc(d.rubric)}</textarea></div></div>`;
 }
 function readDims(){
   return [...document.querySelectorAll("#dims .dimrow")].map(r => {
@@ -624,7 +634,7 @@ function wireSearchForm(s){
     const r = e.target.closest("[data-w]"); if (!r) return;
     const others = total() - Number(r.value), cap = 100 - others;
     if (Number(r.value) > cap) r.value = cap;        // the others already use the rest
-    r.nextElementSibling.value = r.value + "%";
+    $("dwo-" + r.id.slice(3)).value = r.value + "%";
     showTotal();
   };
   showTotal();
