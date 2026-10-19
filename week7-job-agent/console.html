@@ -1247,7 +1247,7 @@ function funnelView(f){
   const removed = [f.dupes && `${num(f.dupes)} duplicates`, f.dropped && `${num(f.dropped)} deal breakers`, f.seen && `${num(f.seen)} already matched`].filter(Boolean);
   return `<ol class="funnel">
     <li><b>${num(f.collected)}</b><span>job posts collected<br>from ${f.nSources} source${f.nSources === 1 ? "" : "s"}</span></li>
-    <li><b>${num(f.ranked)}</b><span>ranked by code against your criteria${removed.length ? `, after setting aside</span><ul>${removed.map(x => `<li>${x}</li>`).join("")}</ul>` : "</span>"}</li>
+    <li><b>${num(f.ranked)}</b><span>ranked by code against your criteria</span>${removed.length ? `<ul>${removed.map(x => `<li>−${x}</li>`).join("")}</ul>` : ""}</li>
     <li><b>${num(f.scored)}</b><span>top-ranked posts scored<br>by ${esc(modelName(f.model))}${f.rejected ? `<br>${f.rejected} more rejected: the quote wasn't in the post` : ""}</span></li>
   </ol>`;
 }
