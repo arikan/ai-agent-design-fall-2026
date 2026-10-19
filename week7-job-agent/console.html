@@ -186,6 +186,10 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .segtab{appearance:none;border:0;background:none;font:500 13px var(--font-ui);color:var(--muted);padding:5px 10px;border-radius:6px;cursor:pointer}
 .segtab[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 0 0 1px var(--line)}
 .runbar.plain{padding:4px 0 12px}
+.runnow{gap:12px;flex-wrap:nowrap}
+.folds{display:grid;gap:2px;border-top:1px solid var(--line);padding-top:6px}
+.fold > summary{font-size:13px;color:var(--fg);padding:6px 0;cursor:pointer}
+.fold > summary .muted{font-family:var(--font-data);font-size:12px;margin-left:4px}
 .runbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px}
 .runbar-action.wide{flex:1 1 100%}
 #search-list{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
@@ -1350,8 +1354,11 @@ function runNowBlock(context){
   const daily = S.progress && !["done","stopped"].includes(S.progress.stage) && Date.now() - new Date(S.progress.updated_at) < 30 * 60000;
   if (daily) return progressBox(S.progress.started_at, "started");   // the morning run, started by its schedule
   const m = manualRuns();
-  if (context !== "first" && !m.left) return `<div class="stack" style="gap:4px"><button type="button" class="btn primary" disabled>Run now</button><span class="small muted">You've started ${m.used} runs here in the last 24 hours, the limit. The next is allowed ${esc(when(m.nextAt))}. The morning run is separate and always happens.</span></div>`;
-  return `<div class="stack" style="gap:4px">${btn(context === "first" ? "Start my agent" : "Run now")}${context !== "first" ? `<span class="small muted">${m.used ? `You've started ${m.used} run${m.used === 1 ? "" : "s"} here in the last 24 hours; ${m.left} more allowed.` : `Besides the morning run, you can start up to ${COURSE_CAPS.max_manual_runs_per_day} runs here in any 24 hours.`} Each scores the next ${Math.min(S.agent?.settings?.max_judged_per_search || COURSE_CAPS.max_judged_per_search, COURSE_CAPS.max_judged_per_search)} best postings.</span>` : ""}</div>`;
+  const n = Math.min(S.agent?.settings?.max_judged_per_search || COURSE_CAPS.max_judged_per_search, COURSE_CAPS.max_judged_per_search);
+  const tip = `Besides the morning run, you can start ${COURSE_CAPS.max_manual_runs_per_day} runs in any 24 hours. Each scores the next ${n} best posts.`;
+  if (context !== "first" && !m.left) return `<div class="row runnow"><span class="small muted" title="${esc(tip)}">Next run ${esc(when(m.nextAt))}</span><button type="button" class="btn primary" disabled><span aria-hidden="true">⚡</span> Run now</button></div>`;
+  if (context === "first") return btn("Start my agent");
+  return `<div class="row runnow"><span class="small muted" title="${esc(tip)}">${m.left} left today</span>${btn("Run now")}</div>`;
 }
 async function runNow(){
   if (!S.runner?.trigger_id){ S.setup.open = true; renderSetup(); return; }
@@ -1367,6 +1374,20 @@ document.addEventListener("click", e => {
 });
 
 /* ---------- runs ---------- */
+// Claude API list prices, USD per million tokens: input, cache write (5 min), cache write (1 h), cache read, output.
+// From platform.claude.com/docs/en/about-claude/pricing, October 2026. A plan is not billed per token; this is what
+// the same work would cost on the API, a fair way to compare runs and models.
+const PRICES = {"claude-fable-5-1":[10,12.5,20,.25,50], "claude-mythos-5-1":[10,12.5,20,.25,50], "claude-opus-5-5":[4,5,8,.2,20],
+  "claude-sonnet-5-5":[2,2.5,4,.1,10], "claude-haiku-5-5":[.1,.125,.2,.01,.5], "claude-opus-5":[5,6.25,10,.5,25], "claude-sonnet-5":[2,2.5,4,.2,10],
+  "claude-opus-4-8":[5,6.25,10,.5,25], "claude-opus-4-7":[5,6.25,10,.5,25], "claude-opus-4-6":[5,6.25,10,.5,25], "claude-opus-4-5":[5,6.25,10,.5,25],
+  "claude-sonnet-4-6":[3,3.75,6,.3,15], "claude-sonnet-4-5":[3,3.75,6,.3,15], "claude-haiku-4-5":[1,1.25,2,.1,5]};
+function runCost(u){
+  const key = Object.keys(PRICES).sort((a,b) => b.length - a.length).find(k => String(u?.model || "").startsWith(k));
+  if (!key) return null;
+  const [inp, w5, w1, read, out] = PRICES[key], w1n = u.cache_write_1h ?? (u.cache_write || 0), w5n = Math.max(0, (u.cache_write || 0) - w1n);
+  return ((u.input||0)*inp + w5n*w5 + w1n*w1 + (u.cache_read||0)*read + (u.output||0)*out) / 1e6;
+}
+const usd = c => c == null ? "" : c < 0.01 ? "<$0.01" : "$" + c.toFixed(2);
 const tok = n => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? Math.round(n / 1e3) + "k" : String(n || 0);
 // What the run's Claude session consumed. Read tokens are mostly the cache: the same instructions and
 // files re-read on every model call, which counts far less toward plan limits than new input.
@@ -1376,6 +1397,7 @@ function usageView(u){
     <span><b>${tok(u.output)}</b> written by the model</span>
     <span><b>${tok(read)}</b> read, ${tok(u.cache_read)} of it from cache</span>
     <span>${u.calls} model calls${u.model ? ` to ${esc(modelName(u.model))}` : ""}</span>
+    ${runCost(u) != null ? `<span title="What these tokens would cost at Claude API list prices. A plan is not billed per token."><b>≈ ${usd(runCost(u))}</b> at API prices</span>` : ""}
     <span class="muted" title="${esc(u.note || "")}">until scoring finished</span></div>`;
 }
 // Deal-breaker kinds as the engine records them, in words.
@@ -1421,8 +1443,8 @@ function renderRuns(){
   const outcome = r => r.status === "ok" ? `${r.matches ?? 0} new matches` : r.status === "stopped" ? `stopped, ${r.cap_hit === "max_manual_runs_per_day" ? "the limit on runs by hand" : "a run had already happened that day"}` : esc(r.status);
   top.innerHTML = ready ? `<div class="runbar plain">
       <div class="stack" style="gap:2px;min-width:0">
-        <b>Runs every morning on its own</b>
-        <span class="small muted">Last run ${esc(when(last.started))}, ${outcome(last)}. You can also start a run now.</span>
+        <b>Runs every morning</b>
+        <span class="small muted">Last run ${esc(when(last.started))} · ${outcome(last)}</span>
       </div>
       <div class="runbar-action ${running ? "wide" : ""}">${runNowBlock("again")}</div>
     </div>` : "";
@@ -1434,17 +1456,20 @@ function renderRuns(){
     const stageNames = {config:"settings", fetch:"collect", prepare:"filter and rank", judge:"score (Claude)", finish:"check and rank"};
     const stages = r.timings ? Object.entries(r.timings).map(([k,v]) => `${stageNames[k] || k} ${v >= 60 ? clock(v * 1000) : v + "s"}`).join(" · ") : "";
     const stoppedWhy = r.status === "stopped" ? (r.reason || (r.cap_hit === "max_runs_per_day" ? "Stopped before collecting anything: another run had already completed that day (the limit then was one run per day, counted in UTC)." : `Stopped: ${r.cap_hit}`)) : "";
-    return `<details class="card" ${idx===0?"open":""}><summary class="row between" style="color:var(--fg)">
-        <span><b>${esc(when(r.started))}</b> <span class="muted mono small">${esc(r.id)}</span></span>
-        <span class="row"><span class="pill ${r.status==="ok"?"ok":"warn"}">${esc(r.status)}</span><span class="small muted">${r.usage ? `${tok((r.usage.input||0) + (r.usage.cache_write||0) + (r.usage.cache_read||0) + (r.usage.output||0))} tokens · ` : ""}${(f => f ? `${num(f.collected)} collected · ${num(f.scored)} scored by ${esc(modelName(f.model))}${f.rejected ? ` · ${f.rejected} rejected` : ""}` : `${r.matches ?? 0} matches`)(runFunnel(r))}${r.agent_version ? ` · agent v${esc(r.agent_version)}` : ""}</span></span></summary>
+    const f = runFunnel(r);
+    const tokens = r.usage ? tok((r.usage.input||0) + (r.usage.cache_write||0) + (r.usage.cache_read||0) + (r.usage.output||0)) : "";
+    const fold = (title, body, open) => body ? `<details class="fold"${open ? " open" : ""}><summary>${title}</summary><div class="stack" style="margin-top:8px">${body}</div></details>` : "";
+    return `<details class="card run" ${idx===0?"open":""}><summary class="row between" style="color:var(--fg)">
+        <span class="row" style="gap:8px"><b>${esc(when(r.started))}</b><span class="pill ${r.status==="ok"?"ok":"warn"}">${esc(r.status)}</span><span class="small muted">${r.trigger === "manual" ? "by hand" : "morning"}${took ? ` · ${took}` : ""}</span></span>
+        <span class="small muted">${f ? `${num(f.collected)} collected · ${num(f.scored)} scored` : `${r.matches ?? 0} matches`}${tokens ? ` · ${tokens} tokens` : ""}${r.usage && runCost(r.usage) != null ? ` · ≈ ${usd(runCost(r.usage))}` : ""}</span></summary>
       <div class="stack" style="margin-top:12px">
-        <p class="small muted" style="margin:0">Started ${r.trigger === "manual" ? "by hand" : "by the morning schedule"}${took ? ` · took ${took}` : ""}${stages ? ` · ${stages}` : ""}</p>
-        ${r.usage ? usageView(r.usage) : ""}
         ${stoppedWhy ? `<div class="testbox small"><b>Why it stopped.</b> ${esc(stoppedWhy)}</div>` : ""}
-        ${(f => f ? funnelView(f) : "")(runFunnel(r))}
-        ${sources ? `<h3 class="sechead">Sources</h3><div class="scroll"><table><thead><tr><th>Source</th><th>Status</th><th>Fetched</th><th>Incomplete</th><th>Collected</th><th>Note</th></tr></thead><tbody>${sources}</tbody></table></div>` : ""}
-        ${filtered ? `<div class="sechead"><h3>Filtered out (${num(r.filtered_total ?? r.filtered.length)})</h3>${r.filtered_by_reason ? `<p class="small muted">${Object.entries(r.filtered_by_reason).map(([k,v]) => `${esc(dropLabel(k))}: ${num(v)}`).join(" · ")}${r.filtered_total > r.filtered.length ? ` · first ${r.filtered.length} listed` : ""}</p>` : ""}</div><div class="scroll"><table class="drops"><thead><tr><th>Posting</th><th>Company</th><th>Why it was dropped</th></tr></thead><tbody>${filtered}</tbody></table></div>` : ""}
-        <h3>Steps</h3><div>${steps}</div>
+        ${f ? funnelView(f) : ""}
+        <div class="folds">
+        ${fold(`Sources <span class="muted">${(r.sources||[]).length}</span>`, sources ? `<div class="scroll"><table><thead><tr><th>Source</th><th>Status</th><th>Fetched</th><th>Incomplete</th><th>Collected</th><th>Note</th></tr></thead><tbody>${sources}</tbody></table></div>` : "")}
+        ${fold(`Filtered out <span class="muted">${num(r.filtered_total ?? (r.filtered||[]).length)}</span>`, filtered ? `${r.filtered_by_reason ? `<p class="small muted" style="margin:0">${Object.entries(r.filtered_by_reason).map(([k,v]) => `${esc(dropLabel(k))}: ${num(v)}`).join(" · ")}${r.filtered_total > r.filtered.length ? ` · first ${r.filtered.length} listed` : ""}</p>` : ""}<div class="scroll"><table class="drops"><thead><tr><th>Posting</th><th>Company</th><th>Why it was dropped</th></tr></thead><tbody>${filtered}</tbody></table></div>` : "")}
+        ${fold("Time, tokens and steps", `<p class="small muted mono" style="margin:0">${esc(r.id)}${r.agent_version ? ` · agent v${esc(r.agent_version)}` : ""}${r.model ? ` · ${esc(modelName(r.model))}` : ""}</p>${stages ? `<p class="small muted" style="margin:0">${stages}</p>` : ""}${r.usage ? usageView(r.usage) : ""}<div>${steps}</div>`)}
+        </div>
       </div></details>`;
   }).join("");
 }

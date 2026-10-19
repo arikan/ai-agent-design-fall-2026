@@ -30,8 +30,9 @@ def session_usage():
     if not calls:
         return None
     total = lambda k: sum(u.get(k) or 0 for u in calls.values())
+    write_1h = sum((u.get("cache_creation") or {}).get("ephemeral_1h_input_tokens") or 0 for u in calls.values())
     return {"calls": len(calls),
-            "input": total("input_tokens"), "cache_write": total("cache_creation_input_tokens"),
+            "input": total("input_tokens"), "cache_write": total("cache_creation_input_tokens"), "cache_write_1h": write_1h,
             "cache_read": total("cache_read_input_tokens"), "output": total("output_tokens"),
             "model": max(models, key=models.get) if models else None,
             "note": "the session's model calls up to the end of scoring; the final writes back to the page are not included"}
