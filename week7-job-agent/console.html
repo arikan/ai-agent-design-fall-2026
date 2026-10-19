@@ -187,6 +187,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .segtab[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 0 0 1px var(--line)}
 .runbar.plain{padding:4px 0 12px}
 .runnow{gap:12px;flex-wrap:nowrap}
+details.run[open] > summary .runcounts{display:none}
 .folds{display:grid;gap:2px;border-top:1px solid var(--line);padding-top:6px}
 .fold > summary{font-size:13px;color:var(--fg);padding:6px 0;cursor:pointer}
 .fold > summary .muted{font-family:var(--font-data);font-size:12px;margin-left:4px}
@@ -1461,7 +1462,7 @@ function renderRuns(){
     const fold = (title, body, open) => body ? `<details class="fold"${open ? " open" : ""}><summary>${title}</summary><div class="stack" style="margin-top:8px">${body}</div></details>` : "";
     return `<details class="card run" ${idx===0?"open":""}><summary class="row between" style="color:var(--fg)">
         <span class="row" style="gap:8px"><b>${esc(when(r.started))}</b><span class="pill ${r.status==="ok"?"ok":"warn"}">${esc(r.status)}</span><span class="small muted">${r.trigger === "manual" ? "by hand" : "morning"}${took ? ` · ${took}` : ""}</span></span>
-        <span class="small muted">${f ? `${num(f.collected)} collected · ${num(f.scored)} scored` : `${r.matches ?? 0} matches`}${tokens ? ` · ${tokens} tokens` : ""}${r.usage && runCost(r.usage) != null ? ` · ≈ ${usd(runCost(r.usage))}` : ""}</span></summary>
+        <span class="small muted"><span class="runcounts">${f ? `${num(f.collected)} collected · ${num(f.scored)} scored` : `${r.matches ?? 0} matches`}${tokens ? " · " : ""}</span>${tokens ? `${tokens} tokens` : ""}${r.usage && runCost(r.usage) != null ? ` · ≈ ${usd(runCost(r.usage))}` : ""}</span></summary>
       <div class="stack" style="margin-top:12px">
         ${stoppedWhy ? `<div class="testbox small"><b>Why it stopped.</b> ${esc(stoppedWhy)}</div>` : ""}
         ${f ? funnelView(f) : ""}
