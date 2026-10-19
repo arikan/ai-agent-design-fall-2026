@@ -191,7 +191,10 @@ label > span{display:inline-flex;align-items:center;gap:2px}
 #preview .funnel li{background:transparent;border-color:color-mix(in srgb,var(--accent) 22%,var(--line))}
 #preview .funnel li:nth-child(3){border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
 #preview .pbar{background:color-mix(in srgb,var(--accent) 18%,transparent)}
-#preview .pcut{border-top-color:color-mix(in srgb,var(--accent) 30%,var(--line))}
+#preview .prow.phead{opacity:1;font-size:11.5px;color:var(--muted);font-weight:500;padding-bottom:2px;border-bottom:1px solid color-mix(in srgb,var(--accent) 22%,var(--line))}
+.prow.phead .pwhy{justify-content:flex-end;align-items:center;gap:2px}
+.pnone{list-style:none;color:var(--fg);padding:4px 0}
+.pcut{border-top-color:color-mix(in srgb,var(--accent) 30%,var(--line))}
 .funnel.mini b{font-size:15px}.funnel.mini span{font-size:12px}
 @media (max-width:640px){.funnel.mini{grid-template-columns:1fr}}
 .pcut{list-style:none;border-top:1px dashed var(--line);padding-top:4px;margin-top:2px}
@@ -550,7 +553,7 @@ function renderPreview(s){
       <li><b>${num(passed.length)}</b><span>ranked by code${dropped ? ` · ${num(dropped)} filtered out <button type="button" class="tip" aria-label="Why they were filtered out" data-tip="${esc(Object.entries(drops).map(([k,v]) => `${dropLabel(k)}: ${num(v)}`).join(", "))}">i</button>` : ""}${already ? ` · ${num(already)} already matched` : ""}</span></li>
       <li><b>${scored}</b><span>to be scored by Claude${floor ? ` (${floor}+)` : ""}</span></li>
     </ol>
-    ${rows ? `<ol class="plist">${rows}</ol>` : `<p class="small muted" style="margin:0">Nothing passes your filters.</p>`}
+    ${rows ? `<ol class="plist"><li class="prow phead"><span class="num">Rank</span><span></span><span>Post · company · pay</span><span class="pwhy">What matched <button type="button" class="tip" aria-label="How the rank is computed" data-tip="The rank, 0 to 100, is computed in code from four parts: a target role in the title (45% of the rank), your background keywords (30%), words shared with your CV (15%) and a target industry (10%). Each part shows how much of it matched. A part you left empty is skipped.">i</button></span></li>${scored ? "" : `<li class="pnone small">Nothing ranks ${floor} or more in these posts, so the next run would score nothing.</li>`}${rows}</ol>` : `<p class="small muted" style="margin:0">Nothing passes your filters.</p>`}
     ${passed.length > n ? `<button type="button" class="btn" id="preview-more">${S.posts.showAll ? "Show fewer" : `Show the next ${Math.min(25, passed.length) - n}`}</button>` : ""}`;
   const counts = $("pcounts")?.textContent;      // flash the counts when an edit changes them
   if (S.posts.lastCounts && counts !== S.posts.lastCounts) $("pcounts").classList.add("flash");
