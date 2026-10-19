@@ -129,6 +129,8 @@ After that:
 
 Built in adapters: Greenhouse, Lever, Ashby, Workable, Getro (venture firm portfolio boards), JSON API, web page (CSS selectors), RSS. Two more types exist only as sources: the frozen corpus of 20 fictional postings for repeatable tests, and "check by hand" reminders for boards that block automated access.
 
+**Starting sources.** A new Job Agent page starts with the boards in `defaults/agent.json`: company boards in AI, crypto and fintech, venture firm portfolio boards, and a few check-by-hand reminders for sites without a public feed. Turn off the ones that don't fit your search on the Sources tab. To change what every new student starts with, edit that file.
+
 **When a source breaks**, the fix is usually in its settings, not code: new selectors for a web page, new field paths for a JSON API, a corrected board token. The page flags sources that fail or suddenly return nothing, and the daily run proposes fixes it has tested. You apply or discard them.
 
 **To add an adapter type**, add a file in `adapters/` with a class that subclasses `BaseSource` and implements `fetch()` and `normalize()`, register it in `adapters/__init__.py`, and add a fixture in `adapters/fixtures/` so `sources.py test` covers it. The existing adapters are short and make good templates. On the page, a custom adapter can also be written as code for a single source.

@@ -7,44 +7,348 @@
  "matcher_instructions": "Score each posting against the student's CV and preferences, one dimension at a time, using the student's own rubric for that dimension. Give a score from 1 to 5, or \"unknown\" when the posting gives no basis for a judgment. Never guess pay, company growth, or mentorship that the posting does not state. For every score, give one sentence of reason and copy the exact words from the posting that support it.",
  "sources": [
   {
-   "id": "corpus",
    "adapter": "corpus",
-   "enabled": false,
+   "cap": 100,
    "category": "test",
-   "note": "Fictional postings for repeatable tests. Turn on only for testing.",
-   "config": {}
+   "config": {},
+   "enabled": false,
+   "id": "corpus",
+   "note": "Fictional postings for repeatable tests. Turn on only for testing."
   },
   {
+   "adapter": "greenhouse",
+   "category": "vc",
+   "config": {
+    "board_token": "a16z",
+    "company_name": "a16z",
+    "company_from_title": "^(Partner \\d+),"
+   },
+   "enabled": true,
+   "id": "greenhouse:a16z",
+   "note": ""
+  },
+  {
+   "adapter": "greenhouse",
+   "category": "ai",
+   "config": {
+    "board_token": "anthropic",
+    "company_name": "Anthropic"
+   },
+   "enabled": true,
    "id": "greenhouse:anthropic",
+   "note": ""
+  },
+  {
+   "adapter": "ashby",
+   "category": "ai",
+   "config": {
+    "company": "openai",
+    "company_name": "OpenAI"
+   },
+   "enabled": true,
+   "id": "ashby:openai",
+   "note": ""
+  },
+  {
+   "adapter": "greenhouse",
+   "category": "crypto",
+   "config": {
+    "board_token": "coinbase",
+    "company_name": "Coinbase"
+   },
+   "enabled": true,
+   "id": "greenhouse:coinbase",
+   "note": ""
+  },
+  {
+   "adapter": "getro",
+   "category": "crypto, ai",
+   "config": {
+    "domain": "jobs.dragonfly.xyz"
+   },
+   "enabled": true,
+   "id": "getro:jobs.dragonfly.xyz",
+   "note": ""
+  },
+  {
+   "id": "greenhouse:stripe",
+   "adapter": "greenhouse",
+   "enabled": true,
+   "category": "fintech",
+   "note": "",
+   "config": {
+    "board_token": "stripe",
+    "company_name": "Stripe"
+   }
+  },
+  {
+   "id": "greenhouse:robinhood",
+   "adapter": "greenhouse",
+   "enabled": true,
+   "category": "fintech",
+   "note": "",
+   "config": {
+    "board_token": "robinhood",
+    "company_name": "Robinhood"
+   }
+  },
+  {
+   "id": "greenhouse:brex",
+   "adapter": "greenhouse",
+   "enabled": true,
+   "category": "fintech",
+   "note": "",
+   "config": {
+    "board_token": "brex",
+    "company_name": "Brex"
+   }
+  },
+  {
+   "id": "greenhouse:affirm",
+   "adapter": "greenhouse",
+   "enabled": true,
+   "category": "fintech",
+   "note": "",
+   "config": {
+    "board_token": "affirm",
+    "company_name": "Affirm"
+   }
+  },
+  {
+   "id": "greenhouse:scaleai",
    "adapter": "greenhouse",
    "enabled": true,
    "category": "ai",
    "note": "",
    "config": {
-    "board_token": "anthropic",
-    "company_name": "Anthropic"
+    "board_token": "scaleai",
+    "company_name": "Scale AI"
    }
   },
   {
-   "id": "greenhouse:figma",
+   "id": "greenhouse:databricks",
    "adapter": "greenhouse",
    "enabled": true,
-   "category": "design tools",
+   "category": "ai",
    "note": "",
    "config": {
-    "board_token": "figma",
-    "company_name": "Figma"
+    "board_token": "databricks",
+    "company_name": "Databricks"
    }
   },
   {
-   "id": "ashby:openai",
+   "id": "greenhouse:gleanwork",
+   "adapter": "greenhouse",
+   "enabled": true,
+   "category": "ai",
+   "note": "",
+   "config": {
+    "board_token": "gleanwork",
+    "company_name": "Glean"
+   }
+  },
+  {
+   "id": "ashby:ramp",
+   "adapter": "ashby",
+   "enabled": true,
+   "category": "fintech",
+   "note": "",
+   "config": {
+    "company": "ramp",
+    "company_name": "Ramp"
+   }
+  },
+  {
+   "id": "ashby:cohere",
    "adapter": "ashby",
    "enabled": true,
    "category": "ai",
    "note": "",
    "config": {
-    "company": "openai",
-    "company_name": "OpenAI"
+    "company": "cohere",
+    "company_name": "Cohere"
+   }
+  },
+  {
+   "id": "ashby:elevenlabs",
+   "adapter": "ashby",
+   "enabled": true,
+   "category": "ai",
+   "note": "",
+   "config": {
+    "company": "elevenlabs",
+    "company_name": "ElevenLabs"
+   }
+  },
+  {
+   "id": "ashby:phantom",
+   "adapter": "ashby",
+   "enabled": true,
+   "category": "crypto",
+   "note": "",
+   "config": {
+    "company": "phantom",
+    "company_name": "Phantom"
+   }
+  },
+  {
+   "id": "ashby:kraken.com",
+   "adapter": "ashby",
+   "enabled": true,
+   "category": "crypto",
+   "note": "",
+   "config": {
+    "company": "kraken.com",
+    "company_name": "Kraken"
+   }
+  },
+  {
+   "id": "getro:jobs.electriccapital.com",
+   "adapter": "getro",
+   "enabled": true,
+   "category": "crypto vc",
+   "note": "Electric Capital portfolio board",
+   "config": {
+    "domain": "jobs.electriccapital.com"
+   }
+  },
+  {
+   "id": "getro:jobs.multicoin.capital",
+   "adapter": "getro",
+   "enabled": true,
+   "category": "crypto vc",
+   "note": "Multicoin portfolio board",
+   "config": {
+    "domain": "jobs.multicoin.capital"
+   }
+  },
+  {
+   "id": "getro:jobs.polychain.capital",
+   "adapter": "getro",
+   "enabled": true,
+   "category": "crypto vc",
+   "note": "Polychain portfolio board",
+   "config": {
+    "domain": "jobs.polychain.capital"
+   }
+  },
+  {
+   "id": "lever:insightpartners",
+   "adapter": "lever",
+   "enabled": false,
+   "category": "pe vc",
+   "note": "Answered 403 before; may need a different company slug",
+   "config": {
+    "company": "insightpartners",
+    "company_name": "Insight Partners"
+   }
+  },
+  {
+   "id": "greenhouse:thinkingmachines",
+   "adapter": "greenhouse",
+   "enabled": true,
+   "category": "ai",
+   "note": "",
+   "config": {
+    "board_token": "thinkingmachines",
+    "company_name": "Thinking Machines Lab"
+   }
+  },
+  {
+   "id": "ashby:PrimeIntellect",
+   "adapter": "ashby",
+   "enabled": true,
+   "category": "ai",
+   "note": "",
+   "config": {
+    "company": "PrimeIntellect",
+    "company_name": "Prime Intellect"
+   }
+  },
+  {
+   "id": "ashby:reflectionai",
+   "adapter": "ashby",
+   "enabled": true,
+   "category": "ai",
+   "note": "",
+   "config": {
+    "company": "reflectionai",
+    "company_name": "Reflection AI"
+   }
+  },
+  {
+   "id": "ashby:essentialAI",
+   "adapter": "ashby",
+   "enabled": true,
+   "category": "ai",
+   "note": "Board exists but had 0 postings; picks up roles when they open",
+   "config": {
+    "company": "essentialAI",
+    "company_name": "Essential AI"
+   }
+  },
+  {
+   "id": "workable:huggingface",
+   "adapter": "workable",
+   "enabled": true,
+   "category": "ai",
+   "note": "",
+   "config": {
+    "account": "huggingface",
+    "company_name": "Hugging Face"
+   }
+  },
+  {
+   "id": "manual:nousresearch",
+   "adapter": "manual",
+   "enabled": false,
+   "category": "ai",
+   "note": "Custom careers page; needs web page selectors to automate",
+   "config": {
+    "url": "https://nousresearch.com/careers/"
+   }
+  },
+  {
+   "id": "manual:deepmind",
+   "adapter": "manual",
+   "enabled": true,
+   "category": "ai",
+   "note": "DeepMind roles now live on Google Careers, which has no public feed. This link filters to DeepMind product roles.",
+   "config": {
+    "url": "https://www.google.com/about/careers/applications/jobs/results?company=DeepMind&q=product"
+   }
+  },
+  {
+   "id": "greenhouse:mercury",
+   "adapter": "greenhouse",
+   "enabled": true,
+   "category": "fintech",
+   "note": "",
+   "config": {
+    "board_token": "mercury",
+    "company_name": "Mercury"
+   }
+  },
+  {
+   "id": "ashby:tempo-xyz",
+   "adapter": "ashby",
+   "enabled": true,
+   "category": "fintech",
+   "note": "",
+   "config": {
+    "company": "tempo-xyz",
+    "company_name": "Tempo"
+   }
+  },
+  {
+   "id": "lever:anchorage",
+   "adapter": "lever",
+   "enabled": true,
+   "category": "fintech",
+   "note": "",
+   "config": {
+    "company": "anchorage",
+    "company_name": "Anchorage Digital"
    }
   }
  ]
