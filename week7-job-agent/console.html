@@ -101,9 +101,15 @@ th{font-weight:600;color:var(--muted);font-size:12px;letter-spacing:.02em}
 td.num{font-family:var(--font-data);font-variant-numeric:tabular-nums}
 .scroll{overflow-x:auto}
 .tabs-inline{display:flex;flex-wrap:wrap;gap:6px}
-.dimrow{display:grid;grid-template-columns:minmax(120px,1fr) 150px 2fr 32px;gap:8px;align-items:start}
-.weight{display:flex;align-items:center;gap:6px}
-.weight output{font-family:var(--font-data);width:14px}
+.dimrow{display:grid;grid-template-columns:minmax(120px,1fr) 128px 2fr 32px;gap:8px;align-items:start}
+.weight{display:flex;align-items:center;gap:6px;height:34px}
+.weight input{width:76px;accent-color:var(--accent)}
+.weight output{font:500 12.5px var(--font-data);font-variant-numeric:tabular-nums;width:36px;text-align:right}
+.wtotal{display:flex;align-items:center;gap:10px}
+.wtotal.warn{color:var(--warn)}.wtotal.ok{color:var(--muted)}
+.wbar{flex:0 0 160px;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.wbar i{display:block;height:100%;background:var(--accent)}
+.wtotal.warn .wbar i{background:var(--warn)}
 .step{display:grid;grid-template-columns:90px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
 .step:last-child{border-bottom:0}
 .step .k{font-weight:600}
@@ -231,12 +237,12 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 <script>
 const COURSE_CAPS = {max_runs_per_day:1, max_searches:3, max_postings_per_source:100, max_postings_per_run:200, max_judged_per_search:12, trace_runs_kept:14};
 const DEFAULT_DIMS = [
-  {key:"industry", name:"Industry alignment", weight:3, rubric:"Strong: a sector I care about. Weak: a sector I avoid or feel neutral about."},
-  {key:"role", name:"Role fit", weight:5, rubric:"Strong: the daily work is what I want to do. Weak: mostly tasks I want to move away from."},
-  {key:"background", name:"Background match", weight:4, rubric:"Strong: I meet the requirements. Weak: missing several core requirements."},
-  {key:"compensation", name:"Compensation fit", weight:3, rubric:"Strong: at or above my target. Weak: below my floor."},
-  {key:"upside", name:"Upside potential", weight:2, rubric:"Strong: growing company, equity, room to rise. Weak: flat or shrinking."},
-  {key:"growth", name:"Growth and learning", weight:4, rubric:"Strong: mentorship, new skills, stretch scope. Weak: repetitive work, no support."}
+  {key:"industry", name:"Industry alignment", weight:15, rubric:"Strong: a sector I care about. Weak: a sector I avoid or feel neutral about."},
+  {key:"role", name:"Role fit", weight:25, rubric:"Strong: the daily work is what I want to do. Weak: mostly tasks I want to move away from."},
+  {key:"background", name:"Background match", weight:20, rubric:"Strong: I meet the requirements. Weak: missing several core requirements."},
+  {key:"compensation", name:"Compensation fit", weight:15, rubric:"Strong: at or above my target. Weak: below my floor."},
+  {key:"upside", name:"Upside potential", weight:5, rubric:"Strong: growing company, equity, room to rise. Weak: flat or shrinking."},
+  {key:"growth", name:"Growth and learning", weight:20, rubric:"Strong: mentorship, new skills, stretch scope. Weak: repetitive work, no support."}
 ];
 const S = {db:null, searches:[], agent:null, runs:[], matches:[], judgments:{}, proposals:{}, tests:{}, runner:null, request:null, check:null, view:"matches", editing:null};
 const $ = id => document.getElementById(id);
@@ -407,8 +413,9 @@ function renderSearchEditor(){
     </div>
     <div class="card stack">
       <div class="row between"><h3>Dimensions</h3><button type="button" class="btn" id="add-dim">Add dimension</button></div>
-      <p class="small muted" style="margin:0">The agent scores each dimension 1 to 5, or unknown, with a reason and a quote from the posting. The total is a weighted average computed in code.</p>
-      <div id="dims" class="stack">${s.preferences.dimensions.map((d,i)=>dimRow(d,i)).join("")}</div>
+      <p class="small muted" style="margin:0">The agent scores each dimension 1 to 5, or unknown, with a reason and a quote from the posting. Weights add up to 100%; raising one leaves less room for the others.</p>
+      <div id="dims" class="stack">${toPercent(s.preferences.dimensions).map((d,i)=>dimRow(d,i)).join("")}</div>
+      <div class="wtotal small" id="wtotal" role="status"></div>
       <label for="s-unknown" style="max-width:320px">When a dimension is unknown
         <select id="s-unknown"><option value="neutral" ${s.preferences.unknown_policy!=="penalty"?"selected":""}>Count it as neutral (3 of 5)</option><option value="penalty" ${s.preferences.unknown_policy==="penalty"?"selected":""}>Count it as a miss (1 of 5)</option></select></label>
     </div>
@@ -416,10 +423,20 @@ function renderSearchEditor(){
   </form>`;
   wireSearchForm(s);
 }
+// Weights are percentages that add up to 100. Older searches used 0 to 5; scale those once.
+function toPercent(dims){
+  const sum = dims.reduce((a,d) => a + (Number(d.weight)||0), 0);
+  if (sum === 100 || (sum < 100 && dims.some(d => d.weight > 5))) return dims;
+  if (!sum) return dims.map((d,i) => ({...d, weight: i === 0 ? 100 : 0}));
+  const raw = dims.map(d => (Number(d.weight)||0) * 100 / sum), out = raw.map(Math.floor);
+  let left = 100 - out.reduce((a,b) => a+b, 0);
+  raw.map((v,i) => [v - out[i], i]).sort((a,b) => b[0]-a[0]).slice(0, left).forEach(([,i]) => out[i]++);
+  return dims.map((d,i) => ({...d, weight: out[i]}));
+}
 function dimRow(d,i){
   return `<div class="dimrow" data-i="${i}">
     <label for="dn-${i}">Name<input type="text" id="dn-${i}" value="${esc(d.name)}" data-key="${esc(d.key)}"></label>
-    <label for="dw-${i}">Weight<span class="weight"><input type="range" id="dw-${i}" min="0" max="5" value="${d.weight}" oninput="this.nextElementSibling.value=this.value"><output>${d.weight}</output></span></label>
+    <label for="dw-${i}">Weight<span class="weight"><input type="range" id="dw-${i}" min="0" max="100" step="1" value="${d.weight}" data-w><output>${d.weight}%</output></span></label>
     <label for="dr-${i}">What strong and weak fit mean to you${({role:"Target roles", industry:"Target industries", background:"Background keywords and CV"})[d.key] ? ` <span class="muted" style="font-weight:400">· also uses your ${({role:"Target roles", industry:"Target industries", background:"Background keywords and CV"})[d.key]}</span>` : ""}<textarea id="dr-${i}" rows="2">${esc(d.rubric)}</textarea></label>
     <button type="button" class="btn" data-rm="${i}" aria-label="Remove dimension" style="margin-top:20px">×</button></div>`;
 }
@@ -430,8 +447,23 @@ function readDims(){
   }).filter(d => d.name);
 }
 function wireSearchForm(s){
-  $("add-dim").onclick = () => { const i = Date.now(); $("dims").insertAdjacentHTML("beforeend", dimRow({key:"",name:"",weight:3,rubric:""}, i)); };
-  $("dims").onclick = e => { const b = e.target.closest("[data-rm]"); if (b) b.closest(".dimrow").remove(); };
+  const sliders = () => [...document.querySelectorAll("#dims [data-w]")];
+  const total = () => sliders().reduce((a,r) => a + Number(r.value), 0);
+  const showTotal = () => {
+    const t = total(), el = $("wtotal");
+    el.className = "wtotal small " + (t === 100 ? "ok" : "warn");
+    el.innerHTML = `<span class="wbar"><i style="width:${Math.min(t,100)}%"></i></span><span>${t === 100 ? "100% assigned" : `${t}% assigned · ${100 - t}% left to assign`}</span>`;
+  };
+  $("add-dim").onclick = () => { const i = Date.now(); $("dims").insertAdjacentHTML("beforeend", dimRow({key:"",name:"",weight:0,rubric:""}, i)); showTotal(); };
+  $("dims").onclick = e => { const b = e.target.closest("[data-rm]"); if (b){ b.closest(".dimrow").remove(); showTotal(); } };
+  $("dims").oninput = e => {
+    const r = e.target.closest("[data-w]"); if (!r) return;
+    const others = total() - Number(r.value), cap = 100 - others;
+    if (Number(r.value) > cap) r.value = cap;        // the others already use the rest
+    r.nextElementSibling.value = r.value + "%";
+    showTotal();
+  };
+  showTotal();
   $("s-file").onchange = async e => {
     const f = e.target.files[0], st = $("s-file-status"); if (!f) return;
     st.className = "status"; st.textContent = "Reading " + f.name + "…";
@@ -448,6 +480,8 @@ function wireSearchForm(s){
         min_pay:$("d-minpay").value ? Number($("d-minpay").value) : null, locations_any:list($("d-locs").value),
         exclude_industries:list($("d-ind").value), exclude_keywords:list($("d-kw").value)},
       dimensions:readDims(), unknown_policy:$("s-unknown").value};
+    const wsum = readDims().reduce((a,d) => a + d.weight, 0);
+    if (wsum !== 100){ st.className="status err"; st.textContent=`Weights add up to ${wsum}%. Make them add up to 100% to save.`; return; }
     const cv = $("s-cv").value.trim();
     const keywords = list($("s-kw").value), target_roles = list($("s-roles").value), industries = list($("s-ind").value);
     const id = s.id || (slug(name) + "-" + Math.random().toString(36).slice(2,6));

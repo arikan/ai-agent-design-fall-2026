@@ -32,37 +32,37 @@
    {
     "key": "industry",
     "name": "Industry alignment",
-    "weight": 3,
+    "weight": 15,
     "rubric": "Strong: a sector I care about. Weak: a sector I avoid or feel neutral about."
    },
    {
     "key": "role",
     "name": "Role fit",
-    "weight": 5,
+    "weight": 25,
     "rubric": "Strong: the daily work is what I want to do. Weak: mostly tasks I want to move away from."
    },
    {
     "key": "background",
     "name": "Background match",
-    "weight": 4,
+    "weight": 20,
     "rubric": "Strong: I meet the requirements. Weak: missing several core requirements."
    },
    {
     "key": "compensation",
     "name": "Compensation fit",
-    "weight": 3,
+    "weight": 15,
     "rubric": "Strong: at or above my target. Weak: below my floor."
    },
    {
     "key": "upside",
     "name": "Upside potential",
-    "weight": 2,
+    "weight": 5,
     "rubric": "Strong: growing company, equity, room to rise. Weak: flat or shrinking."
    },
    {
     "key": "growth",
     "name": "Growth and learning",
-    "weight": 4,
+    "weight": 20,
     "rubric": "Strong: mentorship, new skills, stretch scope. Weak: repetitive work, no support."
    }
   ],
