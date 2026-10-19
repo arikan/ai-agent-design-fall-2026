@@ -41,6 +41,7 @@ label.inline{display:flex;align-items:center;gap:8px;font-weight:500}
 input[type=text],input[type=number],select,textarea{font:inherit;font-size:14px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-width:0}
 textarea{resize:vertical;line-height:1.5}
 textarea.cv{min-height:180px}
+textarea.kw{min-height:0}
 input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .btn{appearance:none;font:600 13px var(--font-ui);border-radius:6px;padding:7px 12px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
 .btn:hover{border-color:var(--muted)}
@@ -292,7 +293,7 @@ const S = {db:null, searches:[], agent:null, runs:[], matches:[], judgments:{}, 
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money = (a,b) => a==null && b==null ? "Pay not listed" : "$" + [a,b].filter(x=>x!=null).map(x=>Math.round(x/1000)+"k").join("–");
-const list = s => String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
+const list = s => String(s||"").split(/[,\n]/).map(x=>x.trim()).filter(Boolean);
 const num = n => Number(n || 0).toLocaleString();
 const slug = s => String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "search";
 const when = iso => iso ? new Date(iso).toLocaleString([], {dateStyle:"medium", timeStyle:"short"}) : "";
@@ -550,10 +551,9 @@ function renderSearchEditor(){
       <div class="row between"><h2>What you're looking for</h2>
         <span class="small muted mono">${s.id ? `CV v${s.cv_version} · preferences v${s.prefs_version}` : ""}</span></div>
       <input type="checkbox" id="s-active" checked hidden>
-      <label for="s-roles">Target roles<input type="text" id="s-roles" value="${esc((s.target_roles||[]).join(", "))}" placeholder="Head of Product, VP of Product, Product Lead"></label>
-      <label for="s-ind">Target industries<input type="text" id="s-ind" value="${esc((s.industries||[]).join(", "))}" placeholder="AI, crypto, fintech, climate tech"></label>
-      <label for="s-kw">Background keywords<input type="text" id="s-kw" value="${esc((s.keywords||[]).join(", "))}" placeholder="design research, prototyping, 5 years in product design"></label>
-      <p class="small muted" style="margin:0">Separate with commas. Roles guide Role fit, industries guide Industry alignment, and your background keywords (with your CV, if added) guide Background match. They also pick which postings get scored.</p>
+      <label for="s-roles"><span>Target roles <button type="button" class="tip" aria-label="How target roles are used" data-tip="Separate with commas. A post whose title contains one of these ranks highest in the code ranking. Claude also uses them to score Role fit.">i</button></span><textarea class="kw" id="s-roles" rows="2" placeholder="Head of Product, VP of Product, Product Lead">${esc((s.target_roles||[]).join(", "))}</textarea></label>
+      <label for="s-ind"><span>Target industries <button type="button" class="tip" aria-label="How target industries are used" data-tip="Separate with commas. A post that mentions one of these ranks a little higher. Claude also uses them to score Industry alignment.">i</button></span><textarea class="kw" id="s-ind" rows="2" placeholder="AI, crypto, fintech">${esc((s.industries||[]).join(", "))}</textarea></label>
+      <label for="s-kw"><span>Background keywords <button type="button" class="tip" aria-label="How background keywords are used" data-tip="Separate with commas. The more of these a post mentions, the higher it ranks, and a keyword in the title counts double. Claude also uses them, with your CV, to score Background match.">i</button></span><textarea class="kw" id="s-kw" rows="3" placeholder="design research, prototyping, product strategy">${esc((s.keywords||[]).join(", "))}</textarea></label>
     </div>
     <div class="card stack">
       <h3>CV</h3>
