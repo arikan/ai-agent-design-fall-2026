@@ -192,8 +192,7 @@ label > span{display:inline-flex;align-items:center;gap:2px}
 #preview.card{background:color-mix(in srgb,var(--accent-soft) 45%,var(--surface));border-color:color-mix(in srgb,var(--accent) 25%,var(--line))}
 #preview .funnel li{background:transparent;border-color:color-mix(in srgb,var(--accent) 22%,var(--line))}
 #preview .funnel li:nth-child(3){border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
-#preview .btn{background:transparent;border-color:color-mix(in srgb,var(--accent) 30%,var(--line));color:var(--accent)}
-#preview .btn:hover{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+#preview .linkbtn:hover{text-decoration:underline}
 #preview .pbar{background:color-mix(in srgb,var(--accent) 18%,transparent)}
 #preview .prow.phead{opacity:1;font-size:11.5px;color:var(--muted);font-weight:500;padding-bottom:2px;border-bottom:1px solid color-mix(in srgb,var(--accent) 22%,var(--line))}
 .prow.phead .pwhy{justify-content:flex-end;align-items:center;gap:2px}
@@ -557,7 +556,7 @@ function renderPreview(s){
       <li><b>${scored}</b><span>to be scored by Claude${floor ? ` (${floor}+)` : ""}</span></li>
     </ol>
     ${rows ? `<ol class="plist"><li class="prow phead"><span class="num">Rank</span><span></span><span>Post · company · pay</span><span class="pwhy">What matched <button type="button" class="tip tip-left" aria-label="How the rank is computed" data-tip="The rank, 0 to 100, is computed in code from four parts: a target role in the title (45% of the rank), your background keywords (30%), words shared with your CV (15%) and a target industry (10%). Each part shows how much of it matched. A part you left empty is skipped.">i</button></span></li>${rows}</ol>` : `<p class="small muted" style="margin:0">Nothing passes your filters.</p>`}
-    ${passed.length > n ? `<button type="button" class="btn" id="preview-more">${S.posts.showAll ? "Less" : "More"}</button>` : ""}`;
+    ${passed.length > n ? `<button type="button" class="linkbtn" id="preview-more" style="justify-self:start">${S.posts.showAll ? "Less" : "More"}</button>` : ""}`;
   const counts = $("pcounts")?.textContent;      // flash the counts when an edit changes them
   if (S.posts.lastCounts && counts !== S.posts.lastCounts) $("pcounts").classList.add("flash");
   S.posts.lastCounts = counts;
