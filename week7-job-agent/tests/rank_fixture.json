@@ -344,6 +344,44 @@
    "text": "Design tools that let worker cooperatives run their own platforms for scheduling, payments, and governance. Research with cooperative members, design flows, and help shape how members vote on product decisions. Requires 3+ years of product design and interest in alternative economic models. Worker owned; designers become members after one year."
   }
  ],
+ "role_cases": {
+  "roles": [
+   "CPO",
+   "VP of Product",
+   "Head of Product",
+   "Director of Product",
+   "Entrepreneur in Residence",
+   "Senior Product Designer"
+  ],
+  "titles": [
+   "Director, Product Management",
+   "Product Director",
+   "SVP, Product",
+   "Vice President of Product",
+   "Chief Product Officer (CPO)",
+   "Entrepreneur-in-Residence",
+   "EIR, Fintech",
+   "Sr. Product Designer",
+   "Senior Product Manager",
+   "Director of Engineering",
+   "Head of Product & Design",
+   "Staff+ Software Engineer"
+  ],
+  "expected": [
+   "Director of Product",
+   "Director of Product",
+   "VP of Product",
+   "VP of Product",
+   "CPO",
+   "Entrepreneur in Residence",
+   "Entrepreneur in Residence",
+   "Senior Product Designer",
+   null,
+   null,
+   "Head of Product",
+   null
+  ]
+ },
  "expected": [
   {
    "id": "c001",

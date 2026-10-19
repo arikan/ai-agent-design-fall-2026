@@ -185,6 +185,7 @@ label > span{display:inline-flex;align-items:center;gap:2px}
 .funnel li:nth-child(3){border-color:var(--accent)}
 @keyframes flash{from{background:var(--accent-soft);color:var(--fg)}to{background:transparent}}
 #pcounts{border-radius:4px;padding:1px 4px}#pcounts.flash{animation:flash 1.2s ease-out}
+.pcut{list-style:none;border-top:1px dashed var(--line);padding-top:4px;margin-top:2px}
 .plist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .prow{display:grid;grid-template-columns:32px 60px minmax(0,1fr) auto;gap:10px;align-items:center;font-size:13px;opacity:.55}
 .prow.in{opacity:1}
@@ -437,13 +438,16 @@ $("matches").addEventListener("change", e => {
    `uv run engine.py rank-fixture && node tests/rank_test.js` checks them against each other. */
 const RANK = (() => {
   const esc = k => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const normTitle = t => {
-    t = t.toLowerCase().replace(/&/g, " and ");
-    for (const [long, short] of [["vice president", "vp"], ["senior", "sr"], ["chief product officer", "cpo"]]) t = t.split(long).join(short);
-    t = t.replace(/[^a-z0-9]+/g, " ");
-    return " " + t.split(" ").filter(w => w && !["of", "the", "and"].includes(w)).join(" ") + " ";
+  const PHRASES = [["vice president", "vp"], ["chief product officer", "cpo"], ["entrepreneur in residence", "eir"], ["senior", "sr"]];
+  const WORDS = {svp:"vp", evp:"vp", avp:"vp"};
+  const NOISE = new Set(["of", "the", "and", "for", "a", "an", "in", "at", "to", "management"]);
+  const titleWords = t => {
+    t = " " + t.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ") + " ";
+    for (const [long, short] of PHRASES) t = t.split(` ${long} `).join(` ${short} `);
+    return new Set((t.match(/[a-z0-9]+/g) || []).map(w => WORDS[w] || w).filter(w => !NOISE.has(w)));
   };
-  const roleMatch = (roles, p) => { const title = normTitle(p.title); return roles.some(r => normTitle(r).trim() && title.includes(normTitle(r))) ? 1 : 0; };
+  const roleHit = (roles, p) => { const title = titleWords(p.title); return roles.find(r => { const w = titleWords(r); return w.size && [...w].every(x => title.has(x)); }) || null; };
+  const roleMatch = (roles, p) => roleHit(roles, p) ? 1 : 0;
   const keywordHits = (keywords, p) => {
     if (!keywords.length) return 0;
     const title = p.title.toLowerCase(), text = p.text.toLowerCase();
@@ -478,7 +482,7 @@ const RANK = (() => {
     for (const kw of db.exclude_keywords || []) if (text.includes(kw.toLowerCase())) return `excluded keyword: ${kw}`;
     return null;
   };
-  return {score, parts, dealBreaker};
+  return {score, parts, dealBreaker, roleHit};
 })();
 /* rank:end */
 
@@ -514,6 +518,7 @@ function renderPreview(s){
   if (!items){ box.innerHTML = head + `<p class="small muted" style="margin:0"><span class="spin" aria-hidden="true"></span>Loading the collected posts…</p>`; if (!S.posts.loading) loadPosts(); return; }
   const f = formSearch(), seen = new Set(S.matches.filter(m => m.search_id === (s?.id || "")).map(m => m.posting_id));
   const n = Math.min(S.agent?.settings?.max_judged_per_search || COURSE_CAPS.max_judged_per_search, COURSE_CAPS.max_judged_per_search);
+  const floor = Math.min(Math.max(Number(S.agent?.settings?.min_rank_score) || 0, 0), 100);
   const drops = {}; let already = 0; const passed = [];
   for (const p of items){
     if (seen.has(p.id)){ already++; continue; }
@@ -525,11 +530,13 @@ function renderPreview(s){
   const dropped = Object.values(drops).reduce((a,b) => a + b, 0);
   const shown = passed.slice(0, S.posts.showAll ? 25 : n);
   const label = {role:"role", keywords:"keywords", industry:"industry", cv:"CV"};
-  const rows = shown.map((x, i) => `<li class="prow ${i < n ? "in" : ""}"><span class="mono num">${Math.round(x.score * 100)}</span><span class="pbar"><i style="width:${Math.round(x.score * 100)}%"></i></span>
+  const scored = passed.filter(x => x.score * 100 >= floor).slice(0, n).length;
+  let cut = false;
+  const rows = shown.map((x, i) => { const below = x.score * 100 < floor; const line = below && !cut && floor ? (cut = true, `<li class="pcut small muted">Below ${floor}: not scored</li>`) : ""; return line + `<li class="prow ${i < n && !below ? "in" : ""}"><span class="mono num">${Math.round(x.score * 100)}</span><span class="pbar"><i style="width:${Math.round(x.score * 100)}%"></i></span>
       <span class="ptitle">${x.p.url ? `<a href="${esc(x.p.url)}" target="_blank" rel="noopener">${esc(x.p.title)}</a>` : esc(x.p.title)} <span class="muted">· ${esc(x.p.company)} · ${esc(money(x.p.pay_min, x.p.pay_max))}</span></span>
-      <span class="pwhy small muted">${x.parts.map(q => `<span class="${q.v > 0 ? "hit" : ""}">${label[q.key]}${q.key === "role" || q.key === "industry" ? (q.v ? " ✓" : " ✗") : ` ${Math.round(q.v * 100)}%`}</span>`).join("")}</span></li>`).join("");
+      <span class="pwhy small muted">${x.parts.map(q => `<span class="${q.v > 0 ? "hit" : ""}">${q.key === "role" && q.v ? `role ✓ ${esc(RANK.roleHit(f.target_roles, x.p))}` : `${label[q.key]}${q.key === "role" || q.key === "industry" ? (q.v ? " ✓" : " ✗") : ` ${Math.round(q.v * 100)}%`}`}</span>`).join("")}</span></li>`; }).join("");
   box.innerHTML = head + `
-    <p class="small muted row" id="pcounts" style="margin:0;gap:4px;justify-content:flex-end">${num(dropped)} filtered out${dropped ? ` <button type="button" class="tip" aria-label="Why they were filtered out" data-tip="${esc(Object.entries(drops).map(([k,v]) => `${dropLabel(k)}: ${num(v)}`).join(", "))}">i</button>` : ""}${already ? ` · ${num(already)} already matched` : ""} · ${num(passed.length)} ranked</p>
+    <p class="small muted row" id="pcounts" style="margin:0;gap:4px;justify-content:flex-end">${num(dropped)} filtered out${dropped ? ` <button type="button" class="tip" aria-label="Why they were filtered out" data-tip="${esc(Object.entries(drops).map(([k,v]) => `${dropLabel(k)}: ${num(v)}`).join(", "))}">i</button>` : ""}${already ? ` · ${num(already)} already matched` : ""} · ${num(passed.length)} ranked · <b>${scored}</b> would be scored</p>
     ${rows ? `<ol class="plist">${rows}</ol>` : `<p class="small muted" style="margin:0">Nothing passes your filters.</p>`}
     ${passed.length > n ? `<button type="button" class="btn" id="preview-more">${S.posts.showAll ? "Show fewer" : `Show the next ${Math.min(25, passed.length) - n}`}</button>` : ""}`;
   const counts = $("pcounts")?.textContent;      // flash the counts when an edit changes them
@@ -709,8 +716,9 @@ function renderAgent(){
       <h3>Limits</h3>
       <div class="grid2">
         <label for="a-judged">Postings scored by Claude, per search and run<input type="number" id="a-judged" min="1" max="${COURSE_CAPS.max_judged_per_search}" value="${a.settings.max_judged_per_search}"></label>
+        <label for="a-minrank"><span>Only score posts that rank at least <button type="button" class="tip" aria-label="What the minimum rank does" data-tip="0 to 100, from the code ranking shown on the Profile tab. A post that matches a target role usually ranks 50 or more; one that matches only keywords, 10 to 20. On a day with nothing above this, the run scores nothing and uses almost none of your plan.">i</button></span><input type="number" id="a-minrank" min="0" max="100" value="${a.settings.min_rank_score ?? 0}"></label>
       </div>
-      <p class="small muted" style="margin:0">Every collected posting goes through your filters and the code ranking. Only this many of each search's top-ranked postings are sent to Claude per run; the rest wait for a later run. Scoring is the slow step and the one that uses your plan, so lower is faster and cheaper.</p>
+      <p class="small muted" style="margin:0">Every collected posting goes through your filters and the code ranking. Only this many of each search's top-ranked postings, and only those at or above the minimum rank, are sent to Claude per run; the rest wait for a later run. Scoring is the slow step and the one that uses your plan, so lower is faster and cheaper.</p>
       <div class="scroll"><table><thead><tr><th>Course cap, enforced</th><th>Value</th></tr></thead><tbody>
         <tr><td>Runs started by hand, per 24 hours (the morning run is always allowed)</td><td class="num">${COURSE_CAPS.max_manual_runs_per_day}</td></tr>
         <tr><td>Active searches</td><td class="num">${COURSE_CAPS.max_searches}</td></tr>
@@ -725,7 +733,8 @@ function renderAgent(){
   $("aform").onsubmit = async e => {
     e.preventDefault(); const st = $("a-status");
     const judged = Math.min(Math.max(1, Number($("a-judged").value)||1), COURSE_CAPS.max_judged_per_search);
-    const next = {version:a.version+1, matcher_instructions:$("a-instr").value.trim(), sources:a.sources, settings:{...a.settings, max_judged_per_search:judged}, updated:new Date().toISOString()};
+    const minRank = Math.min(Math.max(0, Math.round(Number($("a-minrank").value) || 0)), 100);
+    const next = {version:a.version+1, matcher_instructions:$("a-instr").value.trim(), sources:a.sources, settings:{...a.settings, max_judged_per_search:judged, min_rank_score:minRank}, updated:new Date().toISOString()};
     try {
       await S.db.doc(`agent/current/versions/v${next.version}`).set({...next});
       await S.db.doc("agent/current").set(next);

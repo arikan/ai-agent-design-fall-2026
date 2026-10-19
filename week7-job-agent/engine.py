@@ -121,6 +121,12 @@ def snapshot_item(p):
     return {**{k: p.get(k) for k in SNAPSHOT_FIELDS}, "text": p["text"][:JUDGE_TEXT_CHARS]}
 
 
+ROLE_CASE_ROLES = ["CPO", "VP of Product", "Head of Product", "Director of Product", "Entrepreneur in Residence", "Senior Product Designer"]
+ROLE_CASE_TITLES = ["Director, Product Management", "Product Director", "SVP, Product", "Vice President of Product",
+                    "Chief Product Officer (CPO)", "Entrepreneur-in-Residence", "EIR, Fintech", "Sr. Product Designer",
+                    "Senior Product Manager", "Director of Engineering", "Head of Product & Design", "Staff+ Software Engineer"]
+
+
 def rank_fixture():
     """The ranking of the corpus postings for the example search, as the page's JavaScript must reproduce it.
     `node tests/rank_test.js` compares the two."""
@@ -133,6 +139,8 @@ def rank_fixture():
     db = search["preferences"].get("deal_breakers", {})
     out = {"search": {k: search.get(k) for k in ("target_roles", "keywords", "industries", "cv_text")}, "deal_breakers": db,
            "postings": postings,
+           "role_cases": {"roles": ROLE_CASE_ROLES, "titles": ROLE_CASE_TITLES,
+                          "expected": [role_hit(ROLE_CASE_ROLES, {"title": t}) for t in ROLE_CASE_TITLES]},
            "expected": [{"id": p["id"], "dropped": deal_breaker(p, db), "score": prefilter_score(search, p)} for p in postings]}
     (HERE / "tests").mkdir(exist_ok=True)
     (HERE / "tests" / "rank_fixture.json").write_text(json.dumps(out, indent=1))
@@ -226,19 +234,30 @@ def with_inputs(search):
     return out
 
 
-def norm_title(t):
-    """Make job titles comparable: 'Vice President of Product' and 'VP, Product' both become 'vp product'."""
-    t = t.lower().replace("&", " and ")
-    for long, short in (("vice president", "vp"), ("senior", "sr"), ("chief product officer", "cpo")):
-        t = t.replace(long, short)
-    t = re.sub(r"[^a-z0-9]+", " ", t)
-    return " " + " ".join(w for w in t.split() if w not in ("of", "the", "and")) + " "
+TITLE_PHRASES = (("vice president", "vp"), ("chief product officer", "cpo"), ("entrepreneur in residence", "eir"),
+                 ("senior", "sr"))
+TITLE_WORDS = {"svp": "vp", "evp": "vp", "avp": "vp"}           # every VP grade counts as VP
+TITLE_NOISE = {"of", "the", "and", "for", "a", "an", "in", "at", "to", "management"}   # "Product Management" is "Product"
+
+
+def title_words(t):
+    """The words that identify a job title, so 'VP, Product', 'Vice President of Product' and
+    'SVP Product' all become {'vp', 'product'}, and 'Director, Product Management' becomes {'director', 'product'}."""
+    t = " " + re.sub(r"[^a-z0-9]+", " ", t.lower().replace("&", " and ")) + " "
+    for long, short in TITLE_PHRASES:
+        t = t.replace(f" {long} ", f" {short} ")
+    return {TITLE_WORDS.get(w, w) for w in re.findall(r"[a-z0-9]+", t)} - TITLE_NOISE
+
+
+def role_hit(roles, p):
+    """The first target role whose words all appear in the posting's title, in any order, or None."""
+    title = title_words(p["title"])
+    return next((r for r in roles if title_words(r) and title_words(r) <= title), None)
 
 
 def role_match(roles, p):
-    """1 when a target role appears in the posting's title, else 0."""
-    title = norm_title(p["title"])
-    return 1.0 if any(norm_title(r).strip() and norm_title(r) in title for r in roles) else 0.0
+    """1 when a target role matches the posting's title, else 0."""
+    return 1.0 if role_hit(roles, p) else 0.0
 
 
 def prefilter_score(search, p):
@@ -304,9 +323,12 @@ def prepare(config):
             else:
                 passed.append((prefilter_score(s, p), p))
         passed.sort(key=lambda t: -t[0])
-        chosen = passed[:per_search_cap]
+        floor = min(max(int(agent["settings"].get("min_rank_score", 0)), 0), 100) / 100
+        eligible = [t for t in passed if t[0] >= floor]       # below the floor is not worth a score
+        chosen = eligible[:per_search_cap]
         step(trace, "filter", search=s["id"], already_matched=already, passed=len(passed), dropped=len(postings) - len(passed) - already,
-             sent_to_judge=len(chosen), not_judged_over_cap=max(0, len(passed) - per_search_cap))
+             sent_to_judge=len(chosen), below_min_rank=len(passed) - len(eligible), min_rank_score=round(floor * 100),
+             not_judged_over_cap=max(0, len(eligible) - per_search_cap))
         for ov, p in chosen:
             items.append({"search_id": s["id"], "posting_id": p["id"], "prefilter": ov,
                           "company": p["company"], "title": p["title"], "location": p["location"],

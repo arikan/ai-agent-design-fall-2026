@@ -15,5 +15,10 @@ for (const [i, p] of fx.postings.entries()) {
   const ok = dropped === want.dropped && Math.abs(score - want.score) < 0.0015;
   if (!ok) { bad++; console.log(`${p.id}: page says ${dropped ?? "kept"} ${score}, engine says ${want.dropped ?? "kept"} ${want.score}`); }
 }
+const rc = fx.role_cases;
+for (const [i, t] of rc.titles.entries()) {
+  const got = RANK.roleHit(rc.roles, {title: t});
+  if (got !== rc.expected[i]) { bad++; console.log(`role "${t}": page says ${got}, engine says ${rc.expected[i]}`); }
+}
 console.log(bad ? `${bad} of ${fx.postings.length} differ` : `ok: ${fx.postings.length} postings rank the same in the page and the engine`);
 process.exit(bad ? 1 : 0);
