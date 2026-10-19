@@ -557,7 +557,7 @@ function renderSearchEditor(){
     </div>
     <div class="card stack">
       <h3>CV</h3>
-      <div class="note">Pick a PDF, Word or text file. The file stays on your device; only the text below is saved, so remove anything you don't want the agent to read.</div>
+      <p class="small muted" style="margin:0">Pick a PDF, Word or text file, or paste below. Only the text is saved, so remove anything you don't want the agent to read.</p>
       <div class="row"><input type="file" id="s-file" accept=".pdf,.docx,.txt,.md"><span class="status" id="s-file-status"></span></div>
       <label for="s-cv">CV text (optional)<textarea class="cv" id="s-cv">${esc(s.cv_text)}</textarea></label>
     </div>
