@@ -23,7 +23,7 @@ body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--font-ui)}
 header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px 16px;margin-bottom:16px}
 h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.01em}
 h2{font-size:17px;font-weight:600;margin:0}
-h3{font-size:14px;font-weight:600;margin:0}
+h3{font-size:14px;font-weight:600;margin:0;letter-spacing:.01em}
 .muted{color:var(--muted)}
 .small{font-size:13px}
 .mono{font-family:var(--font-data);font-size:12.5px}
@@ -36,8 +36,8 @@ nav button .count{font-family:var(--font-data);font-weight:400;font-size:12px;co
 .row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
 .between{justify-content:space-between}
 .stack{display:grid;gap:12px}
-label{font-size:13px;font-weight:600;display:grid;gap:4px}
-label.inline{display:flex;align-items:center;gap:8px;font-weight:500}
+label{font-size:13px;font-weight:500;color:var(--muted);display:grid;gap:4px}
+label.inline{display:flex;align-items:center;gap:8px;color:var(--fg)}
 input[type=text],input[type=number],select,textarea{font:inherit;font-size:14px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-width:0}
 textarea{resize:vertical;line-height:1.5}
 textarea.cv{min-height:180px}
@@ -87,7 +87,7 @@ details summary{cursor:pointer;font-size:13px;color:var(--muted)}
 .evidence{border-left:2px solid var(--line);padding-left:8px;margin-top:4px;color:var(--muted)}
 .foot{text-align:right}
 details{padding-bottom:2px}
-.tip{appearance:none;position:relative;width:16px;height:16px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);font:600 10px/14px var(--font-data);padding:0;margin-left:4px;cursor:help;vertical-align:1px}
+.tip{appearance:none;position:relative;width:15px;height:15px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);font:500 10px/13px var(--font-data);padding:0;margin-left:4px;cursor:help;vertical-align:1px}
 .tip:hover::after,.tip:focus-visible::after{content:attr(data-tip);position:absolute;left:0;top:22px;z-index:5;width:min(280px,70vw);background:var(--fg);color:var(--surface);font:400 12px/1.45 var(--font-ui);text-align:left;padding:8px 10px;border-radius:6px}
 .judge{border-top:1px solid var(--line);padding-top:10px;display:grid;gap:8px}
 .jl{font-size:13px;font-weight:600}
@@ -603,7 +603,7 @@ function dimRow(d,i){
   return `<div class="dimrow" data-i="${i}">
     <label for="dn-${i}">Name<input type="text" id="dn-${i}" value="${esc(d.name)}" data-key="${esc(d.key)}"></label>
     <label for="dw-${i}">Weight<span class="weight"><input type="range" id="dw-${i}" min="0" max="100" step="1" value="${d.weight}" data-w><output>${d.weight}%</output></span></label>
-    <label for="dr-${i}">What strong and weak fit mean to you${({role:"Target roles", industry:"Target industries", background:"Background keywords and CV"})[d.key] ? ` <span class="muted" style="font-weight:400">· also uses your ${({role:"Target roles", industry:"Target industries", background:"Background keywords and CV"})[d.key]}</span>` : ""}<textarea id="dr-${i}" rows="2">${esc(d.rubric)}</textarea></label>
+    <label for="dr-${i}">What strong and weak fit mean to you${({role:"Target roles", industry:"Target industries", background:"Background keywords and CV"})[d.key] ? ` <span>· also uses your ${({role:"Target roles", industry:"Target industries", background:"Background keywords and CV"})[d.key]}</span>` : ""}<textarea id="dr-${i}" rows="2">${esc(d.rubric)}</textarea></label>
     <button type="button" class="btn" data-rm="${i}" aria-label="Remove dimension" style="margin-top:20px">×</button></div>`;
 }
 function readDims(){
