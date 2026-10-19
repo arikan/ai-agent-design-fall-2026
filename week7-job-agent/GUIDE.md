@@ -1,6 +1,6 @@
 # Your Job Agent: a student guide
 
-Your Job Agent reads job boards every morning, keeps the posts that fit your profile, and asks a model to score the best few. You judge the results. Over a week, your judgments show how good the agent is and what to change.
+Your Job Agent reads job boards every morning, keeps the posts that fit your profile, and asks a model to score the best few. You judge the results. Over a week, your judgments show how good the agent is, and the agent suggests what to change.
 
 ## 1. Set it up (15 minutes, once)
 
@@ -28,19 +28,20 @@ Judge at least 5 posts a day. The agent can't be measured, or improved, without 
 
 Only one step uses a model. Everything else is code you can read in this folder.
 
-## 4. Three exercises
-
-Write a few lines for each.
-
-1. **Trace one match.** Pick a post in Matches. Find which board it came from, why it passed the filters, and what the model read before scoring it (Runs, and Agent → What the model sees). Did the model have what it needed?
-2. **Name a failure.** Find a post the agent got wrong: a good job scored low, a bad one scored high, or a good job that never appeared. Say where it went wrong: the board's data, a filter, the ranking, your rubric, or the model.
-3. **Make one measured change.** Note your agreement number under Agent → Evaluation. Make one change, or apply one suggestion. Judge at least 5 new posts. Did agreement go up? Is that enough posts to tell?
-
-## 5. Make it yours
+## 4. Make it yours
 
 - **On the page, no code:** change your profile, rubrics and weights; add boards; apply suggestions. Each change is saved as a version, so you can compare.
 - **The model's instructions:** edit Agent → Settings → Scoring instructions. Same idea: change, judge, compare.
 - **The code:** fork the repository and point your daily run at your fork. See [Make it yours](README.md#make-it-yours).
+
+## 5. Exercise: improve your agent with its suggestions
+
+1. **Judge at least 10 posts**, with both Good and Nope among them. Under Agent → Evaluation, write down your agreement.
+2. **Press Suggest changes.** The model reads where you and the agent disagree and proposes up to three changes to your profile. Apply the ones you agree with and dismiss the rest. Write one line on each: why you applied or dismissed it.
+3. **Run again** (Run now, or wait for the morning run), then **judge at least 5 new posts**, again with both Good and Nope.
+4. **Compare.** "By version" shows agreement for the posts scored before and after your change. Did it go up? Is that enough posts to tell?
+
+Write a few lines: what you applied, what you dismissed, agreement before and after, and one thing the suggestions missed.
 
 ## Good to know
 

@@ -904,10 +904,13 @@ function agentEval(){
   const misses = [...nope.filter(x => x.m.total >= avg(good)).sort((a,b) => b.m.total - a.m.total).map(x => ({...x, kind:"Nope"})),
                   ...good.filter(x => x.m.total <= avg(nope)).sort((a,b) => a.m.total - b.m.total).map(x => ({...x, kind:"Good"}))].slice(0, 5);
   const byVer = {};
-  for (const x of rows){ const v = x.m.agent_version ?? "?"; (byVer[v] = byVer[v] || {g:[], n:[]})[x.v === "accept" ? "g" : "n"].push(x.m.total); }
-  const vers = Object.entries(byVer).filter(([, s]) => s.g.length && s.n.length).sort((a,b) => Number(b[0]) - Number(a[0])).map(([v, s]) => {
+  // A version of the whole setup: Settings change the agent version, Profile changes (and applied suggestions) the profile version.
+  for (const x of rows){ const v = `${x.m.agent_version ?? "?"}.${x.m.prefs_version ?? "?"}`; (byVer[v] = byVer[v] || {g:[], n:[]})[x.v === "accept" ? "g" : "n"].push(x.m.total); }
+  const vkey = v => v.split(".").map(Number);
+  const vers = Object.entries(byVer).filter(([, s]) => s.g.length && s.n.length).sort((a,b) => { const [a1,a2] = vkey(a[0]), [b1,b2] = vkey(b[0]); return b1 - a1 || b2 - a2; }).map(([v, s]) => {
     let w = 0; for (const g of s.g) for (const n of s.n) w += g > n ? 1 : g === n ? .5 : 0;
-    return `v${esc(v)} <b>${Math.round(w / (s.g.length * s.n.length) * 100)}%</b> <span class="muted">(${s.g.length + s.n.length} posts)</span>`; });
+    const [av, pv] = v.split(".");
+    return `agent v${esc(av)}, profile v${esc(pv)} <b>${Math.round(w / (s.g.length * s.n.length) * 100)}%</b> <span class="muted">(${s.g.length + s.n.length} posts)</span>`; });
   const few = good.length < 5 || nope.length < 5;
   return `<div class="evbig"><b>${agree}%</b><span>agreement with agent</span><span class="small muted">How often the agent scores a Good post above a Nope post. 50% is a coin flip.${few ? " Still rough with this few verdicts." : ""}</span></div>
     <div class="evstrip" role="img" aria-label="Each judged post placed by the agent's score, Good and Nope on separate rows">
@@ -915,7 +918,7 @@ function agentEval(){
       <div class="evrow"><span class="evlab">Nope ${nope.length}</span><div class="evaxis">${nope.map(dot).join("")}</div></div>
       <div class="evrow"><span class="evlab"></span><div class="evticks small muted"><span>0</span><span>Agent's score</span><span>100</span></div></div>
     </div>
-    ${vers.length > 1 ? `<p class="small" style="margin:0">By version: ${vers.join(" · ")}</p>` : ""}
+    ${vers.length > 1 ? `<p class="small" style="margin:0">By version: ${vers.join(" · ")} <button type="button" class="tip" aria-label="About versions" data-tip="Each post is grouped by the versions that scored it. Saving Settings makes a new agent version; changing your Profile, or applying a suggestion, a new profile version. A version needs both Good and Nope posts to show.">i</button></p>` : ""}
     ${misses.length ? `<details class="fold"><summary>Biggest disagreements <span class="muted">${misses.length}</span></summary><div class="scroll"><table class="drops"><thead><tr><th>Post</th><th>Score</th><th>You said</th><th>Reason</th></tr></thead><tbody>${misses.map(x => `<tr><td>${esc(x.m.title)} · ${esc(x.m.company)}</td><td class="num">${x.m.total}</td><td>${x.kind}</td><td>${esc(dims[x.why] || x.why || "")}</td></tr>`).join("")}</tbody></table></div></details>` : ""}`;
 }
 /* Suggested Profile changes: the model proposes from your verdicts, code checks them, you apply or not. */
