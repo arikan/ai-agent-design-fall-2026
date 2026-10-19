@@ -88,6 +88,7 @@ def load_sources(agent, trace):
     return postings, health
 
 
+RANK_TEXT_CHARS = 1500    # what filters and the ranking read of each posting, here and in the page's preview
 JUDGE_TEXT_CHARS = 3000   # what the judge reads of each posting: role, requirements and pay are near the top
 FILTERED_KEPT = 100   # deal-breaker drops listed one by one in a run record; the rest are counted
 
@@ -107,9 +108,25 @@ def normalize_and_dedupe(postings, trace):
         seen[key] = p
         out.append(p)
     total_cap = CAPS["max_postings_per_run"]
-    capped = max(0, len(out) - total_cap)
-    out = out[:total_cap]
-    step(trace, "normalize", postings=len(out), duplicates_merged=dupes, capped=capped)
+    capped, capped_by_source = max(0, len(out) - total_cap), {}
+    if capped:
+        # Over the run's limit: take postings from every source in turn, so the cut falls evenly
+        # instead of dropping whole sources at the end of the list.
+        by_src = {}
+        for p in out:
+            by_src.setdefault(p["sources"][0], []).append(p)
+        queues, kept = [list(v) for v in by_src.values()], []
+        while len(kept) < total_cap and any(queues):
+            for q in queues:
+                if q and len(kept) < total_cap:
+                    kept.append(q.pop(0))
+        kept_ids = {p["id"] for p in kept}
+        for src, ps in by_src.items():
+            n = sum(1 for p in ps if p["id"] not in kept_ids)
+            if n:
+                capped_by_source[src] = n
+        out = [p for p in out if p["id"] in kept_ids]
+    step(trace, "normalize", postings=len(out), duplicates_merged=dupes, capped=capped, capped_by_source=capped_by_source)
     return out
 
 
@@ -118,7 +135,12 @@ SNAPSHOT_FIELDS = ("id", "title", "company", "location", "remote", "pay_min", "p
 
 def snapshot_item(p):
     """What the page keeps of a collected posting: the fields the ranking and the judge use."""
-    return {**{k: p.get(k) for k in SNAPSHOT_FIELDS}, "text": p["text"][:JUDGE_TEXT_CHARS]}
+    return {**{k: p.get(k) for k in SNAPSHOT_FIELDS}, "text": p["text"][:RANK_TEXT_CHARS]}
+
+
+def for_ranking(p):
+    """The posting as filters and the ranking see it: the start of its text, the same in the page's preview."""
+    return {**p, "text": p["text"][:RANK_TEXT_CHARS]}
 
 
 ROLE_CASE_ROLES = ["CPO", "VP of Product", "Head of Product", "Director of Product", "Entrepreneur in Residence", "Senior Product Designer"]
@@ -316,12 +338,13 @@ def prepare(config):
             if p["id"] in seen:
                 already += 1
                 continue
-            reason = deal_breaker(p, db)
+            rp = for_ranking(p)
+            reason = deal_breaker(rp, db)
             if reason:
                 filtered.append({"search": s["id"], "posting": p["id"], "title": p["title"], "company": p["company"], "reason": reason,
-                                 "detail": drop_detail(p, reason, db)})
+                                 "detail": drop_detail(rp, reason, db)})
             else:
-                passed.append((prefilter_score(s, p), p))
+                passed.append((prefilter_score(s, rp), p))
         passed.sort(key=lambda t: -t[0])
         floor = min(max(int(agent["settings"].get("min_rank_score", 0)), 0), 100) / 100
         eligible = [t for t in passed if t[0] >= floor]       # below the floor is not worth a score
