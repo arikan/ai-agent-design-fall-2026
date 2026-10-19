@@ -52,6 +52,11 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .btn.good:hover{background:var(--accent-soft)}.btn.bad:hover{background:var(--warn-soft)}
 .btn.good[aria-pressed="true"]{background:color-mix(in srgb,var(--s-hi) 30%,var(--surface));border-color:var(--s-hi);color:var(--accent)}
 .btn.bad[aria-pressed="true"]{background:color-mix(in srgb,var(--s-mid) 35%,var(--surface));border-color:var(--s-mid);color:var(--warn)}
+.vsum{gap:6px 12px;align-items:center}
+.vtag{display:inline-flex;align-items:center;gap:6px;font:600 13px var(--font-ui);padding:5px 10px;border-radius:6px;border:1px solid}
+.vtag.good{background:color-mix(in srgb,var(--s-hi) 22%,var(--surface));border-color:color-mix(in srgb,var(--s-hi) 60%,var(--line));color:var(--accent)}
+.vtag.bad{background:color-mix(in srgb,var(--s-mid) 28%,var(--surface));border-color:color-mix(in srgb,var(--s-mid) 60%,var(--line));color:var(--warn)}
+.linkbtn.small{font-size:12.5px;font-weight:500}
 .match.moved,.match.noped{opacity:.6}.match.moved:hover,.match.noped:hover{opacity:1}
 .btn:disabled{opacity:.5;cursor:default}
 .pill{display:inline-block;font:500 12px var(--font-ui);padding:2px 8px;border-radius:999px;background:var(--sunk);color:var(--muted)}
@@ -445,6 +450,16 @@ function renderMatches(){
         <details><summary>Why these scores</summary><div class="whys">${why}</div>
           <details class="posttext"><summary>The posting, with the quoted parts marked</summary><p class="small">${posting}</p></details>
           <p class="small muted mono">scored by ${esc(modelName(m.model))} · agent v${esc(m.agent_version)} · CV v${esc(m.cv_version)} · preferences v${esc(m.prefs_version)} · unknown counts as ${esc(m.unknown_policy)}</p></details>
+        ${verdict && !S.sticky.has(m.id) ? `<div class="judge"><div class="row between">
+          <div class="row vsum">
+            <span class="vtag ${verdict === "accept" ? "good" : "bad"}">${verdict === "accept" ? `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M5 7v7H2.5V7H5zm1 7V7l2.6-4.6c.3-.5 1-.6 1.4-.2.3.3.4.7.3 1.1L9.6 6.5h3.3c.7 0 1.2.6 1.1 1.3l-.8 5c-.1.7-.7 1.2-1.4 1.2H6z" fill="currentColor"/></svg> Good` : `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="transform:scaleY(-1)"><path d="M5 7v7H2.5V7H5zm1 7V7l2.6-4.6c.3-.5 1-.6 1.4-.2.3.3.4.7.3 1.1L9.6 6.5h3.3c.7 0 1.2.6 1.1 1.3l-.8 5c-.1.7-.7 1.2-1.4 1.2H6z" fill="currentColor"/></svg> Nope`}</span>
+            ${j.main_dimension ? `<span class="small">mainly ${esc(dims.find(d => d.key === j.main_dimension)?.name || j.main_dimension)}</span>` : ""}
+            ${j.reason ? `<span class="small muted">“${esc(j.reason)}”</span>` : ""}
+            <button type="button" class="linkbtn small" data-change>Change</button>
+            <span class="savestate ${S.saved[m.id]?.state || ""}" id="save-${esc(m.id)}" role="status">${saveText(m.id)}</span>
+          </div>
+          <span class="foot small muted">First seen ${esc(seen(m))}</span>
+        </div></div>` : `
         <div class="judge">
           <div class="row between">
            <div class="row">
@@ -461,7 +476,7 @@ function renderMatches(){
             <span class="chips">${dims.map(d=>`<button class="chip" data-dim="${esc(d.key)}" aria-pressed="${j.main_dimension===d.key}">${esc(d.name)}</button>`).join("")}</span>
           </div>
           <input type="text" id="note-${esc(m.id)}" class="note-in" data-note placeholder="Optional note, for example: pay is fine but the commute is long" value="${esc(j.reason)}" aria-label="Optional note">` : ""}
-        </div>
+        </div>`}
       </div></article>`;
   }).join("");
 }
@@ -494,6 +509,7 @@ $("matches").addEventListener("click", e => {
   const v = e.target.closest("button[data-act]");
   const busy = el => { art.querySelectorAll(".judge button").forEach(b => b.disabled = true); el.setAttribute("aria-busy","true"); el.classList.add("busy"); };
   const done = () => art.querySelectorAll(".judge button").forEach(b => { b.disabled = false; b.removeAttribute("aria-busy"); b.classList.remove("busy"); });
+  if (e.target.closest("[data-change]")){ S.sticky.add(id); renderMatches(); return; }
   const go = e.target.closest("[data-mview]");
   if (go){ S.mview = go.dataset.mview; S.sticky.clear(); renderMatches(); window.scrollTo({top:0}); return; }
   if (v){ S.sticky.add(id); busy(v); return saveJudgment(id, cur.verdict===v.dataset.act ? {verdict:null, main_dimension:null, reason:""} : {verdict:v.dataset.act}, v).finally(done); }
