@@ -86,7 +86,10 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .ext:hover{text-decoration:underline}
 .ext.none{color:var(--muted);font-weight:400}
 .cellsrow{display:grid;grid-template-columns:minmax(0,1fr) 20px;align-items:center;gap:8px;border-top:1px solid var(--line);cursor:pointer;border-radius:4px}
-.cellsrow:hover .chev,.cellsrow:focus-visible .chev{color:var(--fg)}
+.cellsrow{margin:0 -8px;padding:0 8px;transition:background .15s}
+.cellsrow:hover,.cellsrow:focus-visible{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.cellsrow:hover .chev,.cellsrow:focus-visible .chev{color:var(--accent)}
+.cellsrow:hover .cname{color:var(--fg)}
 .cellsrow .chev{color:var(--muted);transition:transform .15s}.cellsrow[aria-expanded="true"] .chev{transform:rotate(180deg)}
 .cellsrow .cells{border-top:0}
 .cells{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px 20px;padding:10px 0 2px;border-top:1px solid var(--line)}
