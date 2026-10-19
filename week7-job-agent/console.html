@@ -1240,10 +1240,11 @@ function runFunnel(r){
           matches: judge?.accepted ?? r.matches ?? 0, rejected: judge?.rejected || 0, model: r.model || "Claude"};
 }
 function funnelView(f){
+  const removed = [f.dupes && `${num(f.dupes)} duplicates`, f.dropped && `${num(f.dropped)} that hit a deal breaker`, f.seen && `${num(f.seen)} already in Matches`].filter(Boolean);
   return `<ol class="funnel">
-    <li><b>${num(f.collected)}</b><span>collected from ${f.nSources} source${f.nSources === 1 ? "" : "s"}</span></li>
-    <li><b>${num(f.ranked)}</b><span>ranked by code${[f.dupes && `${num(f.dupes)} duplicates`, f.dropped && `${num(f.dropped)} deal breakers`, f.seen && `${num(f.seen)} already matched`].filter(Boolean).map(x => `<br>−${x}`).join("")}</span></li>
-    <li><b>${num(f.scored)}</b><span>scored by ${esc(f.model)}<br>the top of the ranking, each now a match${f.rejected ? `<br>−${f.rejected} rejected: evidence not in the posting` : ""}</span></li>
+    <li><b>${num(f.collected)}</b><span>job posts collected from ${f.nSources} source${f.nSources === 1 ? "" : "s"}</span></li>
+    <li><b>${num(f.ranked)}</b><span>ranked by code against your search${removed.length ? `, after setting aside ${removed.join(", ")}` : ""}</span></li>
+    <li><b>${num(f.scored)}</b><span>top-ranked posts scored by ${esc(f.model)}, now in Matches${f.rejected ? `<br>${f.rejected} more scored but rejected: the quote wasn't in the post` : ""}</span></li>
   </ol>`;
 }
 function renderRuns(){
