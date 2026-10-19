@@ -1,6 +1,6 @@
 # Job Agent
 
-An agent that finds jobs for your CV and preferences. Every day it collects new postings from the job boards you choose, drops the ones that break your deal breakers, scores the rest against what matters to you, and shows the results on a web page where you judge them.
+An agent that finds jobs for your CV and preferences. Every day it collects new postings from the job boards you choose, drops the ones your filters rule out, scores the rest against what matters to you, and shows the results on a web page where you judge them.
 
 It runs two ways:
 
@@ -20,6 +20,8 @@ It runs two ways:
 4. On the page, follow the setup panel: allow the daily run to reach job sites (one network setting), then press **I've changed it, check my setup**.
 5. When the light turns green, press **Start my agent**. Your first matches appear in a few minutes.
 
+Then read the [student guide](GUIDE.md): what to do each day, three exercises, and how to change the agent.
+
 ## How it works
 
 ```
@@ -32,7 +34,7 @@ It runs two ways:
 |---|---|
 | **Adapters** (`adapters/`) | One per kind of job board. Each knows how to fetch postings from that kind of board and turn them into one common shape. |
 | **Sources** | Your list of boards: which adapter, plus its settings, like a company's board token. Adding a board is a new source, not new code. |
-| **Engine** (`engine.py`) | Deterministic code, never a model. Collects postings, removes duplicates, skips postings already seen, applies deal breakers and caps, prepares the batch for judging, checks every judgment, and computes the weighted totals. |
+| **Engine** (`engine.py`) | Deterministic code, never a model. Collects postings, removes duplicates, skips postings already seen, applies your filters and the limits, prepares the batch for judging, checks every judgment, and computes the weighted totals. |
 | **Claude** | The only step that needs judgment: scores each posting on each of your dimensions, 1 to 5 or unknown, with a reason and a quote from the posting as evidence. |
 | **Suggestions** (`suggest.py`) | On request, or after every run if turned on: code gathers your Good and Nope verdicts and which dimensions disagree with them, the model proposes up to three Profile changes, and code checks them (a weight change must raise agreement on your judged posts). You apply them or not on the Agent tab. |
 | **Job Agent page** | Where you set up searches (your CV and preferences), manage sources, judge matches, and read what every run did. |
@@ -66,7 +68,7 @@ You should see how many postings were fetched and kept, and three samples. Chang
 
 ### 3. Fetch every source and prepare a run
 
-`examples/config.example.json` holds one search and three sources. Copy it and edit the CV text, deal breakers and dimensions to your own:
+`examples/config.example.json` holds one search and three sources. Copy it and edit the CV text, filters and dimensions to your own:
 
 ```bash
 mkdir -p work
@@ -78,7 +80,7 @@ uv run engine.py prepare work/config.json
 `fetch` prints one line per source. `prepare` writes two files:
 
 - `work/batch.json`: the postings Claude will score, with your dimensions and rubrics
-- `work/state.json`: the trace so far, including what the deal breakers dropped and why
+- `work/state.json`: the trace so far, including what the filters dropped and why
 
 ### 4. Score with Claude
 
@@ -98,18 +100,25 @@ Locally, nothing is written to the Job Agent page. That step needs a Claude sess
 
 ## Run it in Claude's cloud
 
-The daily run is a scheduled task in Claude Code that clones this repository and follows [`RUN.md`](RUN.md). It needs a paid Claude plan (Pro or higher). Setup happens on the Job Agent page, in three steps:
+The daily run is a Claude Code scheduled task that clones this repository and follows [`RUN.md`](RUN.md). [Start here](#start-here) sets it up. After that:
 
-1. **Create your daily run.** The page gives you a message to paste into a new Claude Code session. Claude creates the scheduled task, and the page connects to it.
-2. **Let it reach job sites.** In the task's cloud environment, set Network access to Full. (For tighter control, use Custom with the domains the page lists under Sources.)
-3. **Check that it works.** The page starts a quick cloud run that reaches a job board and writes back. Green means you're done.
+- The agent runs every morning, and new matches appear on the page.
+- **Run now** starts a run any time, up to the daily limit.
+- **Test** on a source runs just that source, so a new board can be checked before the next run.
+- Each run keeps the day's collected posts on the page. The Profile tab ranks them live as you edit, and shows which posts the next run would score. Ranking is code; only scoring needs the model.
+- Each run clones the repository fresh, so code changes reach the cloud on the next run.
 
-After that:
+## Make it yours
 
-- The agent runs once a day and new matches appear on the page.
-- **Test** on any source runs just that source in the cloud, so a new source can be checked before the next daily run.
-- Each run keeps the day's collected postings on the page. The Search tab ranks them live as you edit your roles, keywords and deal breakers, and shows which postings the next run would score, so you can tune a search without waiting a day. Ranking is code; only the scoring needs Claude.
-- Code changes reach the cloud on the next run: each run clones the repository's default branch fresh.
+Most changes need no code: your profile, rubrics, weights, boards and scoring instructions are all on the page, and each change is saved as a version.
+
+To change the code:
+
+1. Fork this repository on GitHub. A public fork is simplest.
+2. Change your fork: add an adapter, change the ranking in `engine.py`, or edit the steps in `RUN.md`. Run `uv run sources.py test` and the rank test below before you push.
+3. Point your daily run at your fork. In a Claude Code session, ask: *Change my "Job agent daily run" scheduled task to clone https://github.com/YOUR-NAME/ai-agent-design-fall-2026 instead.*
+
+From then on, your runs use your code and your page updates from your fork's `console.html`. Course updates no longer reach you on their own; use **Sync fork** on GitHub to pull them in.
 
 ## Commands
 
@@ -140,7 +149,7 @@ Built in adapters: Greenhouse, Lever, Ashby, Workable, Getro (venture firm portf
 
 ## Limits
 
-Course limits live in `caps.json` and are enforced in code: the morning run always runs and the student may start ten more a day by hand (a rolling 24 hours), three active searches, 1,000 postings read per source, 10,000 per run, 12 judged per search. Reading is cheap and done in code, so every fetched posting goes through deal breakers and the prefilter; judging is what uses your plan, so that is the tight cap. The page can lower them, never raise them.
+Course limits live in `caps.json` and are enforced in code: the morning run always runs and the student may start ten more a day by hand (a rolling 24 hours), three active searches, 1,000 postings read per source, 10,000 per run, 12 judged per search. Reading is cheap and done in code, so every fetched posting goes through your filters and the ranking; judging is what uses your plan, so that is the tight cap. The page can lower them, never raise them.
 
 ## Your data
 
@@ -151,7 +160,7 @@ Course limits live in `caps.json` and are enforced in code: the morning run alwa
 
 - Getro boards list jobs without descriptions, and web page sources read only the listing unless a description selector is set; expect more unknown scores from these.
 - Which postings get scored is decided by a cheap prefilter: your search's keywords (a keyword in the title counts double), plus word overlap with your CV. It decides what the agent sees, so choose keywords with care.
-- Your verdicts are the answer key for the Agent tab's "Is it any good?" check, which compares them with the agent's scores per version. They don't feed back into scoring; you change Profile or Settings and measure again.
+- Your verdicts are the answer key for the Agent tab's Evaluation, which compares them with the agent's scores per version. They don't feed back into scoring; you change Profile or Settings and measure again.
 
 ## Files
 
@@ -160,6 +169,7 @@ week7-job-agent/
 ├── README.md            this file
 ├── RUN.md               what the cloud run follows, step by step
 ├── SETUP.md             what Claude follows to set up a student's page and daily run
+├── GUIDE.md             the student guide: daily use, exercises, changing the agent
 ├── console.html         the Job Agent page
 ├── engine.py            collect, filter, prepare, check, rank
 ├── sources.py           run sources through adapters
