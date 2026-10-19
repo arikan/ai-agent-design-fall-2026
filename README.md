@@ -7,7 +7,7 @@ Code and instructions for the course labs, one folder per week. Each folder has 
 | [week4-agent-runs](week4-agent-runs/) | Run the same task with three agents and compare harness against model |
 | [week5-minimal-agent](week5-minimal-agent/) | Workflows and agents on one small harness |
 | [week6-agent-evals](week6-agent-evals/) | Build a golden set and measure how often an agent gets it right |
-| [week7-job-agent](week7-job-agent/) | A job agent that runs daily in Claude's cloud, scores new postings against your CV, and learns from your verdicts |
+| [week7-job-agent](week7-job-agent/) | A job agent that runs daily in Claude's cloud, scores new postings against your CV, and suggests improvements from your verdicts |
 
 ## Getting the labs
 
