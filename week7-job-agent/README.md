@@ -53,7 +53,7 @@ cd week7-job-agent
 uv run sources.py test
 ```
 
-Each adapter runs against a saved response in `adapters/fixtures/`. All seven should print `ok`. The first `uv run` sets up the environment.
+Each adapter runs against a saved response in `adapters/fixtures/`. All eight should print `ok`. The first `uv run` sets up the environment.
 
 ### 2. Try one live source
 
@@ -127,7 +127,7 @@ After that:
 
 ## Sources and adapters
 
-Built in adapters: Greenhouse, Lever, Ashby, Getro (venture firm portfolio boards), JSON API, web page (CSS selectors), RSS. Two more types exist only as sources: the frozen corpus of 20 fictional postings for repeatable tests, and "check by hand" reminders for boards that block automated access.
+Built in adapters: Greenhouse, Lever, Ashby, Workable, Getro (venture firm portfolio boards), JSON API, web page (CSS selectors), RSS. Two more types exist only as sources: the frozen corpus of 20 fictional postings for repeatable tests, and "check by hand" reminders for boards that block automated access.
 
 **When a source breaks**, the fix is usually in its settings, not code: new selectors for a web page, new field paths for a JSON API, a corrected board token. The page flags sources that fail or suddenly return nothing, and the daily run proposes fixes it has tested. You apply or discard them.
 

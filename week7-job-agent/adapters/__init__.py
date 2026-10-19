@@ -14,9 +14,10 @@ from .json_api import JsonApi, dig
 from .lever import Lever
 from .rss import Rss
 from .text import extract_from_text, extract_range, html_to_text
+from .workable import Workable
 
 TYPES = {"greenhouse": Greenhouse, "lever": Lever, "ashby": Ashby, "getro": Getro,
-         "json_api": JsonApi, "html_scraper": HtmlScraper, "rss": Rss}
+         "json_api": JsonApi, "html_scraper": HtmlScraper, "rss": Rss, "workable": Workable}
 
 # Not fetched by code: the frozen corpus is read from disk, manual sources are reminders.
 NON_FETCHING = {"corpus", "manual"}

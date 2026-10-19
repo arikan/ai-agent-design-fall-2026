@@ -1,0 +1,24 @@
+{
+ "source": {
+  "id": "workable:exampleml",
+  "adapter": "workable",
+  "config": {
+   "account": "exampleml",
+   "company_name": "Example ML"
+  }
+ },
+ "responses": {
+  "GET https://apply.workable.com/api/v1/widget/accounts/exampleml?details=true": "{\"name\": \"Example ML\", \"jobs\": [{\"title\": \"Head of Product\", \"shortcode\": \"AB12CD\", \"telecommuting\": true, \"url\": \"https://apply.workable.com/j/AB12CD\", \"published_on\": \"2026-10-01\", \"city\": \"New York\", \"state\": \"New York\", \"country\": \"United States\", \"locations\": [{\"city\": \"New York\", \"region\": \"New York\", \"country\": \"United States\"}], \"description\": \"<p>Lead product for our open-source platform.</p><p>Base salary $250,000 - $300,000.</p>\"}]}"
+ },
+ "expect": {
+  "kept": 1,
+  "first": {
+   "title": "Head of Product",
+   "company": "Example ML",
+   "remote": true,
+   "pay_min": 250000,
+   "pay_max": 300000,
+   "url": "https://apply.workable.com/j/AB12CD"
+  }
+ }
+}

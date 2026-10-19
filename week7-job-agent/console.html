@@ -833,13 +833,14 @@ const ADAPTERS = {
   json_api:{label:"JSON API", key:"url", fields:[["url","API address","https://..."],["items_path","Where the list sits","jobs or data.items, empty for a bare list"],["fields","Where each field sits (JSON)",'{"title":"position","company":"company","location":"location","url":"url","text":"description"}'],["filter_words","Keep only jobs mentioning","design, research"],["company_name","Company name, if items have none",""]], help:"Any API that returns a list of jobs. When it changes shape, fix the paths here; no code needed."},
   html_scraper:{label:"Web page", key:"url", fields:[["url","Careers page address","https://..."],["sel_job_card","Job card selector","li.job-row"],["sel_title","Title selector",".title"],["sel_company","Company selector",""],["sel_location","Location selector",".location"],["sel_link","Link selector","a"],["detail_text","Description selector on each job page",""],["company_name","Company name, if cards have none",""]], help:"A careers page read with CSS selectors. When it stops working, the selectors usually need updating. Pages built with JavaScript come back empty."},
   rss:{label:"RSS feed", key:"url", fields:[["url","Feed address","https://.../feed.xml"],["company_name","Company name, if items have none",""],["default_location","Location, if items have none","Remote"]], help:"Job feeds in RSS or Atom format."},
+  workable:{label:"Workable", key:"account", fields:[["account","Account","huggingface"],["company_name","Company name",""]], help:"A company's Workable board, from apply.workable.com/<account>. One request reads the whole board, with descriptions."},
   manual:{label:"Check by hand", fields:[["url","Address","https://..."]], help:"A reminder, not fetched. Use it for sources that block automated access."},
   custom:{label:"Custom adapter", key:"name", fields:[["name","Name","my-board"],["domains","Domains it may reach","careers.example.com"]], help:"Your own code, for a source no other type handles. Ask Claude to write or repair it."}
 };
 const host = u => { try { return new URL(u).hostname; } catch(e){ return ""; } };
 function srcDomains(s){
   const c = s.config || {};
-  return ({greenhouse:["boards-api.greenhouse.io"], lever:["api.lever.co"], ashby:["api.ashbyhq.com"], getro:[c.domain],
+  return ({greenhouse:["boards-api.greenhouse.io"], lever:["api.lever.co"], ashby:["api.ashbyhq.com"], workable:["apply.workable.com"], getro:[c.domain],
     json_api:[host(c.url)], html_scraper:[host(c.url)], rss:[host(c.url)], custom:c.domains||[]}[s.adapter] || []).filter(Boolean);
 }
 function srcHealth(id){
