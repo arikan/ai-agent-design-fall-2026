@@ -215,7 +215,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .ppart summary{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;font-size:13px;cursor:pointer}
 .ppart pre{white-space:pre-wrap;word-break:break-word;font:12px/1.5 var(--font-data);margin:6px 0 2px;max-height:280px;overflow:auto;color:var(--fg)}
 .evhead{display:grid;gap:6px}
-.evbig{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.evbig b{font:600 28px var(--font-data);color:var(--accent)}.evbig span{font-size:14px}
+.evbig{display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap}.evbig b{font:600 28px var(--font-data);color:var(--accent)}.evbig span{font-size:14px}
 .evstrip{display:grid;gap:6px;margin-top:4px}
 .evrow{display:grid;grid-template-columns:60px 1fr;align-items:center;gap:8px}
 .evlab{font-size:12px;color:var(--muted)}
@@ -897,26 +897,23 @@ function agentEval(){
   const agree = Math.round(wins / (good.length * nope.length) * 100);
   const dims = Object.fromEntries((S.searches[0]?.preferences?.dimensions || DEFAULT_DIMS).map(d => [d.key, d.name]));
   const dot = x => `<i class="evdot ${x.v === "accept" ? "g" : "n"}" style="left:${x.m.total}%" title="${esc(x.m.title)} · ${esc(x.m.company)}: ${x.m.total} · ${x.v === "accept" ? "Good" : "Nope"}"></i>`;
-  const misses = [...nope.filter(x => x.m.total >= avg(good)).sort((a,b) => b.m.total - a.m.total).map(x => ({...x, kind:"Scored high, you said Nope"})),
-                  ...good.filter(x => x.m.total <= avg(nope)).sort((a,b) => a.m.total - b.m.total).map(x => ({...x, kind:"Scored low, you said Good"}))].slice(0, 5);
+  const misses = [...nope.filter(x => x.m.total >= avg(good)).sort((a,b) => b.m.total - a.m.total).map(x => ({...x, kind:"Nope"})),
+                  ...good.filter(x => x.m.total <= avg(nope)).sort((a,b) => a.m.total - b.m.total).map(x => ({...x, kind:"Good"}))].slice(0, 5);
   const byVer = {};
   for (const x of rows){ const v = x.m.agent_version ?? "?"; (byVer[v] = byVer[v] || {g:[], n:[]})[x.v === "accept" ? "g" : "n"].push(x.m.total); }
-  const verRows = Object.entries(byVer).sort((a,b) => Number(b[0]) - Number(a[0])).map(([v, s]) => {
+  const vers = Object.entries(byVer).filter(([, s]) => s.g.length && s.n.length).sort((a,b) => Number(b[0]) - Number(a[0])).map(([v, s]) => {
     let w = 0; for (const g of s.g) for (const n of s.n) w += g > n ? 1 : g === n ? .5 : 0;
-    const ag = s.g.length && s.n.length ? Math.round(w / (s.g.length * s.n.length) * 100) + "%" : "–";
-    return `<tr><td class="mono">v${esc(v)}</td><td class="num">${s.g.length}</td><td class="num">${s.n.length}</td><td class="num">${ag}</td></tr>`; }).join("");
+    return `v${esc(v)} <b>${Math.round(w / (s.g.length * s.n.length) * 100)}%</b> <span class="muted">(${s.g.length + s.n.length} posts)</span>`; });
   const few = good.length < 5 || nope.length < 5;
-  return `<div class="evhead"><div class="evbig"><b>${agree}%</b><span>agreement: pair any Good post with any Nope post, and this is how often the Good one scored higher</span></div>
-      <div class="small muted">Good averaged ${avg(good)}, Nope ${avg(nope)}. 50% is a coin flip, 100% is perfect.${few ? ` Based on ${good.length} Good and ${nope.length} Nope, so still rough.` : ""}</div></div>
-    <h3 class="sechead">Your verdicts against the agent's scores</h3>
-    <p class="small muted" style="margin:0">Each dot is a post you judged, placed left to right by the score the agent gave it. If the agent sorted posts the way you do, every Good dot would sit to the right of every Nope dot. Hover a dot to see the post.</p>
+  return `<div class="evbig"><b>${agree}%</b><span>agreement</span><span class="small muted">How often a Good post scored above a Nope post. 50% is a coin flip.${few ? " Still rough with this few verdicts." : ""}</span></div>
     <div class="evstrip" role="img" aria-label="Each judged post placed by the agent's score, Good and Nope on separate rows">
       <div class="evrow"><span class="evlab">Good ${good.length}</span><div class="evaxis">${good.map(dot).join("")}</div></div>
       <div class="evrow"><span class="evlab">Nope ${nope.length}</span><div class="evaxis">${nope.map(dot).join("")}</div></div>
       <div class="evrow"><span class="evlab"></span><div class="evticks small muted"><span>0</span><span>Agent's score</span><span>100</span></div></div>
     </div>
-    ${misses.length ? `<h3 class="sechead">Where you disagree</h3><div class="scroll"><table class="drops"><thead><tr><th>Post</th><th>Score</th><th>What happened</th><th>Your reason</th></tr></thead><tbody>${misses.map(x => `<tr><td>${esc(x.m.title)} · ${esc(x.m.company)}</td><td class="num">${x.m.total}</td><td>${x.kind}</td><td>${esc(dims[x.why] || x.why || "")}</td></tr>`).join("")}</tbody></table></div>` : ""}
-    <h3 class="sechead">By agent version</h3><div class="scroll"><table><thead><tr><th>Version</th><th>Good</th><th>Nope</th><th>Agreement</th></tr></thead><tbody>${verRows}</tbody></table></div>`;
+    <p class="small muted" style="margin:0">One dot per post you judged. Ideally every Good dot sits right of every Nope dot.</p>
+    ${vers.length > 1 ? `<p class="small" style="margin:0">By version: ${vers.join(" · ")}</p>` : ""}
+    ${misses.length ? `<details class="fold"><summary>Biggest disagreements <span class="muted">${misses.length}</span></summary><div class="scroll"><table class="drops"><thead><tr><th>Post</th><th>Score</th><th>You said</th><th>Reason</th></tr></thead><tbody>${misses.map(x => `<tr><td>${esc(x.m.title)} · ${esc(x.m.company)}</td><td class="num">${x.m.total}</td><td>${x.kind}</td><td>${esc(dims[x.why] || x.why || "")}</td></tr>`).join("")}</tbody></table></div></details>` : ""}`;
 }
 function agentVersions(){
   const runsBy = {}; for (const r of S.runs) if (r.agent_version != null) runsBy[r.agent_version] = (runsBy[r.agent_version] || 0) + 1;
