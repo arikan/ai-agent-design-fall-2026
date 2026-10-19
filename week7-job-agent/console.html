@@ -6,17 +6,17 @@
 /* Layout: one column console; a tab bar switches between the four records the agent keeps (matches, searches, agent, runs). */
 :root{
   --bg:#F4F6F3; --surface:#FFFFFF; --sunk:#E9EDE8; --line:#D5DCD4; --fg:#18201B; --muted:#5D6A61;
-  --accent:#1F6B4F; --accent-soft:#DDEEE5; --warn:#9A5B0C; --warn-soft:#F6E9D3; --bad:#A33A2C; --bad-soft:#F6DFDA;
+  --accent:#1F6B4F; --accent-soft:#DDEEE5; --warn:#9A5B0C; --warn-soft:#F6E9D3; --bad:#A33A2C; --bad-soft:#F6DFDA; --s-hi:#2E8B62; --s-mid:#C98A1B; --s-lo:#C46A5A;
   --font-ui:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --font-data:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
   --r:8px;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#111613; --surface:#18201B; --sunk:#0D110F; --line:#2C3830; --fg:#E4EBE5; --muted:#93A198;
-  --accent:#5FBF94; --accent-soft:#1B3328; --warn:#E0A54F; --warn-soft:#33270F; --bad:#E58475; --bad-soft:#3A1E19; color-scheme:dark}}
+  --accent:#5FBF94; --accent-soft:#1B3328; --warn:#E0A54F; --warn-soft:#33270F; --bad:#E58475; --bad-soft:#3A1E19; --s-hi:#5FBF94; --s-mid:#E2B257; --s-lo:#E08A7A; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#111613; --surface:#18201B; --sunk:#0D110F; --line:#2C3830; --fg:#E4EBE5; --muted:#93A198;
-  --accent:#5FBF94; --accent-soft:#1B3328; --warn:#E0A54F; --warn-soft:#33270F; --bad:#E58475; --bad-soft:#3A1E19; color-scheme:dark}
+  --accent:#5FBF94; --accent-soft:#1B3328; --warn:#E0A54F; --warn-soft:#33270F; --bad:#E58475; --bad-soft:#3A1E19; --s-hi:#5FBF94; --s-mid:#E2B257; --s-lo:#E08A7A; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--font-ui)}
 .wrap{max-width:980px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -55,9 +55,10 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .pill.bad{background:var(--bad-soft);color:var(--bad)}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .match{display:grid;grid-template-columns:64px 1fr;gap:4px 16px}
-.score{font:600 26px/1 var(--font-data);font-variant-numeric:tabular-nums;color:var(--accent);padding-top:2px}
-.score.mid{color:var(--warn)}
-.score.lo{color:var(--muted)}
+.score{font:600 26px/1 var(--font-data);font-variant-numeric:tabular-nums;color:var(--s-hi);padding-top:2px;display:grid;justify-items:start;align-content:start}
+.score.mid{color:var(--s-mid)}
+.score.lo{color:var(--s-lo)}
+.score .newtag{margin-top:8px;align-self:start}
 .score small{display:block;font:400 11px var(--font-ui);color:var(--muted);margin-top:4px}
 .match .body{min-width:0;display:grid;gap:10px}
 .head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 16px}
@@ -66,6 +67,9 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .pay{font:700 16px var(--font-data);font-variant-numeric:tabular-nums;white-space:nowrap}
 .pay.none{font:500 13px var(--font-ui);color:var(--warn)}
 .meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 16px;font-size:13px;color:var(--muted);margin-top:-6px}
+.mtop{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 20px;align-items:start}
+.mtop .tl{display:grid;gap:4px;min-width:0}.mtop .tr{display:grid;gap:6px;justify-items:end;text-align:right}
+.mtop .loc{font-size:13px;color:var(--muted)}
 .ext{color:var(--accent);font-weight:600;text-decoration:none;white-space:nowrap}
 .ext:hover{text-decoration:underline}
 .ext.none{color:var(--muted);font-weight:400}
@@ -75,9 +79,9 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .meter{display:flex;align-items:center;gap:8px}
 .segs{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;flex:1;max-width:84px}
 .segs i{height:6px;border-radius:1px;background:var(--line)}
-.segs i.hi{background:var(--accent)}
-.segs i.mid{background:var(--warn)}
-.segs i.lo{background:var(--bad)}
+.segs i.hi{background:color-mix(in srgb,var(--s-hi) 80%,var(--surface))}
+.segs i.mid{background:color-mix(in srgb,var(--s-mid) 75%,var(--surface))}
+.segs i.lo{background:color-mix(in srgb,var(--s-lo) 70%,var(--surface))}
 .segs i.u{background:none;border:1px dashed var(--muted);height:6px}
 .pips{font-family:var(--font-data);font-size:11px;letter-spacing:1px;color:var(--accent);white-space:nowrap}
 .pips .off{color:var(--line)}
@@ -321,7 +325,7 @@ const DEFAULT_DIMS = [
 const S = {db:null, searches:[], agent:null, runs:[], matches:[], judgments:{}, proposals:{}, tests:{}, runner:null, request:null, check:null, view:"matches", editing:null};
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const money = (a,b) => a==null && b==null ? "Pay not listed" : "$" + [a,b].filter(x=>x!=null).map(x=>Math.round(x/1000)+"k").join("–");
+const money = (a,b) => a==null && b==null ? "Pay not listed" : "$" + [...new Set([a,b].filter(x=>x!=null).map(x=>Math.round(x/1000)+"k"))].join("–");
 const list = s => String(s||"").split(/[,\n]/).map(x=>x.trim()).filter(Boolean);
 const num = n => Number(n || 0).toLocaleString();
 const slug = s => String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "search";
@@ -394,13 +398,13 @@ function renderMatches(){
     const link = m.url ? `<a class="ext" href="${esc(m.url)}" target="_blank" rel="noopener">View posting ↗</a>` : `<span class="ext none" title="Postings in the frozen corpus are fictional">Example posting, no live page</span>`;
     const verdict = j?.verdict;
     return `<article class="card match" data-id="${esc(m.id)}">
-      <div class="score ${m.total >= 80 ? "hi" : m.total >= 60 ? "mid" : "lo"}">${m.total}<small>of 100</small></div>
+      <div class="score ${m.total >= 80 ? "hi" : m.total >= 60 ? "mid" : "lo"}">${m.total}<small>of 100</small>${isNew(m) ? `<span class="newtag">New</span>` : ""}</div>
       <div class="body">
-        <div class="head">
-          <h2>${isNew(m) ? `<span class="newtag">New</span>` : ""}<span>${esc(m.title)}</span><span class="dot" aria-hidden="true">·</span><span>${esc(m.company)}</span></h2>
-          ${pay}
+        <div class="mtop">
+          <div class="tl"><div class="head"><h2><span>${esc(m.title)}</span><span class="dot" aria-hidden="true">·</span><span>${esc(m.company)}</span></h2></div>
+            <div class="loc">${esc(m.location)}${m.industry?` · ${esc(m.industry)}`:""}</div></div>
+          <div class="tr">${pay}${link}</div>
         </div>
-        <div class="meta"><span>${esc(m.location)}${m.industry?` · ${esc(m.industry)}`:""}</span>${link}</div>
         <div class="cells">${cells}</div>
         <details><summary>Why these scores</summary><div class="whys">${why}</div>
           <p class="small">${esc(m.text)}</p>
