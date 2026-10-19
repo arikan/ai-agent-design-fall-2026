@@ -584,8 +584,8 @@ function renderSearchEditor(){
     </div>
     <div class="card stack" id="preview"></div>
     <div class="card stack">
-      <div class="row between"><h3>Dimensions</h3><button type="button" class="btn" id="add-dim">Add dimension</button></div>
-      <div class="row between" style="gap:6px 16px"><p class="small muted" style="margin:0">Claude rates each post 1 to 5 on these. Weights set how much each counts.</p><div class="wtotal small" id="wtotal" role="status"></div></div>
+      <div class="row between"><h3>Dimensions</h3><div class="row" style="gap:12px"><div class="wtotal small" id="wtotal" role="status"></div><button type="button" class="btn" id="add-dim">Add dimension</button></div></div>
+      <p class="small muted" style="margin:0">Claude rates each post 1 to 5 on these. Weights set how much each counts.</p>
       <div id="dims" class="stack">${toPercent(s.preferences.dimensions).map((d,i)=>dimRow(d,i)).join("")}</div>
       <label for="s-unknown" style="max-width:320px">When a dimension is unknown
         <select id="s-unknown"><option value="neutral" ${s.preferences.unknown_policy!=="penalty"?"selected":""}>Count it as neutral (3 of 5)</option><option value="penalty" ${s.preferences.unknown_policy==="penalty"?"selected":""}>Count it as a miss (1 of 5)</option></select></label>
@@ -626,7 +626,7 @@ function wireSearchForm(s){
   const showTotal = () => {
     const t = total(), el = $("wtotal");
     el.className = "wtotal small " + (t === 100 ? "ok" : "warn");
-    el.innerHTML = `<span class="wbar"><i style="width:${Math.min(t,100)}%"></i></span><span>${t === 100 ? "100% assigned" : `${t}% assigned, ${100 - t}% left`}</span>`;
+    el.innerHTML = `<span class="wbar"><i style="width:${Math.min(t,100)}%"></i></span><span>${t === 100 ? "100% assigned" : `${100 - t}% left to assign`}</span>`;
   };
   $("add-dim").onclick = () => { const i = Date.now(); $("dims").insertAdjacentHTML("beforeend", dimRow({key:"",name:"",weight:0,rubric:""}, i)); showTotal(); };
   $("dims").onclick = e => { const b = e.target.closest("[data-rm]"); if (b){ b.closest(".dimrow").remove(); showTotal(); } };
