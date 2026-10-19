@@ -39,6 +39,17 @@
    "note": ""
   },
   {
+   "id": "greenhouse:figma",
+   "adapter": "greenhouse",
+   "enabled": true,
+   "category": "design tools",
+   "note": "",
+   "config": {
+    "board_token": "figma",
+    "company_name": "Figma"
+   }
+  },
+  {
    "adapter": "ashby",
    "category": "ai",
    "config": {
