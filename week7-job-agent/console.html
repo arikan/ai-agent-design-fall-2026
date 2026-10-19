@@ -164,6 +164,8 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .funnel li{position:relative;border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:2px;align-content:start;background:var(--bg)}
 .funnel b{font:600 20px var(--font-data)}
 .funnel span{font-size:12px;color:var(--muted);line-height:1.4}
+.funnel ul{margin:2px 0 0;padding-left:16px;font-size:12px;color:var(--muted);line-height:1.5}
+.funnel ul li{border:0;padding:0;background:none;display:list-item}
 .funnel li:nth-child(3){border-color:var(--accent)}
 .plist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .prow{display:grid;grid-template-columns:32px 60px minmax(0,1fr) auto;gap:10px;align-items:center;font-size:13px;opacity:.55}
@@ -366,7 +368,7 @@ function renderMatches(){
         <div class="cells">${cells}</div>
         <details><summary>Why these scores</summary><div class="whys">${why}</div>
           <p class="small">${esc(m.text)}</p>
-          <p class="small muted mono">scored by ${esc(m.model || "Claude")} · agent v${esc(m.agent_version)} · CV v${esc(m.cv_version)} · preferences v${esc(m.prefs_version)} · unknown counts as ${esc(m.unknown_policy)}</p></details>
+          <p class="small muted mono">scored by ${esc(modelName(m.model))} · agent v${esc(m.agent_version)} · CV v${esc(m.cv_version)} · preferences v${esc(m.prefs_version)} · unknown counts as ${esc(m.unknown_policy)}</p></details>
         <div class="judge">
           <div class="row between">
            <div class="row">
@@ -1237,14 +1239,16 @@ function runFunnel(r){
   const src = (r.sources || []).filter(x => x.status !== "manual");
   return {collected: src.reduce((n,x) => n + (x.kept || 0), 0), nSources: src.length, dupes: norm.duplicates_merged || 0, unique: norm.postings,
           seen: sum("already_matched"), dropped: sum("dropped"), ranked: sum("passed"), scored: sum("sent_to_judge"),
-          matches: judge?.accepted ?? r.matches ?? 0, rejected: judge?.rejected || 0, model: r.model || "Claude"};
+          matches: judge?.accepted ?? r.matches ?? 0, rejected: judge?.rejected || 0, model: r.model || ""};
 }
+// "claude-opus-5-5" reads as "Claude Opus 5.5"; anything else is shown as recorded.
+const modelName = id => { const m = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(id || ""); return m ? `Claude ${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}.${m[3]}` : (id || "Claude"); };
 function funnelView(f){
-  const removed = [f.dupes && `${num(f.dupes)} duplicates`, f.dropped && `${num(f.dropped)} that hit a deal breaker`, f.seen && `${num(f.seen)} already in Matches`].filter(Boolean);
+  const removed = [f.dupes && `${num(f.dupes)} duplicates`, f.dropped && `${num(f.dropped)} deal breakers`, f.seen && `${num(f.seen)} already matched`].filter(Boolean);
   return `<ol class="funnel">
-    <li><b>${num(f.collected)}</b><span>job posts collected from ${f.nSources} source${f.nSources === 1 ? "" : "s"}</span></li>
-    <li><b>${num(f.ranked)}</b><span>ranked by code against your search${removed.length ? `, after setting aside ${removed.join(", ")}` : ""}</span></li>
-    <li><b>${num(f.scored)}</b><span>top-ranked posts scored by ${esc(f.model)}, now in Matches${f.rejected ? `<br>${f.rejected} more scored but rejected: the quote wasn't in the post` : ""}</span></li>
+    <li><b>${num(f.collected)}</b><span>job posts collected<br>from ${f.nSources} source${f.nSources === 1 ? "" : "s"}</span></li>
+    <li><b>${num(f.ranked)}</b><span>ranked by code against your criteria${removed.length ? `, after setting aside</span><ul>${removed.map(x => `<li>${x}</li>`).join("")}</ul>` : "</span>"}</li>
+    <li><b>${num(f.scored)}</b><span>top-ranked posts scored<br>by ${esc(modelName(f.model))}${f.rejected ? `<br>${f.rejected} more rejected: the quote wasn't in the post` : ""}</span></li>
   </ol>`;
 }
 function renderRuns(){
@@ -1282,7 +1286,7 @@ function renderRuns(){
     const stoppedWhy = r.status === "stopped" ? (r.reason || (r.cap_hit === "max_runs_per_day" ? "Stopped before collecting anything: another run had already completed that day (the limit then was one run per day, counted in UTC)." : `Stopped: ${r.cap_hit}`)) : "";
     return `<details class="card" ${idx===0?"open":""}><summary class="row between" style="color:var(--fg)">
         <span><b>${esc(when(r.started))}</b> <span class="muted mono small">${esc(r.id)}</span></span>
-        <span class="row"><span class="pill ${r.status==="ok"?"ok":"warn"}">${esc(r.status)}</span><span class="small muted">${(f => f ? `${num(f.collected)} collected · ${num(f.scored)} scored by ${esc(f.model)}${f.rejected ? ` · ${f.rejected} rejected` : ""}` : `${r.matches ?? 0} matches`)(runFunnel(r))}${r.agent_version ? ` · agent v${esc(r.agent_version)}` : ""}</span></span></summary>
+        <span class="row"><span class="pill ${r.status==="ok"?"ok":"warn"}">${esc(r.status)}</span><span class="small muted">${(f => f ? `${num(f.collected)} collected · ${num(f.scored)} scored by ${esc(modelName(f.model))}${f.rejected ? ` · ${f.rejected} rejected` : ""}` : `${r.matches ?? 0} matches`)(runFunnel(r))}${r.agent_version ? ` · agent v${esc(r.agent_version)}` : ""}</span></span></summary>
       <div class="stack" style="margin-top:12px">
         <p class="small muted" style="margin:0">Started ${r.trigger === "manual" ? "by hand" : "by the morning schedule"}${took ? ` · took ${took}` : ""}${stages ? ` · ${stages}` : ""}</p>
         ${stoppedWhy ? `<div class="testbox small"><b>Why it stopped.</b> ${esc(stoppedWhy)}</div>` : ""}
