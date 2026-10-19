@@ -209,6 +209,13 @@ def with_inputs(search):
         parts = []
         if field and search.get(field):
             parts.append(f"{label}: {', '.join(search[field])}.")
+        if d["key"] == "compensation":
+            db = search["preferences"].get("deal_breakers", {})
+            cur = db.get("currency") or "USD"
+            pay = [f"minimum {db['min_pay']:,.0f} {cur}" if db.get("min_pay") else "",
+                   f"preferred {db['preferred_pay']:,.0f} {cur}" if db.get("preferred_pay") else ""]
+            if any(pay):
+                parts.append(f"The student's total compensation targets: {', '.join(x for x in pay if x)} a year.")
         if d["key"] == "background":
             parts.append("Compare them, and the CV text if there is one, with the posting's requirements."
                          if (search.get("cv_text") or "").strip() or search.get("keywords")
