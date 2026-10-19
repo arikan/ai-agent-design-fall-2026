@@ -372,6 +372,72 @@
     "board_token": "neo4j",
     "company_name": "Neo4j"
    }
+  },
+  {
+   "id": "ashby:openrouter",
+   "adapter": "ashby",
+   "enabled": true,
+   "category": "ai",
+   "note": "One API for 400+ models",
+   "config": {
+    "company": "openrouter",
+    "company_name": "OpenRouter"
+   }
+  },
+  {
+   "id": "ashby:mercor",
+   "adapter": "ashby",
+   "enabled": true,
+   "category": "ai",
+   "note": "Experts for AI labs' training data",
+   "config": {
+    "company": "mercor",
+    "company_name": "Mercor"
+   }
+  },
+  {
+   "id": "ashby:perplexity",
+   "adapter": "ashby",
+   "enabled": true,
+   "category": "ai",
+   "note": "AI search and browser",
+   "config": {
+    "company": "perplexity",
+    "company_name": "Perplexity"
+   }
+  },
+  {
+   "id": "greenhouse:thealleninstitute",
+   "adapter": "greenhouse",
+   "enabled": true,
+   "category": "ai nonprofit",
+   "note": "Allen Institute for AI, open models and science",
+   "config": {
+    "board_token": "thealleninstitute",
+    "company_name": "Ai2"
+   }
+  },
+  {
+   "id": "greenhouse:wikimedia",
+   "adapter": "greenhouse",
+   "enabled": true,
+   "category": "ai nonprofit",
+   "note": "Wikipedia and open knowledge",
+   "config": {
+    "board_token": "wikimedia",
+    "company_name": "Wikimedia Foundation"
+   }
+  },
+  {
+   "id": "greenhouse:mozilla",
+   "adapter": "greenhouse",
+   "enabled": true,
+   "category": "ai nonprofit",
+   "note": "Owned by the Mozilla Foundation, a non-profit",
+   "config": {
+    "board_token": "mozilla",
+    "company_name": "Mozilla"
+   }
   }
  ]
 }
