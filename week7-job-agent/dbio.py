@@ -6,6 +6,9 @@ database reads as JSON files under work/db/ (ArtifactData with out_dir), then:
   uv run dbio.py config   -> work/config.json from work/db/
   uv run dbio.py export   -> work/out/*.json plus work/out/writes.json, a ready batch
                               for the session to write back with ArtifactData
+  uv run dbio.py progress <stage>
+                          -> work/out/progress.json, the live status the page shows while a
+                              run works (stages: fetching, filtering, judging, saving, done, stopped)
 """
 
 import json
@@ -64,5 +67,64 @@ def export():
     print(f"export: {len(writes)} writes in work/out/writes.json (batches of 50 at most)")
 
 
+STAGES = [("fetching", "Collect job posts"), ("filtering", "Filter and rank"),
+          ("judging", "Score the best candidates"), ("saving", "Save matches")]
+
+
+def read(path, default=None):
+    return json.loads(path.read_text()) if path.exists() else default
+
+
+def progress(stage):
+    """Summarize what the run has done so far, from the files the engine already wrote."""
+    out = WORK / "out"
+    out.mkdir(parents=True, exist_ok=True)
+    started = WORK / "progress_started"
+    if not started.exists():
+        started.write_text(datetime.now(timezone.utc).isoformat())
+    cfg = read(WORK / "config.json", {})
+    health = {h["source"]: h for h in read(WORK / "fetch_health.json", [])}
+    sources = []
+    for src in (cfg.get("agent") or {}).get("sources", []):
+        if not src.get("enabled") or src["adapter"] == "manual":
+            continue
+        h = health.get(src["id"])
+        sources.append({"id": src["id"], "name": (src.get("config") or {}).get("company_name") or src["id"],
+                        "status": h["status"] if h else ("waiting" if stage == "fetching" else "skipped"),
+                        "fetched": (h or {}).get("fetched"), "kept": (h or {}).get("kept"),
+                        "error": ((h or {}).get("error") or "")[:160] or None})
+    counts = {"collected": sum(s["kept"] or 0 for s in sources)} if health else {}
+    state = read(WORK / "state.json")
+    if state:
+        for t in state.get("trace", []):
+            if t["step"] == "normalize":
+                counts["unique"] = t["postings"]
+            if t["step"] == "filter":
+                counts["already_seen"] = counts.get("already_seen", 0) + t["already_matched"]
+                counts["dropped"] = counts.get("dropped", 0) + t["dropped"]
+                counts["to_score"] = counts.get("to_score", 0) + t["sent_to_judge"]
+    results = read(WORK / "results.json")
+    if results and stage in ("saving", "done", "stopped"):
+        counts["matches"] = len(results.get("matches", []))
+        counts["rejected"] = results["run"].get("rejected", 0)
+    keys = [k for k, _ in STAGES]
+    at = keys.index(stage) if stage in keys else len(keys)
+    doc = {"stage": stage, "started_at": started.read_text(), "updated_at": datetime.now(timezone.utc).isoformat(),
+           "run_id": (results or {}).get("run", {}).get("id") or (read(WORK / "batch.json") or {}).get("run_id"),
+           "steps": [{"key": k, "label": label, "status": "done" if i < at else "active" if i == at else "pending"}
+                     for i, (k, label) in enumerate(STAGES)],
+           "sources": sources, "counts": counts}
+    if stage == "stopped" and results:
+        doc["note"] = results["run"].get("cap_hit")
+    (out / "progress.json").write_text(json.dumps(doc, indent=1))
+    print(f"progress: {stage}, {len(sources)} source(s), {counts}")
+
+
 if __name__ == "__main__":
-    {"config": config, "export": export}[sys.argv[1]]()
+    cmd = sys.argv[1] if len(sys.argv) > 1 else ""
+    if cmd == "progress" and len(sys.argv) == 3:
+        progress(sys.argv[2])
+    elif cmd in ("config", "export"):
+        {"config": config, "export": export}[cmd]()
+    else:
+        sys.exit(__doc__)

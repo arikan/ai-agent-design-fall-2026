@@ -113,6 +113,7 @@ After that:
 
 | Command | What it does |
 |---|---|
+| `uv run run.py prepare` / `finish` | The cloud run's two halves: everything before Claude scores, and everything after |
 | `uv run sources.py test` | Run every adapter against its saved responses, offline |
 | `uv run sources.py try <source.json> [out.json]` | Run one source live and show a sample |
 | `uv run sources.py fetch <config.json>` | Fetch every enabled source into `work/fetched/` |

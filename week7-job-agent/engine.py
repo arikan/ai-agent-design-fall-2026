@@ -88,6 +88,7 @@ def load_sources(agent, trace):
     return postings, health
 
 
+JUDGE_TEXT_CHARS = 3000   # what the judge reads of each posting: role, requirements and pay are near the top
 FILTERED_KEPT = 100   # deal-breaker drops listed one by one in a run record; the rest are counted
 
 
@@ -254,7 +255,7 @@ def prepare(config):
                           "company": p["company"], "title": p["title"], "location": p["location"],
                           "remote": p.get("remote"), "pay_min": p.get("pay_min"), "pay_max": p.get("pay_max"),
                           "industry": p.get("industry"), "url": p.get("url") or None,
-                          "sources": p.get("sources", []), "text": p["text"]})
+                          "sources": p.get("sources", []), "text": p["text"][:JUDGE_TEXT_CHARS]})
 
     batch = {
         "run_id": run_id,

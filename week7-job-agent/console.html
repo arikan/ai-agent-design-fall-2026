@@ -159,6 +159,12 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .hdr-r{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .build{font-size:11px;opacity:.7}
 .newtag{font:600 10px var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:2px 6px;align-self:center}
+.psteps{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.psteps li{display:flex;gap:8px;align-items:baseline;color:var(--muted)}
+.psteps li>span:first-child{width:16px;flex:none;text-align:center}
+.psteps li.done,.psteps li.active{color:var(--fg)}.psteps li.done>span:first-child{color:var(--accent)}
+.psteps .spin{margin:0}
+.chip.static{cursor:default}.chip.warn{border-color:var(--warn)}
 .lamp{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
 .conn[data-state="on"] .lamp{background:#2FB872;box-shadow:0 0 0 3px color-mix(in srgb,#2FB872 22%,transparent),0 0 6px #2FB872}
 .conn[data-state="wait"] .lamp{background:var(--warn)}
@@ -1035,13 +1041,29 @@ function runNowPhase(){
 }
 // The course allows one run per day (UTC, as the engine counts it), so a second one would only stop.
 const ranToday = () => { const d = new Date().toISOString().slice(0,10).replace(/-/g,""); return S.runs.some(x => x.status === "ok" && String(x.id).startsWith(`run-${d}`)); };
+// Live progress of a run: the request's status says the session started; meta/progress says what the engine did.
+function progressBox(since, reqStatus){
+  const p = S.progress && new Date(S.progress.started_at) >= new Date(since) - 60000 ? S.progress : null;
+  const stage = p?.stage || (reqStatus === "started" ? "collecting" : "starting");
+  const c = p?.counts || {}, order = ["starting","collecting","judging","done"];
+  const at = order.indexOf(stage === "saving" ? "judging" : stage);
+  const steps = [["Start a cloud session",""], ["Collect and rank job posts", c.unique != null ? `${c.unique} unique posts, ${c.dropped || 0} dropped by deal breakers${c.already_seen ? `, ${c.already_seen} already matched` : ""}` : ""],
+    ["Score the best candidates", c.to_score != null ? `${c.to_score} posts` : ""], ["Save matches", ""]]
+    .map(([label, note], i) => `<li class="${i < at ? "done" : i === at ? "active" : ""}"><span>${i < at ? "✓" : i === at ? `<span class="spin" aria-hidden="true"></span>` : ""}</span><b>${label}</b>${note ? `<span class="muted"> · ${esc(note)}</span>` : ""}</li>`).join("");
+  const srcs = (p?.sources || []).map(x => `<span class="chip static ${x.status==="ok"?"":"warn"}" title="${esc(x.error||"")}">${esc(x.name)} ${x.status==="ok" ? x.kept : esc(x.status)}</span>`).join("");
+  return `<div class="testbox small stack" style="gap:8px" role="status"><div class="row between"><b>Your agent is running</b><span class="mono" data-elapsed="${esc(since)}">0:00</span></div>
+    <ol class="psteps">${steps}</ol>${srcs ? `<div class="chips">${srcs}</div>` : ""}
+    <span class="muted">Usually 5 to 10 minutes. Matches appear here when it finishes.</span></div>`;
+}
 function runNowBlock(context){
   const ph = runNowPhase(), r = S.request;
   if (ph === "starting") return `<button class="btn busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Starting…</button>`;
-  if (ph === "running") return `<div class="testbox small stack" style="gap:6px" role="status"><div class="row between"><span class="row"><span class="spin" aria-hidden="true"></span><b>Your agent is running</b></span><span class="mono" data-elapsed="${esc(r.requested_at)}">0:00</span></div><div class="bar"><i></i></div><span class="muted">A cloud run is fetching postings from your sources, filtering them, and scoring the best candidates. This usually takes 3 to 8 minutes; matches appear here when it finishes.</span></div>`;
+  if (ph === "running") return progressBox(r.requested_at, r.status);
   const btn = label => `<button type="button" class="btn primary" data-runnow>${label}</button>`;
   if (ph === "not_started") return `<div class="testbox bad small" role="alert"><b>The run didn't start.</b> ${esc(S.runNow.error)}</div>${btn("Try again")}`;
   if (ph === "stale") return `<div class="testbox bad small" role="alert"><b>No result after 30 minutes.</b> Open your scheduled task in Claude Code to see what happened.</div>${btn("Try again")}`;
+  const daily = S.progress && !["done","stopped"].includes(S.progress.stage) && Date.now() - new Date(S.progress.updated_at) < 30 * 60000;
+  if (daily) return progressBox(S.progress.started_at, "started");   // the morning run, started by its schedule
   if (context !== "first" && ranToday()) return `<span class="small muted">Today's run is done. The next one starts tomorrow morning.</span>`;
   return btn(context === "first" ? "Start my agent" : "Run now");
 }
@@ -1112,6 +1134,7 @@ function renderRuns(){
   db.collection("source_tests").onSnapshot(q => { S.tests = Object.fromEntries(q.docs.map(d => [d.data().source_id, d.data()])); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
   db.doc("meta/agent").onSnapshot(d => { S.runner = d.exists ? d.data() : null; renderSetup(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
   db.doc("meta/setup_check").onSnapshot(d => { const was = S.check?.status; S.check = d.exists ? d.data() : null; if (was && was !== "ok" && S.check?.status === "ok") S.setup.open = true; renderSetup(); }, fail);
+  db.doc("meta/progress").onSnapshot(d => { S.progress = d.exists ? d.data() : null; renderMatches(); renderRuns(); }, fail);
   db.doc("meta/request").onSnapshot(d => { S.request = d.exists ? d.data() : null; renderAll(); }, fail);
   db.doc("meta/app").onSnapshot(d => { S.app = d.exists ? d.data() : null; renderSetup(); }, fail);
   db.doc("meta/console").onSnapshot(d => { const m = d.exists ? d.data() : null;

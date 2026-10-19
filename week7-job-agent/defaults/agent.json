@@ -1,7 +1,7 @@
 {
  "version": 1,
  "settings": {
-  "max_judged_per_search": 8
+  "max_judged_per_search": 5
  },
  "matcher_instructions": "Score each posting against the student's CV and preferences, one dimension at a time, using the student's own rubric for that dimension. Give a score from 1 to 5, or \"unknown\" when the posting gives no basis for a judgment. Never guess pay, company growth, or mentorship that the posting does not state. For every score, give one sentence of reason and copy the exact words from the posting that support it.",
  "sources": [
@@ -44,7 +44,7 @@
    "config": {
     "company": "openai",
     "company_name": "OpenAI",
-    "max_details": 100
+    "max_details": 30
    }
   }
  ]
