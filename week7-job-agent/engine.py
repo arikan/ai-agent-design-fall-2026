@@ -167,13 +167,13 @@ def prompt_sample(batch, judgments, matches):
     answer = next((j for j in judgments if j["search_id"] == m["search_id"] and j["posting_id"] == m["posting_id"]), {})
     parts = [
         {"label": "How to judge", "from": "RUN.md, the run's own instructions", "text": step},
-        {"label": "Scoring instructions", "from": "Agent tab", "text": batch["matcher_instructions"]},
+        {"label": "Scoring instructions", "from": "Agent tab, Settings", "text": batch["matcher_instructions"]},
         {"label": "Your dimensions", "from": "Profile tab", "text": dims},
         {"label": "Your CV", "from": "Profile tab", "text": search.get("cv_text") or "(none)"},
         {"label": "The post", "from": ", ".join(item.get("sources") or []) or "job board",
          "text": f"{item['title']} · {item['company']} · {item['location']}\n{pay}\n{item['text']}"},
         {"label": "Answer format", "from": "engine.py", "text": json.dumps(batch["answer_format"]["shape"], indent=1)},
-        {"label": "What Claude answered", "from": "the model", "text": json.dumps(answer.get("scores", {}), indent=1)},
+        {"label": "What the model answered", "from": "the model", "text": json.dumps(answer.get("scores", {}), indent=1)},
     ]
     return {"posting_id": m["posting_id"], "title": item["title"], "company": item["company"], "total": m["total"], "parts": parts}
 

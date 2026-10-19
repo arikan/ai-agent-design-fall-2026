@@ -197,16 +197,19 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .segs-tabs{display:flex;flex-wrap:wrap;gap:4px;background:var(--sunk);border-radius:8px;padding:3px}
 .segtab{appearance:none;border:0;background:none;font:500 13px var(--font-ui);color:var(--muted);padding:5px 10px;border-radius:6px;cursor:pointer}
 .segtab[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 0 0 1px var(--line)}
-.pipe{display:flex;flex-wrap:wrap;align-items:stretch;gap:6px}
+.asec{display:grid;gap:10px;padding:4px 2px 20px;border-bottom:1px solid var(--line)}
+.asec h2{margin:0}
+.pipe{display:flex;flex-wrap:wrap;align-items:stretch;gap:4px}
 .pipe-arrow{align-self:center;color:var(--muted)}
-.pstep{appearance:none;font:inherit;text-align:left;display:grid;gap:1px;min-width:96px;flex:1 1 96px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg);cursor:pointer}
-.pstep:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
-.pstep[aria-selected="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.pstep.who-claude{background:color-mix(in srgb,var(--accent-soft) 60%,var(--surface))}
-.pstep.who-you{background:color-mix(in srgb,var(--warn-soft) 50%,var(--surface))}
+.pstep{appearance:none;font:inherit;text-align:left;display:grid;gap:1px;min-width:92px;flex:1 1 92px;padding:8px 10px;border:0;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;background:var(--sunk);color:var(--fg);cursor:pointer}
+.pstep:hover{background:color-mix(in srgb,var(--accent-soft) 35%,var(--sunk))}
+.pstep[aria-selected="true"]{border-bottom-color:var(--accent)}
+.pstep.who-model{background:color-mix(in srgb,var(--accent-soft) 60%,var(--sunk))}
+.pstep.who-you{background:color-mix(in srgb,var(--warn-soft) 50%,var(--sunk))}
 .pwho{font:500 10.5px var(--font-ui);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-.pnum{font:600 17px var(--font-data)}.pwhat{font-size:12px;color:var(--muted)}
-.pdetail{border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13.5px;background:var(--bg);display:grid;gap:4px;justify-items:start}
+.pname{font-size:13.5px}
+.pnum{font:500 17px var(--font-data)}.pwhat{font-size:12px;color:var(--muted)}
+.pdetail{font-size:13.5px;display:grid;gap:4px;justify-items:start;max-width:72ch}
 .psample{display:grid;gap:6px}
 .ppart{border:1px solid var(--line);border-radius:8px;padding:6px 10px}
 .ppart summary{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;font-size:13px;cursor:pointer}
@@ -856,40 +859,39 @@ async function extractText(file){
   return (await file.text()).trim();
 }
 
-/* ---------- agent ---------- */
-/* ---------- agent: how it works, what Claude sees, how good it is, versions ---------- */
+/* ---------- agent: how it works, what the model sees, how good it is, versions, settings ---------- */
 S.agentStep = "score";
 S.versions = [];
 const goTab = v => document.querySelector(`nav button[data-view="${v}"]`)?.click();
 function agentPipeline(run){
   const f = run ? runFunnel(run) : null, tr = run?.trace || [], judge = tr.find(t => t.step === "judge"), fil = tr.find(t => t.step === "filter");
   const judged = Object.values(S.judgments).filter(j => j.verdict).length;
-  const a = S.agent, set = a.settings || {};
+  const set = S.agent.settings || {};
   return [
     {key:"collect", who:"code", name:"Collect", n: f ? num(f.collected) : "–", what:"posts", from: f ? `from ${f.nSources} sources` : "",
-     how:"Adapters read each job board's public feed and turn every post into the same shape: title, company, location, pay, text. Nothing is judged here.", go:["sources","Sources"]},
+     how:"Reads each job board and puts every post in the same shape: title, company, location, pay, text.", go:["sources","Sources"]},
     {key:"filter", who:"code", name:"Filter", n: f ? num(f.collected - f.ranked) : "–", what:"set aside", from: f ? `${num(f.dropped)} by your filters` : "",
-     how:"Plain rules remove posts outside your locations or below your minimum pay, plus duplicates and posts already in Matches. Every drop is logged with its reason.", go:["searches","Profile"]},
+     how:"Removes posts outside your locations or below your minimum pay, duplicates, and posts already in Matches. Each drop is logged with its reason.", go:["searches","Profile"]},
     {key:"rank", who:"code", name:"Rank", n: f ? num(f.ranked) : "–", what:"ranked", from: fil ? `${num(fil.ranked_above ?? (fil.passed - (fil.below_min_rank || 0)))} at ${set.min_rank_score ?? 0} or more` : "",
-     how:"A word-match score from 0 to 100: target role in the title (45%), background keywords (30%), CV overlap (15%), target industry (10%). Cheap and instant; it decides what Claude gets to read.", go:["searches","Profile"]},
-    {key:"score", who:"Claude", name:"Score", n: f ? num(f.scored) : "–", what:"scored", from: run?.model ? modelName(run.model) : "",
-     how:`The only step that uses a model. Claude reads the top ${set.max_judged_per_search ?? 5} posts and rates each on your dimensions, 1 to 5 or unknown, with a reason and a quote. Below, you can see exactly what it reads.`, go:null},
+     how:"Word matching, 0 to 100: role in the title 45%, keywords 30%, CV overlap 15%, industry 10%. It decides which posts the model reads.", go:["searches","Profile"]},
+    {key:"score", who:"model", name:"Score", n: f ? num(f.scored) : "–", what:"scored", from: run?.model ? modelName(run.model) : "",
+     how:`The model reads the top ${set.max_judged_per_search ?? 5} posts and rates each dimension 1 to 5, or unknown, with a reason and a quote.`, go:["a-sample","What the model sees"]},
     {key:"check", who:"code", name:"Check", n: judge ? num(judge.accepted) : "–", what:"accepted", from: judge ? `${judge.rejected} rejected` : "",
-     how:"Code checks every score: each quote must appear word for word in the post, or the score is rejected. Then it computes the weighted total out of 100.", go:["runs","Runs"]},
-    {key:"you", who:"you", name:"Judge", n: num(judged), what:"judged", from: "your Good and Nope",
-     how:"Your verdicts are the answer key. They measure how well the agent agrees with you, below, and let you compare one version of the agent with another.", go:["matches","Matches"]},
+     how:"Rejects any score whose quote isn't in the post word for word, then computes the weighted total.", go:["runs","Runs"]},
+    {key:"you", who:"you", name:"Judge", n: num(judged), what:"judged", from: "",
+     how:"You mark posts Good or Nope. Those verdicts are used to measure the agent, below.", go:["a-eval","Is it any good?"]},
   ];
 }
 function agentSample(run){
   const ps = run?.prompt_sample;
-  if (!ps) return `<p class="small muted" style="margin:0">The next run saves one real example here: everything Claude read for one post, and what it answered.</p>`;
-  return `<p class="small muted" style="margin:0">Everything Claude read to score <b>${esc(ps.title)}</b> at ${esc(ps.company)} in the last run, in order, and what it answered. Each part says where it comes from, so you can see which of your settings reach the model.</p>
-    <div class="psample">${ps.parts.map((p, i) => `<details class="ppart"${i < 3 ? " open" : ""}><summary><b>${esc(p.label)}</b><span class="muted">from ${esc(p.from)}</span><span class="muted mono">${num(p.text.length)} characters</span></summary><pre>${esc(p.text)}</pre></details>`).join("")}</div>`;
+  if (!ps) return `<p class="small muted" style="margin:0">Appears after the next run.</p>`;
+  return `<p class="small muted" style="margin:0">Everything the model read for <b>${esc(ps.title)}</b> at ${esc(ps.company)} in the last run, and its answer.</p>
+    <div class="psample">${ps.parts.map((p, i) => `<details class="ppart"${i < 3 ? " open" : ""}><summary><span>${esc(p.label.replace("What Claude answered", "What the model answered"))}</span><span class="muted">from ${esc(p.from)}</span><span class="muted mono">${num(p.text.length)} characters</span></summary><pre>${esc(p.text)}</pre></details>`).join("")}</div>`;
 }
 function agentEval(){
   const rows = S.matches.map(m => ({m, v: S.judgments[m.id]?.verdict, why: S.judgments[m.id]?.main_dimension})).filter(x => x.v === "accept" || x.v === "dismiss");
   const good = rows.filter(x => x.v === "accept"), nope = rows.filter(x => x.v === "dismiss");
-  if (!good.length || !nope.length) return `<p class="small muted" style="margin:0">Mark at least one post Good and one Nope in Matches, and this shows how well the agent's scores agree with you.</p>`;
+  if (!good.length || !nope.length) return `<p class="small muted" style="margin:0">Mark at least one post Good and one Nope in Matches to see this.</p>`;
   const avg = xs => Math.round(xs.reduce((a, x) => a + x.m.total, 0) / xs.length);
   let wins = 0; for (const g of good) for (const n of nope) wins += g.m.total > n.m.total ? 1 : g.m.total === n.m.total ? .5 : 0;
   const agree = Math.round(wins / (good.length * nope.length) * 100);
@@ -903,15 +905,15 @@ function agentEval(){
     let w = 0; for (const g of s.g) for (const n of s.n) w += g > n ? 1 : g === n ? .5 : 0;
     const ag = s.g.length && s.n.length ? Math.round(w / (s.g.length * s.n.length) * 100) + "%" : "–";
     return `<tr><td class="mono">v${esc(v)}</td><td class="num">${s.g.length}</td><td class="num">${s.n.length}</td><td class="num">${ag}</td></tr>`; }).join("");
-  return `<div class="evhead"><div class="evbig"><b>${agree}%</b><span>of the time, the agent scored your Good posts above your Nope posts</span></div>
-      <div class="small muted">Your ${good.length} Good posts averaged <b>${avg(good)}</b>; your ${nope.length} Nope posts averaged <b>${avg(nope)}</b>. 50% would be a coin flip; 100% means its scores already sort posts the way you would.</div></div>
+  const few = good.length < 5 || nope.length < 5;
+  return `<div class="evhead"><div class="evbig"><b>${agree}%</b><span>of Good–Nope pairs, the Good post scored higher</span></div>
+      <div class="small muted">Good averaged ${avg(good)}, Nope ${avg(nope)}. 50% is a coin flip, 100% is perfect.${few ? ` Based on ${good.length} Good and ${nope.length} Nope, so still rough.` : ""}</div></div>
     <div class="evstrip" role="img" aria-label="Each judged post placed by its score, Good and Nope on separate rows">
       <div class="evrow"><span class="evlab">Good</span><div class="evaxis">${good.map(dot).join("")}</div></div>
       <div class="evrow"><span class="evlab">Nope</span><div class="evaxis">${nope.map(dot).join("")}</div></div>
       <div class="evrow"><span class="evlab"></span><div class="evticks small muted"><span>0</span><span>50</span><span>100</span></div></div>
     </div>
-    ${misses.length ? `<h3 class="sechead">Where you and the agent disagree</h3><div class="scroll"><table class="drops"><thead><tr><th>Post</th><th>Score</th><th>What happened</th><th>Your reason</th></tr></thead><tbody>${misses.map(x => `<tr><td>${esc(x.m.title)} · ${esc(x.m.company)}</td><td class="num">${x.m.total}</td><td>${x.kind}</td><td>${esc(dims[x.why] || x.why || "")}</td></tr>`).join("")}</tbody></table></div>
-      <p class="small muted" style="margin:0">These are the cases to learn from: a dimension, rubric or weight that misleads the agent shows up here first.</p>` : ""}
+    ${misses.length ? `<h3 class="sechead">Where you disagree</h3><div class="scroll"><table class="drops"><thead><tr><th>Post</th><th>Score</th><th>What happened</th><th>Your reason</th></tr></thead><tbody>${misses.map(x => `<tr><td>${esc(x.m.title)} · ${esc(x.m.company)}</td><td class="num">${x.m.total}</td><td>${x.kind}</td><td>${esc(dims[x.why] || x.why || "")}</td></tr>`).join("")}</tbody></table></div>` : ""}
     <h3 class="sechead">By agent version</h3><div class="scroll"><table><thead><tr><th>Version</th><th>Good</th><th>Nope</th><th>Agreement</th></tr></thead><tbody>${verRows}</tbody></table></div>`;
 }
 function agentVersions(){
@@ -922,9 +924,8 @@ function agentVersions(){
   return `<div class="grid2 vgrid">
     <div class="stack" style="gap:6px"><h3>Versions</h3>
       <ol class="vlist">${vs.map(v => `<li><span class="mono">v${v.version}</span><span>${esc(v.note || (v.version === 1 ? "Starting settings" : "Settings saved"))}</span><span class="muted small">${esc(when(v.updated))}${runsBy[v.version] ? ` · ${runsBy[v.version]} run${runsBy[v.version] === 1 ? "" : "s"}` : ""}</span></li>`).join("") || `<li class="muted small">No versions yet.</li>`}</ol></div>
-    <div class="stack" style="gap:6px"><h3>Cost per run <span class="muted small">at API prices</span></h3>
-      ${costs.length ? `<div class="costbars">${costs.map(r => { const c = runCost(r.usage) || 0; return `<div class="cb" title="${esc(when(r.started))} · ${esc(modelName(r.usage.model))} · ${tok((r.usage.input||0)+(r.usage.cache_write||0)+(r.usage.cache_read||0)+(r.usage.output||0))} tokens · ${usd(c)}"><i style="height:${Math.max(4, c / max * 100)}%"></i><span>${usd(c)}</span></div>`; }).join("")}</div>
-      <p class="small muted" style="margin:0">Newest on the right. A plan isn't billed per token; this is what the same runs would cost on the Claude API.</p>` : `<p class="small muted" style="margin:0">Runs record their tokens from now on; their cost appears here.</p>`}
+    <div class="stack" style="gap:6px"><h3>Cost per run <button type="button" class="tip" aria-label="About cost" data-tip="What the run's tokens would cost on the Claude API. A plan isn't billed per token. Newest on the right.">i</button></h3>
+      ${costs.length ? `<div class="costbars">${costs.map(r => { const c = runCost(r.usage) || 0; return `<div class="cb" title="${esc(when(r.started))} · ${esc(modelName(r.usage.model))} · ${tok((r.usage.input||0)+(r.usage.cache_write||0)+(r.usage.cache_read||0)+(r.usage.output||0))} tokens · ${usd(c)}"><i style="height:${Math.max(4, c / max * 100)}%"></i><span>${usd(c)}</span></div>`; }).join("")}</div>` : `<p class="small muted" style="margin:0">Appears after the next run.</p>`}
     </div></div>`;
 }
 
@@ -934,46 +935,47 @@ function renderAgent(){
   if (document.activeElement?.matches?.("#aform input, #aform textarea")) return;     // don't redraw under someone typing
   const run = S.runs.find(r => r.status === "ok");
   const steps = agentPipeline(run), cur = steps.find(x => x.key === S.agentStep) || steps[3];
-  $("agent-editor").innerHTML = `
-  <form class="panel" id="aform">
-    <div class="card stack">
-      <div class="row between"><h2>How your agent works</h2><span class="small muted">${run ? `last run ${esc(when(run.started))}` : "no runs yet"} · version ${a.version}</span></div>
-      <p class="small muted" style="margin:0">Six steps. Only one uses a model; the rest is plain code you can read and check. Click a step.</p>
-      <div class="pipe" role="tablist" aria-label="Agent steps">${steps.map((x, i) => `${i ? `<span class="pipe-arrow" aria-hidden="true">→</span>` : ""}<button type="button" role="tab" class="pstep who-${x.who.toLowerCase()}" data-astep="${x.key}" aria-selected="${x.key === cur.key}">
-          <span class="pwho">${x.who === "code" ? "code" : x.who === "you" ? "you" : "model"}</span><b>${x.name}</b><span class="pnum">${x.n}</span><span class="pwhat">${x.what}</span></button>`).join("")}</div>
-      <div class="pdetail"><b>${cur.name}</b>${cur.from ? ` <span class="muted small">· ${esc(cur.from)}</span>` : ""}<p style="margin:4px 0 0">${cur.how}</p>
-        ${cur.go ? `<button type="button" class="linkbtn small" data-goview="${cur.go[0]}">Open ${cur.go[1]} →</button>` : `<button type="button" class="linkbtn small" data-jump="a-sample">See what Claude reads ↓</button>`}</div>
-    </div>
-    <div class="card stack" id="a-sample">
-      <h2>What Claude sees</h2>
+  $("agent-editor").innerHTML = `<div class="panel">
+    <section class="asec">
+      <div class="row between"><h2>How your agent works</h2>${run ? `<span class="small muted">Last run ${esc(when(run.started))}</span>` : ""}</div>
+      <p class="small muted" style="margin:0">Only one step uses a model. Click a step.</p>
+      <div class="pipe" role="tablist" aria-label="Agent steps">${steps.map((x, i) => `${i ? `<span class="pipe-arrow" aria-hidden="true">→</span>` : ""}<button type="button" role="tab" class="pstep who-${x.who}" data-astep="${x.key}" aria-selected="${x.key === cur.key}">
+          <span class="pwho">${x.who}</span><span class="pname">${x.name}</span><span class="pnum">${x.n}</span><span class="pwhat">${x.what}</span></button>`).join("")}</div>
+      <div class="pdetail"><p style="margin:0">${cur.how}${cur.from ? ` <span class="muted">Last run: ${esc(cur.from)}.</span>` : ""}</p>
+        <button type="button" class="linkbtn small" ${cur.go[0].startsWith("a-") ? `data-jump="${cur.go[0]}"` : `data-goview="${cur.go[0]}"`}>${cur.go[1]} ${cur.go[0].startsWith("a-") ? "↓" : "→"}</button></div>
+    </section>
+    <section class="asec" id="a-sample">
+      <h2>What the model sees</h2>
       ${agentSample(run)}
-      <label for="a-instr"><span>Scoring instructions <button type="button" class="tip" aria-label="What these are" data-tip="Requested, not enforced: Claude is asked to follow these for every post. The rules that must hold, like quotes being real and the limits below, are enforced in code whatever these say.">i</button></span><textarea id="a-instr" rows="5">${esc(a.matcher_instructions)}</textarea></label>
-    </div>
-    <div class="card stack">
+    </section>
+    <section class="asec" id="a-eval">
       <h2>Is it any good?</h2>
+      <p class="small muted" style="margin:0">Yes, this is an eval. Your verdicts are the labels. <button type="button" class="tip tip-left" aria-label="About this eval" data-tip="It measures ranking: for every pair of one Good and one Nope post, does the agent score the Good one higher? Data scientists call this AUC. It only covers posts the agent chose to score, so it can't see good posts it ranked too low to read.">i</button></p>
       ${agentEval()}
-    </div>
-    <div class="card stack">
-      <h2>Versions, cost and limits</h2>
+    </section>
+    <section class="asec">
+      <h2>Versions and cost</h2>
       ${agentVersions()}
-      <h3 class="sechead">Limits</h3>
+    </section>
+    <form class="card stack" id="aform">
+      <div class="row between"><h2>Settings</h2><span class="small muted">Version ${a.version}</span></div>
+      <label for="a-instr"><span>Scoring instructions <button type="button" class="tip" aria-label="What these are" data-tip="Sent to the model with every post, as shown above. It is asked to follow them; the rules that must hold, like real quotes and the limits below, are enforced in code.">i</button></span><textarea id="a-instr" rows="5">${esc(a.matcher_instructions)}</textarea></label>
       <div class="grid2">
-        <label for="a-judged">Postings scored by Claude, per search and run<input type="number" id="a-judged" min="1" max="${COURSE_CAPS.max_judged_per_search}" value="${a.settings.max_judged_per_search}"></label>
-        <label for="a-minrank"><span>Only score posts that rank at least <button type="button" class="tip" aria-label="What the minimum rank does" data-tip="0 to 100, from the code ranking shown on the Profile tab. A post that matches a target role usually ranks 50 or more; one that matches only keywords, 10 to 20. On a day with nothing above this, the run scores nothing and uses almost none of your plan.">i</button></span><input type="number" id="a-minrank" min="0" max="100" value="${a.settings.min_rank_score ?? 0}"></label>
+        <label for="a-judged"><span>Posts the model scores per run <button type="button" class="tip" aria-label="What this does" data-tip="The top-ranked posts, per search. The rest wait for a later run. Scoring is the slow step and the one that uses your plan, so lower is faster and cheaper.">i</button></span><input type="number" id="a-judged" min="1" max="${COURSE_CAPS.max_judged_per_search}" value="${a.settings.max_judged_per_search}"></label>
+        <label for="a-minrank"><span>Minimum rank to score <button type="button" class="tip" aria-label="What the minimum rank does" data-tip="0 to 100, from the ranking shown on the Profile tab. A post matching a target role usually ranks 50 or more; one matching only keywords, 10 to 20. If nothing reaches this, the run scores nothing.">i</button></span><input type="number" id="a-minrank" min="0" max="100" value="${a.settings.min_rank_score ?? 0}"></label>
       </div>
-      <p class="small muted" style="margin:0">Every collected posting goes through your filters and the code ranking. Only this many of each search's top-ranked postings, and only those at or above the minimum rank, are sent to Claude per run; the rest wait for a later run. Scoring is the slow step and the one that uses your plan, so lower is faster and cheaper.</p>
-      <div class="scroll"><table><thead><tr><th>Course cap, enforced</th><th>Value</th></tr></thead><tbody>
+      <details class="fold"><summary>Course limits, fixed</summary>
+      <div class="scroll"><table><tbody>
         <tr><td>Runs started by hand, per 24 hours (the morning run is always allowed)</td><td class="num">${COURSE_CAPS.max_manual_runs_per_day}</td></tr>
         <tr><td>Active searches</td><td class="num">${COURSE_CAPS.max_searches}</td></tr>
-        <tr><td>Postings collected per source, per run</td><td class="num">${num(COURSE_CAPS.max_postings_per_source)}</td></tr>
-        <tr><td>Postings collected per run</td><td class="num">${num(COURSE_CAPS.max_postings_per_run)}</td></tr>
-        <tr><td>Postings scored by Claude, per search and run</td><td class="num">${COURSE_CAPS.max_judged_per_search}</td></tr>
+        <tr><td>Posts collected per source, per run</td><td class="num">${num(COURSE_CAPS.max_postings_per_source)}</td></tr>
+        <tr><td>Posts collected per run</td><td class="num">${num(COURSE_CAPS.max_postings_per_run)}</td></tr>
+        <tr><td>Posts the model scores, per search and run</td><td class="num">${COURSE_CAPS.max_judged_per_search}</td></tr>
         <tr><td>Runs with full traces kept</td><td class="num">${COURSE_CAPS.trace_runs_kept}</td></tr>
-      </tbody></table></div>
-    </div>
-    <div class="row"><button class="btn primary" type="submit">Save as new version</button><span class="status" id="a-status"></span></div>
-  </form>`;
-  $("aform").onclick = e => {
+      </tbody></table></div></details>
+      <div class="row"><button class="btn primary" type="submit">Save as new version</button><span class="status" id="a-status"></span></div>
+    </form></div>`;
+  $("agent-editor").onclick = e => {
     const st = e.target.closest("[data-astep]"); if (st){ S.agentStep = st.dataset.astep; renderAgent(); return; }
     const g = e.target.closest("[data-goview]"); if (g){ goTab(g.dataset.goview); window.scrollTo({top:0}); return; }
     const j = e.target.closest("[data-jump]"); if (j){ $(j.dataset.jump)?.scrollIntoView({behavior:"smooth", block:"start"}); }
