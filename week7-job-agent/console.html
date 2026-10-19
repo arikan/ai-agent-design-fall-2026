@@ -176,7 +176,11 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .es-icon{color:var(--accent);background:var(--accent-soft);border-radius:50%;padding:10px;box-sizing:content-box}
 .es-action{width:min(100%,440px);display:grid;justify-items:center;text-align:left;margin-top:4px}
 .es-action .testbox{width:100%}
-.es-foot{margin-top:6px}
+.es-steps{list-style:none;margin:6px 0 2px;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;width:min(100%,560px);counter-reset:step}
+.es-steps li{counter-increment:step;display:grid;gap:2px;justify-items:center;padding:10px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.es-steps li::before{content:counter(step);font:600 11px var(--font-data);color:var(--accent);background:var(--accent-soft);width:20px;height:20px;border-radius:50%;display:grid;place-items:center;margin-bottom:2px}
+.es-steps span{color:var(--muted)}
+@media (max-width:520px){.es-steps{grid-template-columns:1fr}}
 .empty{text-align:center;padding:32px 16px;color:var(--muted)}
 .status{font-size:13px;min-height:1.4em}
 .status.ok{color:var(--accent)}.status.err{color:var(--bad)}
@@ -295,11 +299,14 @@ function renderMatches(){
     $("matches").innerHTML = `<div class="card emptystate">
       <svg class="es-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15.5 15.5L20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
       <h2>${running ? "Finding your first matches" : "No matches yet"}</h2>
-      <p class="muted">${!ready ? "Finish setting up your agent, then it can look for jobs that fit you."
-        : running ? "Your agent is reading postings from your sources and scoring the best candidates."
-        : "Your agent runs every morning. Start a run now to see your first matches in a few minutes."}</p>
-      <div class="es-action">${ready ? runNowBlock("first") : `<button type="button" class="btn primary" data-opensetup>Finish setup</button>`}</div>
-      ${running ? "" : `<p class="small muted es-foot">Each match shows a score for every dimension you care about, the reason, and the words from the posting it relied on.</p>`}
+      <p class="muted">Each run collects job posts from your sources, analyzes them against your search, and ranks the best fits here.</p>
+      <ol class="es-steps small">
+        <li><b>Collect</b><span>New job posts from your sources</span></li>
+        <li><b>Analyze</b><span>Each one scored against your search</span></li>
+        <li><b>Rank</b><span>The best fits shown here, with reasons</span></li>
+      </ol>
+      <div class="es-action">${!ready ? `<button type="button" class="btn primary" data-opensetup>Finish setup</button>` : runNowBlock("first")}</div>
+      ${ready && !running ? `<p class="small muted">Your agent also runs every morning on its own.</p>` : ""}
     </div>`;
     return;
   }
