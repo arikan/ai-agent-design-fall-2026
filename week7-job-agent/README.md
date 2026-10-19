@@ -34,6 +34,7 @@ It runs two ways:
 | **Sources** | Your list of boards: which adapter, plus its settings, like a company's board token. Adding a board is a new source, not new code. |
 | **Engine** (`engine.py`) | Deterministic code, never a model. Collects postings, removes duplicates, skips postings already seen, applies deal breakers and caps, prepares the batch for judging, checks every judgment, and computes the weighted totals. |
 | **Claude** | The only step that needs judgment: scores each posting on each of your dimensions, 1 to 5 or unknown, with a reason and a quote from the posting as evidence. |
+| **Suggestions** (`suggest.py`) | On request, or after every run if turned on: code gathers your Good and Nope verdicts and which dimensions disagree with them, the model proposes up to three Profile changes, and code checks them (a weight change must raise agreement on your judged posts). You apply them or not on the Agent tab. |
 | **Job Agent page** | Where you set up searches (your CV and preferences), manage sources, judge matches, and read what every run did. |
 
 Everything the engine decides is written to a trace, so any match can be traced back to the postings, settings and versions that produced it.

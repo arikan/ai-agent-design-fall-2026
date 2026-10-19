@@ -224,6 +224,10 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .evdot.g{background:var(--s-hi)}.evdot.n{background:transparent;border:2px solid var(--s-mid);box-sizing:border-box}
 .evticks{display:flex;justify-content:space-between}
 .vgrid{align-items:start}
+.sghead{margin-top:8px}
+.sgitem{display:grid;gap:6px;padding:10px 0;border-top:1px solid var(--line)}
+.sgdiff{display:grid;grid-template-columns:auto 1fr;gap:2px 10px}
+.sgposts{margin:4px 0 0;padding-left:18px}
 .vlist{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:280px;overflow:auto}
 .vlist li{display:grid;grid-template-columns:42px 1fr;gap:0 8px;font-size:13px}.vlist li .muted{grid-column:2}
 .costbars{display:flex;align-items:flex-end;gap:6px;height:120px;border-bottom:1px solid var(--line);padding-top:16px}
@@ -914,6 +918,56 @@ function agentEval(){
     ${vers.length > 1 ? `<p class="small" style="margin:0">By version: ${vers.join(" · ")}</p>` : ""}
     ${misses.length ? `<details class="fold"><summary>Biggest disagreements <span class="muted">${misses.length}</span></summary><div class="scroll"><table class="drops"><thead><tr><th>Post</th><th>Score</th><th>You said</th><th>Reason</th></tr></thead><tbody>${misses.map(x => `<tr><td>${esc(x.m.title)} · ${esc(x.m.company)}</td><td class="num">${x.m.total}</td><td>${x.kind}</td><td>${esc(dims[x.why] || x.why || "")}</td></tr>`).join("")}</tbody></table></div></details>` : ""}`;
 }
+/* Suggested Profile changes: the model proposes from your verdicts, code checks them, you apply or not. */
+S.suggestions = [];
+function suggestBusy(){
+  const r = S.request; if (!r || r.status === "done") return false;
+  return Date.now() - new Date(r.requested_at) < 30 * 60000 ? r.kind : false;
+}
+function suggestChange(it){
+  if (it.target === "weights"){
+    const dims = Object.fromEntries((S.searches.find(x => x.id === it.search_id)?.preferences?.dimensions || []).map(d => [d.key, d.name]));
+    const ch = Object.keys(it.proposed).filter(k => it.proposed[k] !== it.current?.[k]).map(k => `${esc(dims[k] || k)} ${it.current?.[k]}% → ${it.proposed[k]}%`);
+    return `<p class="small" style="margin:0">${ch.join(" · ")}</p>${it.predicted ? `<p class="small muted" style="margin:0">On your judged posts, agreement ${it.predicted.before}% → ${it.predicted.after}% <button type="button" class="tip" aria-label="About this estimate" data-tip="Computed in code on the same posts the suggestion came from, so it can look better than it is. Judge new posts after applying to see if it holds.">i</button></p>` : ""}`;
+  }
+  if (it.target.startsWith("rubric:")) return `<div class="sgdiff small"><span class="muted">Now</span><span class="muted">${esc(it.current)}</span><span class="muted">Suggested</span><span>${esc(it.proposed)}</span></div>`;
+  const cur = new Set((it.current || []).map(x => x.toLowerCase())), nxt = new Set(it.proposed.map(x => x.toLowerCase()));
+  const add = it.proposed.filter(x => !cur.has(x.toLowerCase())), rm = (it.current || []).filter(x => !nxt.has(x.toLowerCase()));
+  return `<p class="small" style="margin:0">${add.length ? `Add ${add.map(esc).join(", ")}` : ""}${add.length && rm.length ? " · " : ""}${rm.length ? `Remove ${rm.map(esc).join(", ")}` : ""}</p>`;
+}
+function agentSuggest(){
+  const busy = suggestBusy(), doc = [...S.suggestions].sort((a,b) => String(b.at).localeCompare(String(a.at)))[0];
+  const titles = Object.fromEntries(S.matches.map(m => [m.id, `${m.title} · ${m.company}`]));
+  const open = doc ? doc.items.map((it, i) => ({it, i})).filter(x => x.it.status !== "dismissed") : [];
+  const btn = busy === "suggest" ? `<span class="small muted"><span class="spin" aria-hidden="true"></span>Working on suggestions…</span>`
+    : `<button type="button" class="btn" data-suggest ${busy || !S.runner?.trigger_id ? "disabled" : ""}>${doc ? "Suggest again" : "Suggest changes"}</button>`;
+  return `<div class="sghead row between"><h3 class="sechead" style="margin:0">Suggested changes</h3>${btn}</div>
+    ${!doc ? `<p class="small muted" style="margin:0">The model reads your disagreements and proposes up to three Profile changes. You decide what to apply.</p>`
+      : `<p class="small muted" style="margin:0">From ${esc(when(doc.at))}${doc.model ? ` by ${esc(modelName(doc.model))}` : ""}.${doc.rejected?.length ? ` ${doc.rejected.length} more failed the code check.` : ""}${!open.length ? " Nothing left to review." : ""}</p>`}
+    ${open.map(({it, i}) => `<div class="sgitem">
+        <div class="row between"><span>${esc(it.label)}</span>${it.status === "applied" ? `<span class="small ok">Applied as preferences v${esc(it.applied_version)}</span>` : `<span class="row" style="gap:10px"><button type="button" class="btn small" data-apply="${esc(doc.id)}:${i}">Apply</button><button type="button" class="linkbtn small" data-dismiss="${esc(doc.id)}:${i}">Dismiss</button></span>`}</div>
+        <p class="small" style="margin:0">${esc(it.why)}</p>
+        ${suggestChange(it)}
+        <details class="fold"><summary>Based on ${it.posts.length} post${it.posts.length === 1 ? "" : "s"}</summary><ul class="small sgposts">${it.posts.map(p => `<li>${esc(titles[p] || p)}</li>`).join("")}</ul></details>
+      </div>`).join("")}`;
+}
+async function applySuggestion(docId, i){
+  const doc = S.suggestions.find(d => d.id === docId), it = doc?.items[i], s = S.searches.find(x => x.id === it?.search_id);
+  if (!it || !s) return;
+  const {id, ...next} = structuredClone(s), prefs = next.preferences;
+  if (it.target === "weights") prefs.dimensions.forEach(d => { if (it.proposed[d.key] != null) d.weight = it.proposed[d.key]; });
+  else if (it.target.startsWith("rubric:")){ const d = prefs.dimensions.find(d => d.key === it.target.slice(7)); if (!d) return; d.rubric = it.proposed; }
+  else next[it.target] = it.proposed;
+  next.prefs_version = (s.prefs_version || 0) + 1; next.updated = new Date().toISOString();
+  await S.db.doc(`searches/${id}/versions/prefs-${next.prefs_version}`).set({kind:"preferences", version:next.prefs_version, preferences:prefs, target_roles:next.target_roles, keywords:next.keywords, industries:next.industries, at:next.updated, note:`Suggested change: ${it.label}`});
+  await S.db.doc("searches/" + id).set(next);
+  const items = doc.items.map((x, j) => j === i ? {...x, status:"applied", applied_version:next.prefs_version, applied_at:next.updated} : x);
+  await S.db.doc("suggestions/" + docId).set({...doc, items});
+}
+async function dismissSuggestion(docId, i){
+  const doc = S.suggestions.find(d => d.id === docId); if (!doc) return;
+  await S.db.doc("suggestions/" + docId).set({...doc, items:doc.items.map((x, j) => j === i ? {...x, status:"dismissed"} : x)});
+}
 function agentVersions(){
   const runsBy = {}; for (const r of S.runs) if (r.agent_version != null) runsBy[r.agent_version] = (runsBy[r.agent_version] || 0) + 1;
   const vs = [...S.versions].sort((a,b) => b.version - a.version).slice(0, 12);
@@ -950,6 +1004,7 @@ function renderAgent(){
       <h2>Is it any good?</h2>
       <p class="small muted" style="margin:0">Compares the agent's scores with your Good and Nope verdicts. <button type="button" class="tip" aria-label="About this eval" data-tip="It measures ranking: for every pair of one Good and one Nope post, does the agent score the Good one higher? Data scientists call this AUC. It doesn't change the agent; it measures each version, so you can see whether a change helped. It only covers posts the agent chose to score, so it can't see good posts it ranked too low to read.">i</button></p>
       ${agentEval()}
+      ${agentSuggest()}
     </section>
     <section class="asec">
       <h2>Versions and cost</h2>
@@ -962,6 +1017,7 @@ function renderAgent(){
         <label for="a-judged"><span>Posts the model scores per run <button type="button" class="tip" aria-label="What this does" data-tip="The top-ranked posts, per search. The rest wait for a later run. Scoring is the slow step and the one that uses your plan, so lower is faster and cheaper.">i</button></span><input type="number" id="a-judged" min="1" max="${COURSE_CAPS.max_judged_per_search}" value="${a.settings.max_judged_per_search}"></label>
         <label for="a-minrank"><span>Minimum rank to score <button type="button" class="tip" aria-label="What the minimum rank does" data-tip="0 to 100, from the ranking shown on the Profile tab. A post matching a target role usually ranks 50 or more; one matching only keywords, 10 to 20. If nothing reaches this, the run scores nothing.">i</button></span><input type="number" id="a-minrank" min="0" max="100" value="${a.settings.min_rank_score ?? 0}"></label>
       </div>
+      <label class="inline check" for="a-autosuggest"><input type="checkbox" id="a-autosuggest" ${a.settings.suggest_after_run ? "checked" : ""}> Suggest changes after every run <button type="button" class="tip" aria-label="What this does" data-tip="Each run ends by proposing Profile changes from your verdicts, as the Suggest changes button does. It adds a little to every run's cost.">i</button></label>
       <details class="fold"><summary>Course limits, fixed</summary>
       <div class="scroll"><table><tbody>
         <tr><td>Runs started by hand, per 24 hours (the morning run is always allowed)</td><td class="num">${COURSE_CAPS.max_manual_runs_per_day}</td></tr>
@@ -976,13 +1032,18 @@ function renderAgent(){
   $("agent-editor").onclick = e => {
     const st = e.target.closest("[data-astep]"); if (st){ S.agentStep = st.dataset.astep; renderAgent(); return; }
     const g = e.target.closest("[data-goview]"); if (g){ goTab(g.dataset.goview); window.scrollTo({top:0}); return; }
-    const j = e.target.closest("[data-jump]"); if (j){ $(j.dataset.jump)?.scrollIntoView({behavior:"smooth", block:"start"}); }
+    const j = e.target.closest("[data-jump]"); if (j){ $(j.dataset.jump)?.scrollIntoView({behavior:"smooth", block:"start"}); return; }
+    const sg = e.target.closest("[data-suggest]");
+    if (sg){ sg.disabled = true; if (!MCP){ sg.textContent = "Could not start"; return; } startTask("suggest", {}).catch(() => { sg.textContent = "Could not start"; }); return; }
+    const ap = e.target.closest("[data-apply]"), dm = e.target.closest("[data-dismiss]");
+    if (ap || dm){ const [d, i] = (ap || dm).dataset[ap ? "apply" : "dismiss"].split(/:(?=\d+$)/); (ap || dm).disabled = true;
+      (ap ? applySuggestion : dismissSuggestion)(d, Number(i)).catch(err => { (ap || dm).textContent = "Could not save"; }); }
   };
   $("aform").onsubmit = async e => {
     e.preventDefault(); const st = $("a-status");
     const judged = Math.min(Math.max(1, Number($("a-judged").value)||1), COURSE_CAPS.max_judged_per_search);
     const minRank = Math.min(Math.max(0, Math.round(Number($("a-minrank").value) || 0)), 100);
-    const next = {version:a.version+1, matcher_instructions:$("a-instr").value.trim(), sources:a.sources, settings:{...a.settings, max_judged_per_search:judged, min_rank_score:minRank}, updated:new Date().toISOString()};
+    const next = {version:a.version+1, matcher_instructions:$("a-instr").value.trim(), sources:a.sources, settings:{...a.settings, max_judged_per_search:judged, min_rank_score:minRank, suggest_after_run:$("a-autosuggest").checked}, updated:new Date().toISOString()};
     try {
       await S.db.doc(`agent/current/versions/v${next.version}`).set({...next});
       await S.db.doc("agent/current").set(next);
@@ -1638,6 +1699,7 @@ function renderRuns(){
   db.doc("meta/setup_check").onSnapshot(d => { const was = S.check?.status; S.check = d.exists ? d.data() : null; if (was && was !== "ok" && S.check?.status === "ok") S.setup.open = true; renderSetup(); }, fail);
   S.rescore = {};
   db.collection("agent/current/versions").onSnapshot(q => { S.versions = q.docs.map(d => d.data()); renderAgent(); }, fail);
+  db.collection("suggestions").onSnapshot(q => { S.suggestions = q.docs.map(d => ({id:d.id, ...d.data()})); renderAgent(); }, fail);
   db.collection("rescore").onSnapshot(q => { S.rescore = Object.fromEntries(q.docs.map(d => [d.id, d.data()])); renderMatches(); }, fail);
   db.doc("meta/postings").onSnapshot(d => { const was = S.posts.index?.run_id; S.posts.index = d.exists ? d.data() : null; if (S.posts.index?.run_id !== was){ S.posts.items = null; S.posts.showAll = false; loadPosts(); } }, fail);
   db.doc("meta/progress").onSnapshot(d => { S.progress = d.exists ? d.data() : null; renderMatches(); renderRuns(); }, fail);

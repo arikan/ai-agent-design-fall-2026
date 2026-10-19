@@ -20,10 +20,11 @@ A run should take few turns: do independent tool calls in the same turn, and nev
 1. **Decide what this run is.** Read `meta` / `request` with ArtifactData. If it exists, its `status` is `"pending"`, and its `requested_at` is less than 30 minutes old:
    - `kind: "check"`: follow "Check setup" below instead of these steps.
    - `kind: "test"`: follow "Test one source" below for its `source_id`.
+   - `kind: "suggest"`: follow "Suggest changes" below.
    - `kind: "run"`: the student asked for a run now; continue.
    Set its `status` to `"started"` (pass the version you read). Otherwise this is the daily run; continue. An extra message `TEST_SOURCE <id>` or `CHECK_SETUP` means the same as a request of that kind.
 2. **Get the engine.** In one command: shallow clone the course repo, `cd` into `week7-job-agent`, and run `pip install -q uv` if `uv` is missing.
-3. **Read the database**, all in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `runs` (list), `matches` (list), `rescore` (list; postings the student asked to score again), `meta` / `progress`, `meta` / `console` and `meta` / `postings` (get; any may not exist).
+3. **Read the database**, all in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `runs` (list), `matches` (list), `judgments` (list), `rescore` (list; postings the student asked to score again), `meta` / `progress`, `meta` / `console` and `meta` / `postings` (get; any may not exist).
 4. **Collect, filter and rank:** `uv run run.py prepare`, or `uv run run.py prepare manual` when step 1 found a `run` request (the student pressed Run now; those runs are capped at a few a day, the morning run is not). It prints how long each stage took.
    - If it says the run stopped on the course cap, go to step 7.
    - Otherwise set `meta` / `progress` from `work/out/progress.json` (`file_path`, with the version from step 3; keep the version the write returns).
@@ -36,7 +37,21 @@ A run should take few turns: do independent tool calls in the same turn, and nev
    - if this run came from a request, `meta` / `request` `status` `"done"`
 8. **Repair** (skip when every source in the fetch output is `ok`, or the failure is a network block, which you report instead): for a source that failed or returned nothing, look at its API or page with a web fetch, work out the smallest settings change that fixes it (board token, selectors, field paths; code only for a custom adapter), write it as JSON under `work/` (which git ignores, so the run leaves the repository clean) and test it with `uv run sources.py try <file>`. If it returns postings, write a proposal to the console database with ArtifactData (not a file): collection `proposals`, document id `<source id with characters other than letters, digits, dot, dash and underscore replaced by _>`, with `source_id`, `source` (the full changed source), `reason` (one sentence), `before` and `after` (each `status` and `kept`), `sample` (up to three titles), `at`. Never change the agent settings yourself.
 9. **Sync the page** (last, so matches appear first): if `sha256sum console.html` differs from the `sha256` in `meta` / `console` (read in step 3), republish `console.html` to `CONSOLE_URL` with the Artifact tool (pass `url`; omit `capabilities` and `icon`), then write `meta` / `console` with `sha256`, `commit` (`git log -1 --format=%h -- console.html`) and `published_at`. If the republish asks for approval or fails, skip it.
-10. **Report** in four lines: stage times from steps 4 and 6, new matches, judgments rejected, sources failing (and proposals written).
+10. **Suggest**, only if `agent` / `current` has `settings.suggest_after_run` set to true: do steps 3 to 5 of "Suggest changes" (the database is already read).
+11. **Report** in four lines: stage times from steps 4 and 6, new matches, judgments rejected, sources failing (and proposals written).
+
+## Suggest changes
+
+When step 1 finds a pending `suggest` request, the student asked for suggestions. Do only this, then stop:
+
+1. Get the engine as in step 2.
+2. Read, in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `matches` (list), `judgments` (list).
+3. `uv run suggest.py prepare`. If it says there is nothing to suggest, skip to step 6.
+4. Read `work/suggest.json` and follow its `instructions`: propose changes to the student's Profile that would make the agent's scores agree better with their Good and Nope verdicts. Write `work/suggestions.json` in its `answer_format`, in one file write. These are proposals only; never change a search yourself.
+5. `uv run suggest.py finish --model <id>` (your model, as in step 6 above). Write `work/out/suggestion.json` with ArtifactData `set` to collection `suggestions` under the document id it prints.
+6. Set `meta` / `request` `status` to `"done"` and report in one line: suggestions written and rejected.
+
+A suggestion request never collects or scores posts, and does not count toward the runs started by hand.
 
 ## Test one source
 
@@ -64,7 +79,7 @@ When step 0 finds a pending `check` request, the student pressed Check setup. Do
 
 ## What the session must not do
 
-- Change searches, preferences, agent settings or judgments. Those belong to the student.
+- Change searches, preferences, agent settings or judgments. Those belong to the student; suggestions are written for the student to apply or not.
 - Change the repository. Code changes go through pull requests, never from a run.
 - Raise any limit. Caps live in `caps.json` and the engine applies them.
 - Fetch any site outside the sources' own domains.
