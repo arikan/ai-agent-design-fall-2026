@@ -60,7 +60,7 @@ Reply briefly, in this order:
 
 1. The link to their Job Agent page.
 2. One setting to change, here in this session: click the arrow after this session's title at the top, choose **Edit cloud environment**, set **Network access** to **Full**, and save. Their daily run uses this same environment and needs it to reach job sites.
-3. Then, on their page, press **I've changed it, check my setup**. When it turns green, **Find my first matches** runs the agent right away.
+3. Then, on their page, press **I've changed it, check my setup**. When it turns green, **Start my agent** runs it right away.
 
 ## Do not
 
