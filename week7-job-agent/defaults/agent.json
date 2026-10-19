@@ -361,6 +361,17 @@
     "company": "anchorage",
     "company_name": "Anchorage Digital"
    }
+  },
+  {
+   "id": "greenhouse:neo4j",
+   "adapter": "greenhouse",
+   "enabled": true,
+   "category": "ai",
+   "note": "Graph database",
+   "config": {
+    "board_token": "neo4j",
+    "company_name": "Neo4j"
+   }
   }
  ]
 }
