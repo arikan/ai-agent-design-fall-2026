@@ -476,6 +476,7 @@ function renderMatches(){
             ${j.main_dimension ? `<span class="small">mainly ${esc(dims.find(d => d.key === j.main_dimension)?.name || j.main_dimension)}</span>` : ""}
             ${j.reason ? `<span class="small muted">“${esc(j.reason)}”</span>` : ""}
             <button type="button" class="linkbtn small" data-change>Change</button>
+            ${S.rescore[m.id] ? `<span class="small muted">Rescoring on the next run · <button type="button" class="linkbtn small" data-unrescore>Cancel</button></span>` : `<button type="button" class="linkbtn small" data-rescore title="Score this post again on the next run, with the current agent and profile. Your verdict and note stay.">Rescore</button>`}
             <span class="savestate ${S.saved[m.id]?.state || ""}" id="save-${esc(m.id)}" role="status">${saveText(m.id)}</span>
           </div>
           <span class="foot small muted">First seen ${esc(seen(m))}</span>
@@ -503,6 +504,7 @@ function renderMatches(){
 $("f-search").addEventListener("change", renderMatches);
 S.mview = "review";      // every visit starts with what needs judging
 S.sticky = new Set();
+S.rescore = {};
 S.whyOpen = new Set();      // cards whose score explanations are open
 $("matches").addEventListener("keydown", e => { const r = e.target.closest?.("[data-why]"); if (r && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); r.click(); } });
 $("m-views").addEventListener("click", e => { const b = e.target.closest("[data-mview]"); if (!b) return; S.mview = b.dataset.mview; S.sticky.clear(); renderMatches(); });
@@ -532,6 +534,8 @@ $("matches").addEventListener("click", e => {
   const busy = el => { art.querySelectorAll(".judge button").forEach(b => b.disabled = true); el.setAttribute("aria-busy","true"); el.classList.add("busy"); };
   const done = () => art.querySelectorAll(".judge button").forEach(b => { b.disabled = false; b.removeAttribute("aria-busy"); b.classList.remove("busy"); });
   if (e.target.closest("[data-why]")){ S.whyOpen.has(id) ? S.whyOpen.delete(id) : S.whyOpen.add(id); renderMatches(); return; }
+  if (e.target.closest("[data-rescore]")){ const m = S.matches.find(x => x.id === id); S.db.doc("rescore/" + id).set({search_id:m.search_id, posting_id:m.posting_id, title:m.title, company:m.company, requested_at:new Date().toISOString()}).catch(() => {}); return; }
+  if (e.target.closest("[data-unrescore]")){ S.db.doc("rescore/" + id).delete().catch(() => {}); return; }
   if (e.target.closest("[data-change]")){ S.sticky.add(id); renderMatches(); return; }
   const go = e.target.closest("[data-mview]");
   if (go){ S.mview = go.dataset.mview; S.sticky.clear(); renderMatches(); window.scrollTo({top:0}); return; }
@@ -1510,6 +1514,8 @@ function renderRuns(){
   db.collection("source_tests").onSnapshot(q => { S.tests = Object.fromEntries(q.docs.map(d => [d.data().source_id, d.data()])); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
   db.doc("meta/agent").onSnapshot(d => { S.runner = d.exists ? d.data() : null; renderSetup(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
   db.doc("meta/setup_check").onSnapshot(d => { const was = S.check?.status; S.check = d.exists ? d.data() : null; if (was && was !== "ok" && S.check?.status === "ok") S.setup.open = true; renderSetup(); }, fail);
+  S.rescore = {};
+  db.collection("rescore").onSnapshot(q => { S.rescore = Object.fromEntries(q.docs.map(d => [d.id, d.data()])); renderMatches(); }, fail);
   db.doc("meta/postings").onSnapshot(d => { const was = S.posts.index?.run_id; S.posts.index = d.exists ? d.data() : null; if (S.posts.index?.run_id !== was){ S.posts.items = null; S.posts.showAll = false; loadPosts(); } }, fail);
   db.doc("meta/progress").onSnapshot(d => { S.progress = d.exists ? d.data() : null; renderMatches(); renderRuns(); }, fail);
   db.doc("meta/request").onSnapshot(d => { S.request = d.exists ? d.data() : null; renderAll(); }, fail);

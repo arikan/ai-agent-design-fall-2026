@@ -46,7 +46,14 @@ def config(trigger="scheduled"):
     for p in (db / "matches").glob("*.json") if (db / "matches").exists() else []:
         m = body(p)
         seen.setdefault(m["search_id"], []).append(m["posting_id"])
-    cfg = {"trigger": trigger, "manual_runs_24h": len(recent), "manual_runs_since": recent, "agent": body(db / "agent" / "current.json"),
+    # Rescore requests (collection `rescore`, made from the page): score these postings again this run,
+    # whatever their rank, and replace their match. The student's verdict stays in `judgments`.
+    rescore = {}
+    for p in sorted((db / "rescore").glob("*.json")) if (db / "rescore").exists() else []:
+        q = body(p)
+        rescore.setdefault(q["search_id"], []).append(q["posting_id"])
+        seen[q["search_id"]] = [x for x in seen.get(q["search_id"], []) if x != q["posting_id"]]
+    cfg = {"trigger": trigger, "rescore": rescore, "manual_runs_24h": len(recent), "manual_runs_since": recent, "agent": body(db / "agent" / "current.json"),
            "searches": searches, "seen": seen}
     (WORK / "config.json").write_text(json.dumps(cfg, indent=2))
     print(f"config: {len(searches)} search(es), agent v{cfg['agent']['version']}, {len(recent)} run(s) by hand in the last 24 hours")
@@ -68,7 +75,11 @@ def export():
     for m in r.get("matches", []):
         p = out / f"{m['id']}.json"
         p.write_text(json.dumps(m))
-        writes.append({"op": "set", "collection": "matches", "doc_id": m["id"], "file_path": str(p.resolve())})
+        w = {"op": "set", "collection": "matches", "doc_id": m["id"], "file_path": str(p.resolve())}
+        if m.get("rescored"):
+            w["if_version"] = 1      # replaces the earlier match, which runs write once and never update
+            writes.append({"op": "delete", "collection": "rescore", "doc_id": m["id"], "if_version": 1})
+        writes.append(w)
     snap = snapshot(r["run"], out)
     writes.extend(snap)
     (out / "writes.json").write_text(json.dumps(writes, indent=1))

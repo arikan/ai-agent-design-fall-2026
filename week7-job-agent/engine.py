@@ -366,9 +366,11 @@ def prepare(config):
         passed.sort(key=lambda t: -t[0])
         floor = min(max(int(agent["settings"].get("min_rank_score", 0)), 0), 100) / 100
         eligible = [t for t in passed if t[0] >= floor]       # below the floor is not worth a score
-        chosen = eligible[:per_search_cap]
+        again = set(config.get("rescore", {}).get(s["id"], []))
+        forced = [t for t in passed if t[1]["id"] in again]          # asked to be scored again, whatever their rank
+        chosen = forced + [t for t in eligible if t[1]["id"] not in again][:per_search_cap]
         step(trace, "filter", search=s["id"], already_matched=already, passed=len(passed), dropped=len(postings) - len(passed) - already,
-             sent_to_judge=len(chosen), below_min_rank=len(passed) - len(eligible), min_rank_score=round(floor * 100),
+             sent_to_judge=len(chosen), rescored=len(forced), rescore_not_found=sorted(again - {t[1]["id"] for t in forced}), below_min_rank=len(passed) - len(eligible), min_rank_score=round(floor * 100),
              not_judged_over_cap=max(0, len(eligible) - per_search_cap))
         for ov, p in chosen:
             items.append({"search_id": s["id"], "posting_id": p["id"], "prefilter": ov,
@@ -469,6 +471,7 @@ def finish(config):
             "total": weighted_total(j["scores"], dims[key[0]], policy), "unknown_policy": policy,
             "agent_version": batch["agent_version"], "cv_version": cv_v, "prefs_version": pref_v,
             "first_seen": batch["run_id"], "first_seen_at": state["started"],
+            "rescored": item["posting_id"] in set(config.get("rescore", {}).get(item["search_id"], [])),
         })
     matches.sort(key=lambda m: -m["total"])
     step(trace, "judge", judged=len(judgments), accepted=len(matches), rejected=len(rejected), rejections=rejected)
