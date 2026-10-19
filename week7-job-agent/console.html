@@ -421,7 +421,7 @@ function renderMatches(){
     const why = dims.map((d, i) => { const sc = m.scores?.[d.key]; if (!sc) return "";
       const t = tone(sc), n = sc.score === "unknown" ? 0 : sc.score;
       const segs = [1,2,3,4,5].map(k => `<i class="${sc.score === "unknown" ? "u" : k <= n ? ({"t-hi":"hi","t-mid":"mid","t-lo":"lo"})[t] : ""}"></i>`).join("");
-      return `<div class="why ${t}"><div class="whyhead"><b>${esc(d.name)}</b><span class="segs">${segs}</span><span class="wscore">${sc.score==="unknown"?"unknown":sc.score+" of 5"}</span><span class="muted wweight">${weights[i]?.weight ?? ""}% weight</span></div>
+      return `<div class="why ${t}"><div class="whyhead"><b>${esc(d.name)}</b><span class="wscore">${sc.score==="unknown"?"unknown":sc.score+" of 5"}</span><span class="muted wweight">${weights[i]?.weight ?? ""}% weight</span></div>
         <div>${esc(sc.reason)}</div>${sc.evidence?`<div class="evidence">“${esc(sc.evidence)}”</div>`:""}</div>`; }).join("");
     // The posting with the quoted evidence marked in the same colors, so each score can be checked in place.
     let posting = esc(m.text);
