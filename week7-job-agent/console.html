@@ -147,6 +147,8 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .segs-tabs{display:flex;flex-wrap:wrap;gap:4px;background:var(--sunk);border-radius:8px;padding:3px}
 .segtab{appearance:none;border:0;background:none;font:500 13px var(--font-ui);color:var(--muted);padding:5px 10px;border-radius:6px;cursor:pointer}
 .segtab[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 0 0 1px var(--line)}
+.runbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px}
+.runbar-action.wide{flex:1 1 100%}
 #search-list{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .xbtn{appearance:none;border:0;background:none;color:var(--muted);width:28px;height:28px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .xbtn:hover{background:var(--sunk);color:var(--fg)}
@@ -1036,14 +1038,34 @@ async function runNow(){
 function renderAll(){ renderMatches(); renderRuns(); renderSetup(); }
 document.addEventListener("click", e => {
   if (e.target.closest("[data-runnow]")) runNow();
-  if (e.target.closest("#matches [data-opensetup]")){ S.setup.open = true; renderSetup(); $("setup").scrollIntoView({block:"start"}); }
+  if (e.target.closest("#matches [data-opensetup], #runs [data-opensetup]")){ S.setup.open = true; renderSetup(); $("setup").scrollIntoView({block:"start"}); }
 });
 
 /* ---------- runs ---------- */
 function renderRuns(){
-  const top = $("runs-top"); if (top) top.innerHTML = setupDone() ? `<div class="card row between"><span class="small muted">Your agent runs every morning. One run per day; a run you start now counts as today's.</span><div>${runNowBlock("again")}</div></div>` : "";
+  const ready = setupDone(), ph = runNowPhase(), running = ["starting","running"].includes(ph);
   $("c-runs").textContent = S.runs.length || "";
-  if (!S.runs.length){ $("runs").innerHTML = `<div class="card empty">Each run of the agent appears here, with what it fetched, what it filtered out, and every step it took.</div>`; return; }
+  const top = $("runs-top");
+  if (!S.runs.length){
+    top.innerHTML = "";
+    $("runs").innerHTML = `<div class="card emptystate">
+      <svg class="es-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <h2>${running ? "Your first run is working" : "No runs yet"}</h2>
+      <p class="muted">${!ready ? "Finish setting up your agent, then it runs every morning on its own."
+        : running ? "When it finishes, it appears here with every step it took."
+        : "Your agent runs every morning on its own. Each run appears here with what it fetched, what it filtered out, and every step it took."}</p>
+      <div class="es-action">${ready ? runNowBlock("again") : `<button type="button" class="btn primary" data-opensetup>Finish setup</button>`}</div>
+    </div>`;
+    return;
+  }
+  const last = S.runs[0];
+  top.innerHTML = ready ? `<div class="card runbar">
+      <div class="stack" style="gap:2px;min-width:0">
+        <b>Runs every morning</b>
+        <span class="small muted">Last run ${esc(when(last.started))} · ${last.matches ?? 0} new matches · one run per day, so a run started now counts as today's</span>
+      </div>
+      <div class="runbar-action ${running ? "wide" : ""}">${runNowBlock("again")}</div>
+    </div>` : "";
   $("runs").innerHTML = S.runs.map((r,idx) => {
     const sources = (r.sources||[]).map(s => `<tr><td class="mono">${esc(s.source)}</td><td><span class="pill ${s.status==="ok"?"ok":s.status==="empty"?"warn":s.status==="manual"?"":"bad"}">${esc(s.status)}</span></td><td class="num">${s.fetched ?? ""}</td><td class="num">${s.rejected ?? ""}</td><td class="num">${s.kept ?? ""}</td><td class="mono">${esc(s.error||s.reason||s.note||"")}</td></tr>`).join("");
     const filtered = (r.filtered||[]).map(f => `<tr><td>${esc(f.title)}</td><td>${esc(f.company)}</td><td>${esc(f.reason)}</td><td class="mono">${esc(f.search)}</td></tr>`).join("");
