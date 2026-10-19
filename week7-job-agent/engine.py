@@ -217,7 +217,7 @@ def prepare(config):
 
     if config.get("runs_today", 0) >= CAPS["max_runs_per_day"]:
         step(trace, "stop", cap="max_runs_per_day")
-        (WORK / "results.json").write_text(json.dumps({"run": {"id": run_id, "status": "stopped", "cap_hit": "max_runs_per_day", "trace": trace}}, indent=2))
+        (WORK / "results.json").write_text(json.dumps({"run": {"id": run_id, "status": "stopped", "cap_hit": "max_runs_per_day", "started": trace[0]["at"], "ended": now(), "matches": 0, "trace": trace}}, indent=2))
         print("Stopped: a run already happened today (course cap).")
         return
 

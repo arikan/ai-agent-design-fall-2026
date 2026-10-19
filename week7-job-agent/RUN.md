@@ -29,7 +29,7 @@ Students do this from the console's setup panel: it creates the scheduled task, 
 3. Read the console database with ArtifactData, saving each read under `work/db` (`out_dir`):
    - `searches` (list), `agent` / `current` (get), `runs` (list), `matches` (list), `proposals` (list)
 4. Run `uv run dbio.py config`.
-5. Run `uv run sources.py fetch work/config.json`. It prints one line per source.
+5. If step 4 reported one or more runs already today, skip steps 5 and 6: step 7 will stop on the course cap without fetching anything. Otherwise run `uv run sources.py fetch work/config.json`. It prints one line per source.
 6. Repair, only for sources that failed or returned nothing this run, and only when the error is not a network block (a network block means a domain is missing from the environment's allowed list; report it instead):
    - Look at the source the way its adapter does: web fetch its API or page.
    - Work out the smallest change to the source's settings that fixes it: a board token, selectors, field paths. Change code only for a custom adapter.

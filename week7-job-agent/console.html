@@ -1028,10 +1028,13 @@ function runNowPhase(){
   const r = S.request;
   if (S.runNow.at && (!r || r.kind !== "run" || new Date(r.requested_at) < new Date(S.runNow.at))) return S.runNow.error ? "not_started" : "starting";
   if (!r || r.kind !== "run") return "idle";
+  if (r.status === "done") return "done";
   const finished = S.runs.find(x => x.started && new Date(x.started) >= new Date(r.requested_at) - 60000);
   if (finished) return "done";
   return (Date.now() - new Date(r.requested_at)) / 60000 > 30 ? "stale" : "running";
 }
+// The course allows one run per day (UTC, as the engine counts it), so a second one would only stop.
+const ranToday = () => { const d = new Date().toISOString().slice(0,10).replace(/-/g,""); return S.runs.some(x => x.status === "ok" && String(x.id).startsWith(`run-${d}`)); };
 function runNowBlock(context){
   const ph = runNowPhase(), r = S.request;
   if (ph === "starting") return `<button class="btn busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Starting…</button>`;
@@ -1039,6 +1042,7 @@ function runNowBlock(context){
   const btn = label => `<button type="button" class="btn primary" data-runnow>${label}</button>`;
   if (ph === "not_started") return `<div class="testbox bad small" role="alert"><b>The run didn't start.</b> ${esc(S.runNow.error)}</div>${btn("Try again")}`;
   if (ph === "stale") return `<div class="testbox bad small" role="alert"><b>No result after 30 minutes.</b> Open your scheduled task in Claude Code to see what happened.</div>${btn("Try again")}`;
+  if (context !== "first" && ranToday()) return `<span class="small muted">Today's run is done. The next one starts tomorrow morning.</span>`;
   return btn(context === "first" ? "Start my agent" : "Run now");
 }
 async function runNow(){
@@ -1071,11 +1075,11 @@ function renderRuns(){
     </div>`;
     return;
   }
-  const last = S.runs[0];
+  const last = S.runs.find(x => x.status === "ok") || S.runs[0];
   top.innerHTML = ready ? `<div class="card runbar">
       <div class="stack" style="gap:2px;min-width:0">
         <b>Runs every morning</b>
-        <span class="small muted">Last run ${esc(when(last.started))} · ${last.matches ?? 0} new matches · one run per day, so a run started now counts as today's</span>
+        <span class="small muted">Last run ${esc(when(last.started))} · ${last.matches ?? 0} new matches · one run per day</span>
       </div>
       <div class="runbar-action ${running ? "wide" : ""}">${runNowBlock("again")}</div>
     </div>` : "";
