@@ -7,6 +7,7 @@ Code and instructions for the course labs, one folder per week. Each folder has 
 | [week4-agent-runs](week4-agent-runs/) | Run the same task with three agents and compare harness against model |
 | [week5-minimal-agent](week5-minimal-agent/) | Workflows and agents on one small harness |
 | [week6-agent-evals](week6-agent-evals/) | Build a golden set and measure how often an agent gets it right |
+| [week7-job-agent](week7-job-agent/) | A job agent that runs daily in Claude's cloud, scores new postings against your CV, and learns from your verdicts |
 
 ## Getting the labs
 
@@ -30,6 +31,8 @@ Your own work, such as agent runs in `runs/` and generated `report.md` files, is
 ## Setup (once)
 
 From week 5 on, the labs run `mva.py`, which needs Python and, for cloud models, an API key. Do this once for the course. Claude Code and pi, which only week 4 uses, are set up in [week 4's README](week4-agent-runs/README.md#setup-once).
+
+Week 7 is different: it doesn't use `mva.py` or an API key. It runs in Claude's cloud and needs a paid Claude plan (Pro or higher); to run it on your own computer you also need [uv](https://docs.astral.sh/uv/getting-started/installation/). See [week 7's README](week7-job-agent/README.md#start-here).
 
 ### Python
 
