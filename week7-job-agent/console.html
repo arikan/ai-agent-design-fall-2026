@@ -198,6 +198,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .segtab{appearance:none;border:0;background:none;font:500 13px var(--font-ui);color:var(--muted);padding:5px 10px;border-radius:6px;cursor:pointer}
 .segtab[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 0 0 1px var(--line)}
 .runbar.plain{padding:4px 0 12px}
+.srchead{padding:4px 0 8px;gap:8px}
 .runnow{gap:12px;flex-wrap:nowrap}
 details.run[open] > summary .runcounts{display:none}
 .folds{display:grid;gap:2px;border-top:1px solid var(--line);padding-top:6px}
@@ -906,9 +907,9 @@ function renderSources(){
   const repairs = a.sources.filter(s => s.enabled && srcHealth(s.id).repair).length;
   $("c-sources").textContent = repairs ? `${repairs} need repair` : a.sources.length;
   $("sources").innerHTML = `
-    <div class="card stack">
+    <div class="stack srchead">
       <div class="row between"><h2>Sources</h2><button class="btn" id="add-source">Add source</button></div>
-      <p class="small muted" style="margin:0">Each source names an adapter, the code that knows how to read one kind of job board. Most repairs mean editing a source's settings, like a board token or a selector. Changes save as a new agent version.</p>
+      <p class="small muted" style="margin:0">The job boards your agent reads. To fix one, edit its settings. Every change is saved as a new agent version.</p>
       ${runnerBlock()}
       <details><summary>Domains to allow in your cloud environment (${doms.length})</summary>
         <p class="small muted">The daily run can only reach these. Paste them into your environment's network setting under Custom, allowed domains.</p>
