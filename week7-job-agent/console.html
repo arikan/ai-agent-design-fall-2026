@@ -54,10 +54,12 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .pill.warn{background:var(--warn-soft);color:var(--warn)}
 .pill.bad{background:var(--bad-soft);color:var(--bad)}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-.match{display:grid;grid-template-columns:64px 1fr;gap:4px 16px}
+.match{display:grid;grid-template-columns:64px 1fr;gap:4px 16px;transition:border-color .15s,box-shadow .15s}
+.match:hover{border-color:color-mix(in srgb,var(--accent) 35%,var(--line));box-shadow:0 2px 10px color-mix(in srgb,var(--fg) 7%,transparent)}
+.savestate{font-size:12.5px;color:var(--muted);display:inline-flex;align-items:center;gap:4px}.savestate.ok{color:var(--accent)}.savestate.err{color:var(--bad)}
 .score{font:600 26px/1 var(--font-data);font-variant-numeric:tabular-nums;color:var(--s-hi);padding-top:2px;display:grid;justify-items:start;align-content:start}
-.score.mid{color:var(--s-mid)}
-.score.lo{color:var(--s-lo)}
+.score.mid{color:color-mix(in srgb,var(--s-mid) 80%,var(--muted))}
+.score.lo{color:color-mix(in srgb,var(--s-lo) 60%,var(--muted))}
 .score .newtag{margin-top:8px;align-self:start}
 .score small{display:block;font:400 11px var(--font-ui);color:var(--muted);margin-top:4px}
 .match .body{min-width:0;display:grid;gap:10px}
@@ -80,8 +82,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .segs{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;flex:1;max-width:84px}
 .segs i{height:6px;border-radius:1px;background:var(--line)}
 .segs i.hi{background:color-mix(in srgb,var(--s-hi) 80%,var(--surface))}
-.segs i.mid{background:color-mix(in srgb,var(--s-mid) 75%,var(--surface))}
-.segs i.lo{background:color-mix(in srgb,var(--s-lo) 70%,var(--surface))}
+.segs i.mid{background:color-mix(in srgb,var(--s-mid) 60%,var(--surface))}
+.segs i.lo{background:color-mix(in srgb,var(--s-lo) 45%,var(--surface))}
 .segs i.u{background:none;border:1px dashed var(--muted);height:6px}
 .pips{font-family:var(--font-data);font-size:11px;letter-spacing:1px;color:var(--accent);white-space:nowrap}
 .pips .off{color:var(--line)}
@@ -415,6 +417,7 @@ function renderMatches(){
             <button class="btn good" data-act="accept" aria-pressed="${verdict==="accept"}">Good match</button>
             <button class="btn bad" data-act="dismiss" aria-pressed="${verdict==="dismiss"}">Not a fit</button>
             <button type="button" class="tip" aria-label="What a verdict does" data-tip="Your verdicts are the answer key the agent is tested against. Each is saved with a copy of the posting, so a later version of the agent can be scored on the same jobs.">i</button>
+            <span class="savestate ${S.saved[m.id]?.state || ""}" id="save-${esc(m.id)}" role="status">${saveText(m.id)}</span>
            </div>
            <span class="foot small muted">First seen ${esc(seen(m))}</span>
           </div>
@@ -429,14 +432,23 @@ function renderMatches(){
 }
 $("f-search").addEventListener("change", renderMatches);
 $("f-hide").addEventListener("change", renderMatches);
+// Per card: "Saving…" while a write is in flight, then "Saved" for a few seconds.
+S.saved = {};
+const saveText = id => ({saving:`<span class="spin" aria-hidden="true"></span>Saving…`, ok:"✓ Saved", err:"Could not save"})[S.saved[id]?.state] || "";
+function setSave(id, state){
+  clearTimeout(S.saved[id]?.timer);
+  S.saved[id] = {state, timer: state === "ok" ? setTimeout(() => setSave(id, ""), 2500) : null};
+  const el = document.getElementById("save-" + id); if (el){ el.className = "savestate " + state; el.innerHTML = saveText(id); }
+}
 async function saveJudgment(id, patch, el){
   const m = S.matches.find(x=>x.id===id), prev = S.judgments[id] || {};
   const doc = {match_id:id, search_id:m.search_id, posting_id:m.posting_id, verdict:prev.verdict||null, reason:prev.reason||"", main_dimension:prev.main_dimension||null,
     cv_version:m.cv_version, prefs_version:m.prefs_version, agent_total:m.total,
     posting:{company:m.company, title:m.title, location:m.location, pay_min:m.pay_min, pay_max:m.pay_max, industry:m.industry, url:m.url||null, text:m.text},
     ...patch, at:new Date().toISOString()};
-  try { await S.db.doc("judgments/"+id).set(doc); }
-  catch(err){ const s=document.createElement("div"); s.className="status err"; s.textContent="Could not save: "+(err.message||err.code); el.closest(".judge").append(s); setTimeout(()=>s.remove(),5000); }
+  setSave(id, "saving");
+  try { await S.db.doc("judgments/"+id).set(doc); setSave(id, "ok"); }
+  catch(err){ setSave(id, "err"); const s=document.createElement("div"); s.className="status err"; s.textContent="Could not save: "+(err.message||err.code); el.closest(".judge")?.append(s); setTimeout(()=>s.remove(),5000); }
 }
 $("matches").addEventListener("click", e => {
   if (!S.db) return;
@@ -449,11 +461,13 @@ $("matches").addEventListener("click", e => {
   const c = e.target.closest("button[data-dim]");
   if (c){ busy(c); return saveJudgment(id, {main_dimension: cur.main_dimension===c.dataset.dim ? null : c.dataset.dim}, c).finally(done); }
 });
-$("matches").addEventListener("change", e => {
-  const n = e.target.closest("[data-note]"); if (!n || !S.db) return;
-  const id = n.closest("article").dataset.id;
-  if ((S.judgments[id]?.reason||"") !== n.value.trim()) saveJudgment(id, {reason:n.value.trim()}, n);
-});
+// Notes save as you type (after a short pause) and when you leave the field.
+const saveNote = n => { const id = n.closest("article").dataset.id; if ((S.judgments[id]?.reason||"") !== n.value.trim()) saveJudgment(id, {reason:n.value.trim()}, n); };
+let noteTimer;
+$("matches").addEventListener("input", e => { const n = e.target.closest("[data-note]"); if (!n || !S.db) return; clearTimeout(noteTimer); noteTimer = setTimeout(() => saveNote(n), 700); });
+$("matches").addEventListener("change", e => { const n = e.target.closest("[data-note]"); if (!n || !S.db) return; clearTimeout(noteTimer); saveNote(n); });
+// While a note has focus, a re-render would take the cursor away; catch up when it is left.
+$("matches").addEventListener("focusout", e => { if (e.target.closest("[data-note]") && S.matchesStale){ S.matchesStale = false; setTimeout(renderMatches, 0); } });
 
 /* rank:begin  A port of engine.py's deal_breaker and prefilter_score. Keep the two identical:
    `uv run engine.py rank-fixture && node tests/rank_test.js` checks them against each other. */
@@ -1398,6 +1412,6 @@ function renderRuns(){
   db.doc("meta/console").onSnapshot(d => { const m = d.exists ? d.data() : null;
     $("build").textContent = m ? `Updated ${when(m.published_at)} · ${m.commit}` : ""; }, fail);
   db.collection("proposals").onSnapshot(q => { S.proposals = Object.fromEntries(q.docs.map(d => [d.data().source_id, d.data()])); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
-  db.collection("judgments").onSnapshot(q => { S.judgments = Object.fromEntries(q.docs.map(d => [d.id, d.data()])); renderMatches(); }, fail);
+  db.collection("judgments").onSnapshot(q => { S.judgments = Object.fromEntries(q.docs.map(d => [d.id, d.data()])); if (document.activeElement?.closest?.("[data-note]")) S.matchesStale = true; else renderMatches(); }, fail);
 })();
 </script>
