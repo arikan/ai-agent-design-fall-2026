@@ -427,6 +427,17 @@
     "board_token": "mozilla",
     "company_name": "Mozilla"
    }
+  },
+  {
+   "id": "ashby:ava-labs",
+   "adapter": "ashby",
+   "enabled": true,
+   "category": "crypto",
+   "note": "Avalanche blockchain",
+   "config": {
+    "company": "ava-labs",
+    "company_name": "Ava Labs"
+   }
   }
  ]
 }
