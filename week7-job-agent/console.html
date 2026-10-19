@@ -1212,8 +1212,8 @@ function runNowBlock(context){
   const daily = S.progress && !["done","stopped"].includes(S.progress.stage) && Date.now() - new Date(S.progress.updated_at) < 30 * 60000;
   if (daily) return progressBox(S.progress.started_at, "started");   // the morning run, started by its schedule
   const m = manualRuns();
-  if (context !== "first" && !m.left) return `<div class="stack" style="gap:4px"><button type="button" class="btn primary" disabled>Run now</button><span class="small muted">You've started ${m.used} runs today. The next is allowed ${esc(when(m.nextAt))}; the morning run is not affected.</span></div>`;
-  return `<div class="stack" style="gap:4px">${btn(context === "first" ? "Start my agent" : "Run now")}${context !== "first" ? `<span class="small muted">${m.left} of ${COURSE_CAPS.max_manual_runs_per_day} runs by hand left today. Each scores the next ${Math.min(S.agent?.settings?.max_judged_per_search || COURSE_CAPS.max_judged_per_search, COURSE_CAPS.max_judged_per_search)} best postings.</span>` : ""}</div>`;
+  if (context !== "first" && !m.left) return `<div class="stack" style="gap:4px"><button type="button" class="btn primary" disabled>Run now</button><span class="small muted">You've started ${m.used} runs here in the last 24 hours, the limit. The next is allowed ${esc(when(m.nextAt))}. The morning run is separate and always happens.</span></div>`;
+  return `<div class="stack" style="gap:4px">${btn(context === "first" ? "Start my agent" : "Run now")}${context !== "first" ? `<span class="small muted">${m.used ? `You've started ${m.used} run${m.used === 1 ? "" : "s"} here in the last 24 hours; ${m.left} more allowed.` : `Besides the morning run, you can start up to ${COURSE_CAPS.max_manual_runs_per_day} runs here in any 24 hours.`} Each scores the next ${Math.min(S.agent?.settings?.max_judged_per_search || COURSE_CAPS.max_judged_per_search, COURSE_CAPS.max_judged_per_search)} best postings.</span>` : ""}</div>`;
 }
 async function runNow(){
   if (!S.runner?.trigger_id){ S.setup.open = true; renderSetup(); return; }
