@@ -506,7 +506,8 @@ function formSearch(){
 function renderPreview(s){
   const box = $("preview"); if (!box) return;
   const idx = S.posts.index, items = S.posts.items;
-  const head = `<div class="row between"><h3>What the next run would score</h3>${idx ? `<span class="small muted">${num(idx.count)} posts collected ${esc(when(idx.collected_at))}</span>` : ""}</div>`;
+  const head = `<div class="row between"><h3>Which posts the next run would score</h3>${idx ? `<span class="small muted">${num(idx.count)} posts collected ${esc(when(idx.collected_at))}</span>` : ""}</div>
+    <p class="small muted" style="margin:0">Ranked by the fields above. Dimensions shape Claude's scores of these, not this list.</p>`;
   if (!idx){ box.innerHTML = head + `<p class="small muted" style="margin:0">After your first run, this shows how your search ranks the posts it collected, so you can tune it without waiting for the next run.</p>`; return; }
   if (!items){ box.innerHTML = head + `<p class="small muted" style="margin:0"><span class="spin" aria-hidden="true"></span>Loading the collected posts…</p>`; if (!S.posts.loading) loadPosts(); return; }
   const f = formSearch(), seen = new Set(S.matches.filter(m => m.search_id === (s?.id || "")).map(m => m.posting_id));
@@ -526,7 +527,7 @@ function renderPreview(s){
       <span class="ptitle">${x.p.url ? `<a href="${esc(x.p.url)}" target="_blank" rel="noopener">${esc(x.p.title)}</a>` : esc(x.p.title)} <span class="muted">· ${esc(x.p.company)}</span></span>
       <span class="pwhy small muted">${x.parts.map(q => `<span class="${q.v > 0 ? "hit" : ""}">${label[q.key]}${q.key === "role" || q.key === "industry" ? (q.v ? " ✓" : " ✗") : ` ${Math.round(q.v * 100)}%`}</span>`).join("")}</span></li>`).join("");
   box.innerHTML = head + `
-    <p class="small muted" style="margin:0">${num(dropped)} dropped by your filters${dropped ? ` (${Object.entries(drops).map(([k,v]) => `${esc(dropLabel(k))}: ${v}`).join(", ")})` : ""}${already ? `, ${num(already)} already matched` : ""}. ${num(passed.length)} ranked by code; the top <b>${n}</b> would be scored by Claude. Edit the fields above and this updates.</p>
+    <p class="small muted" style="margin:0">${num(dropped)} dropped by your filters${dropped ? ` (${Object.entries(drops).map(([k,v]) => `${esc(dropLabel(k))}: ${v}`).join(", ")})` : ""}${already ? `, ${num(already)} already matched` : ""}. ${num(passed.length)} ranked by code; the top <b>${n}</b> would be scored by Claude.</p>
     ${rows ? `<ol class="plist">${rows}</ol>` : `<p class="small muted" style="margin:0">Nothing passes your filters.</p>`}
     ${passed.length > n ? `<button type="button" class="btn" id="preview-more">${S.posts.showAll ? "Show fewer" : `Show the next ${Math.min(25, passed.length) - n}`}</button>` : ""}`;
   const more = $("preview-more"); if (more) more.onclick = () => { S.posts.showAll = !S.posts.showAll; renderPreview(s); };
