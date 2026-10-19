@@ -997,10 +997,6 @@ function renderAgent(){
       <div class="pdetail"><p style="margin:0">${cur.how}${cur.from ? ` <span class="muted">Last run: ${esc(cur.from)}.</span>` : ""}</p>
         <button type="button" class="linkbtn small" ${cur.go[0].startsWith("a-") ? `data-jump="${cur.go[0]}"` : `data-goview="${cur.go[0]}"`}>${cur.go[1]} ${cur.go[0].startsWith("a-") ? "↓" : "→"}</button></div>
     </section>
-    <section class="asec" id="a-sample">
-      <h2>What the model sees</h2>
-      ${agentSample(run)}
-    </section>
     <section class="card stack" id="a-eval">
       <h2>Evaluation</h2>
       <p class="small muted" style="margin:0">Compares the agent's scores with your Good and Nope verdicts. <button type="button" class="tip" aria-label="About this eval" data-tip="It measures ranking: for every pair of one Good and one Nope post, does the agent score the Good one higher? Data scientists call this AUC. It doesn't change the agent; it measures each version, so you can see whether a change helped. It only covers posts the agent chose to score, so it can't see good posts it ranked too low to read.">i</button></p>
@@ -1026,6 +1022,10 @@ function renderAgent(){
       </tbody></table></div></details>
       <div class="row"><button class="btn primary" type="submit">Save as new version</button><span class="status" id="a-status"></span></div>
     </form>
+    <section class="asec" id="a-sample">
+      <h2>What the model sees</h2>
+      ${agentSample(run)}
+    </section>
     <section class="asec">
       <h2>Versions and cost</h2>
       ${agentVersions()}
