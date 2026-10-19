@@ -28,7 +28,7 @@ A run should take few turns: do independent tool calls in the same turn, and nev
    - If it says the run stopped on the course cap, go to step 7.
    - Otherwise set `meta` / `progress` from `work/out/progress.json` (`file_path`, with the version from step 3; keep the version the write returns).
 5. **Judge** `work/batch.json`: follow its `matcher_instructions` and each search's dimension rubrics. For every item and every dimension give a score from 1 to 5 or `"unknown"`, a one sentence reason, and evidence copied exactly from the posting's `text`. Keep reasons short. Write the list to `work/judgments.json` in the batch's `answer_format`, in one file write. The engine rejects any score whose evidence is not in the text.
-6. **Rank and package:** `uv run run.py finish`.
+6. **Rank and package:** `uv run run.py finish --model <id>`, where `<id>` is the model you are running as, exactly as your system prompt names it (for example `claude-sonnet-4-5`). It is recorded on the run and on every match, so a score can always be traced to the model that gave it.
 7. **Write back**, in one turn:
    - `work/out/writes.json` with ArtifactData `batch` (at most 50 writes per call; each entry already has its `file_path`)
    - `meta` / `progress` from `work/out/progress.json` (with the version you kept)

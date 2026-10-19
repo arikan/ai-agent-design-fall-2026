@@ -160,7 +160,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .hdr-r{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .build{font-size:11px;opacity:.7}
 .newtag{font:600 10px var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:2px 6px;align-self:center}
-.funnel{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.funnel{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
 .funnel li{position:relative;border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:2px;align-content:start;background:var(--bg)}
 .funnel b{font:600 20px var(--font-data)}
 .funnel span{font-size:12px;color:var(--muted);line-height:1.4}
@@ -366,7 +366,7 @@ function renderMatches(){
         <div class="cells">${cells}</div>
         <details><summary>Why these scores</summary><div class="whys">${why}</div>
           <p class="small">${esc(m.text)}</p>
-          <p class="small muted mono">agent v${esc(m.agent_version)} · CV v${esc(m.cv_version)} · preferences v${esc(m.prefs_version)} · unknown counts as ${esc(m.unknown_policy)}</p></details>
+          <p class="small muted mono">scored by ${esc(m.model || "Claude")} · agent v${esc(m.agent_version)} · CV v${esc(m.cv_version)} · preferences v${esc(m.prefs_version)} · unknown counts as ${esc(m.unknown_policy)}</p></details>
         <div class="judge">
           <div class="row between">
            <div class="row">
@@ -1237,14 +1237,13 @@ function runFunnel(r){
   const src = (r.sources || []).filter(x => x.status !== "manual");
   return {collected: src.reduce((n,x) => n + (x.kept || 0), 0), nSources: src.length, dupes: norm.duplicates_merged || 0, unique: norm.postings,
           seen: sum("already_matched"), dropped: sum("dropped"), ranked: sum("passed"), scored: sum("sent_to_judge"),
-          matches: judge?.accepted ?? r.matches ?? 0, rejected: judge?.rejected || 0};
+          matches: judge?.accepted ?? r.matches ?? 0, rejected: judge?.rejected || 0, model: r.model || "Claude"};
 }
 function funnelView(f){
   return `<ol class="funnel">
     <li><b>${num(f.collected)}</b><span>collected from ${f.nSources} source${f.nSources === 1 ? "" : "s"}</span></li>
     <li><b>${num(f.ranked)}</b><span>ranked by code${[f.dupes && `${num(f.dupes)} duplicates`, f.dropped && `${num(f.dropped)} deal breakers`, f.seen && `${num(f.seen)} already matched`].filter(Boolean).map(x => `<br>−${x}`).join("")}</span></li>
-    <li><b>${num(f.scored)}</b><span>scored by Claude<br>the top of the ranking</span></li>
-    <li><b>${num(f.matches)}</b><span>new matches${f.rejected ? `<br>${f.rejected} scores rejected` : ""}</span></li>
+    <li><b>${num(f.scored)}</b><span>scored by ${esc(f.model)}<br>the top of the ranking, each now a match${f.rejected ? `<br>−${f.rejected} rejected: evidence not in the posting` : ""}</span></li>
   </ol>`;
 }
 function renderRuns(){
@@ -1282,7 +1281,7 @@ function renderRuns(){
     const stoppedWhy = r.status === "stopped" ? (r.reason || (r.cap_hit === "max_runs_per_day" ? "Stopped before collecting anything: another run had already completed that day (the limit then was one run per day, counted in UTC)." : `Stopped: ${r.cap_hit}`)) : "";
     return `<details class="card" ${idx===0?"open":""}><summary class="row between" style="color:var(--fg)">
         <span><b>${esc(when(r.started))}</b> <span class="muted mono small">${esc(r.id)}</span></span>
-        <span class="row"><span class="pill ${r.status==="ok"?"ok":"warn"}">${esc(r.status)}</span><span class="small muted">${(f => f ? `${num(f.collected)} collected · ${num(f.scored)} scored · ` : "")(runFunnel(r))}${r.matches ?? 0} matches${r.agent_version ? ` · agent v${esc(r.agent_version)}` : ""}</span></span></summary>
+        <span class="row"><span class="pill ${r.status==="ok"?"ok":"warn"}">${esc(r.status)}</span><span class="small muted">${(f => f ? `${num(f.collected)} collected · ${num(f.scored)} scored by ${esc(f.model)}${f.rejected ? ` · ${f.rejected} rejected` : ""}` : `${r.matches ?? 0} matches`)(runFunnel(r))}${r.agent_version ? ` · agent v${esc(r.agent_version)}` : ""}</span></span></summary>
       <div class="stack" style="margin-top:12px">
         <p class="small muted" style="margin:0">Started ${r.trigger === "manual" ? "by hand" : "by the morning schedule"}${took ? ` · took ${took}` : ""}${stages ? ` · ${stages}` : ""}</p>
         ${stoppedWhy ? `<div class="testbox small"><b>Why it stopped.</b> ${esc(stoppedWhy)}</div>` : ""}

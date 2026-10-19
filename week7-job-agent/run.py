@@ -2,7 +2,9 @@
 
   uv run run.py prepare [manual]   work/db/ -> config, fetch, filter, rank -> work/batch.json, progress "judging"
                                    (`manual` marks a run the student started by hand; those are capped)
-  uv run run.py finish             work/judgments.json -> check, rank -> work/out/writes.json, progress "done"
+  uv run run.py finish [--model <id>]
+                                   work/judgments.json -> check, rank -> work/out/writes.json, progress "done"
+                                   (`--model` records which model did the scoring, on the run and its matches)
 
 Each prints one line per stage with how long it took, and the run record keeps those times.
 """
@@ -28,10 +30,14 @@ def timed(times, label, fn, *args):
     TIMINGS.write_text(json.dumps(times))
 
 
-def attach(times):
-    """Put the stage times into the run record the engine wrote."""
+def attach(times, model=None):
+    """Put the stage times, and the scoring model, into the results the engine wrote."""
     r = json.loads((dbio.WORK / "results.json").read_text())
     r["run"]["timings"] = times
+    if model:
+        r["run"]["model"] = model
+        for m in r.get("matches", []):
+            m["model"] = model
     (dbio.WORK / "results.json").write_text(json.dumps(r, indent=2))
 
 
@@ -53,13 +59,13 @@ def prepare(trigger):
     dbio.progress("judging")
 
 
-def finish():
+def finish(model=None):
     cfg = json.loads((dbio.WORK / "config.json").read_text())
     times = json.loads(TIMINGS.read_text()) if TIMINGS.exists() else {}
     if "prepared_at" in times:      # the gap between the two halves is Claude's judging
         times["judge"] = round(time.time() - datetime.fromisoformat(times.pop("prepared_at")).timestamp(), 1)
     timed(times, "finish", engine.finish, cfg)
-    attach(times)
+    attach(times, model)
     dbio.export()
     dbio.progress("done")
 
@@ -69,6 +75,7 @@ if __name__ == "__main__":
     if cmd == "prepare":
         prepare("manual" if "manual" in sys.argv[2:] else "scheduled")
     elif cmd == "finish":
-        finish()
+        args = sys.argv[2:]
+        finish(args[args.index("--model") + 1] if "--model" in args and len(args) > args.index("--model") + 1 else None)
     else:
         sys.exit(__doc__)
