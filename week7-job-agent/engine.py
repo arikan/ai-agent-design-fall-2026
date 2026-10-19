@@ -14,7 +14,7 @@ import json
 from collections import Counter
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -242,10 +242,17 @@ def prepare(config):
     trace = []
     run_id = "run-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
 
-    if config.get("runs_today", 0) >= CAPS["max_runs_per_day"]:
-        step(trace, "stop", cap="max_runs_per_day")
-        (WORK / "results.json").write_text(json.dumps({"run": {"id": run_id, "status": "stopped", "cap_hit": "max_runs_per_day", "started": trace[0]["at"], "ended": now(), "matches": 0, "trace": trace}}, indent=2))
-        print("Stopped: a run already happened today (course cap).")
+    trigger = config.get("trigger", "scheduled")
+    if trigger == "manual" and config.get("manual_runs_24h", 0) >= CAPS["max_manual_runs_per_day"]:
+        allowed_at = (datetime.fromisoformat(config["manual_runs_since"][0]) + timedelta(hours=24)).isoformat()
+        reason = (f"{config['manual_runs_24h']} runs were started by hand in the last 24 hours, the course limit. "
+                  f"The next run by hand is allowed after {allowed_at[:16].replace('T', ' ')} UTC; the morning run is not affected.")
+        step(trace, "stop", cap="max_manual_runs_per_day", reason=reason)
+        (WORK / "results.json").write_text(json.dumps({"run": {"id": run_id, "status": "stopped", "cap_hit": "max_manual_runs_per_day",
+                                                                "reason": reason, "allowed_at": allowed_at, "trigger": trigger,
+                                                                "agent_version": config["agent"]["version"], "started": trace[0]["at"],
+                                                                "ended": now(), "matches": 0, "trace": trace}}, indent=2))
+        print("Stopped: " + reason)
         return
 
     searches = [s for s in config["searches"] if s.get("active")]
@@ -382,8 +389,8 @@ def finish(config):
     step(trace, "score", method="weighted average in code; unknown counts per search policy",
          top=[{"search": m["search_id"], "title": m["title"], "total": m["total"]} for m in matches[:5]])
 
-    run = {"id": batch["run_id"], "status": "ok", "started": state["started"], "ended": now(),
-           "agent_version": batch["agent_version"], "searches": [s["id"] for s in batch["searches"]],
+    run = {"id": batch["run_id"], "status": "ok", "trigger": config.get("trigger", "scheduled"),
+           "started": state["started"], "ended": now(), "agent_version": batch["agent_version"], "searches": [s["id"] for s in batch["searches"]],
            "sources": state["sources"], "filtered": state["filtered"][:FILTERED_KEPT],
            "filtered_total": len(state["filtered"]), "filtered_by_reason": dict(Counter(f["reason"] for f in state["filtered"]).most_common()),
            "matches": len(matches),

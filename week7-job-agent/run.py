@@ -1,52 +1,74 @@
 """One command per half of a run, so the cloud session spends its turns only where Claude is needed.
 
-  uv run run.py prepare   work/db/ -> config, fetch, filter, rank -> work/batch.json, progress "judging"
-                          (or "stopped" when today's run already happened; nothing is fetched then)
-  uv run run.py finish    work/judgments.json -> check, rank -> work/out/writes.json, progress "done"
+  uv run run.py prepare [manual]   work/db/ -> config, fetch, filter, rank -> work/batch.json, progress "judging"
+                                   (`manual` marks a run the student started by hand; those are capped)
+  uv run run.py finish             work/judgments.json -> check, rank -> work/out/writes.json, progress "done"
 
-Each prints one line per stage with how long it took.
+Each prints one line per stage with how long it took, and the run record keeps those times.
 """
 
 import json
 import sys
 import time
+from datetime import datetime, timezone
 
 import dbio
 import engine
 import sources
 
 CAPS = json.loads((engine.HERE / "caps.json").read_text())
+TIMINGS = dbio.WORK / "timings.json"
 
 
-def timed(label, fn, *args):
+def timed(times, label, fn, *args):
     t = time.time()
     fn(*args)
-    print(f"[{label}: {time.time() - t:.1f}s]")
+    times[label] = round(time.time() - t, 1)
+    print(f"[{label}: {times[label]}s]")
+    TIMINGS.write_text(json.dumps(times))
 
 
-def prepare():
-    timed("config", dbio.config)
+def attach(times):
+    """Put the stage times into the run record the engine wrote."""
+    r = json.loads((dbio.WORK / "results.json").read_text())
+    r["run"]["timings"] = times
+    (dbio.WORK / "results.json").write_text(json.dumps(r, indent=2))
+
+
+def prepare(trigger):
+    times = {}
+    timed(times, "config", dbio.config, trigger)
     cfg_path = dbio.WORK / "config.json"
     cfg = json.loads(cfg_path.read_text())
-    if cfg.get("runs_today", 0) >= CAPS["max_runs_per_day"]:
-        timed("prepare", engine.prepare, cfg)          # records the stop; nothing is fetched
+    if trigger == "manual" and cfg.get("manual_runs_24h", 0) >= CAPS["max_manual_runs_per_day"]:
+        timed(times, "prepare", engine.prepare, cfg)          # records the stop; nothing is fetched
+        attach(times)
         dbio.export()
         dbio.progress("stopped")
         return
-    timed("fetch", sources.fetch, str(cfg_path))
-    timed("prepare", engine.prepare, cfg)
+    timed(times, "fetch", sources.fetch, str(cfg_path))
+    timed(times, "prepare", engine.prepare, cfg)
+    times["prepared_at"] = datetime.now(timezone.utc).isoformat()
+    TIMINGS.write_text(json.dumps(times))
     dbio.progress("judging")
 
 
 def finish():
     cfg = json.loads((dbio.WORK / "config.json").read_text())
-    timed("finish", engine.finish, cfg)
+    times = json.loads(TIMINGS.read_text()) if TIMINGS.exists() else {}
+    if "prepared_at" in times:      # the gap between the two halves is Claude's judging
+        times["judge"] = round(time.time() - datetime.fromisoformat(times.pop("prepared_at")).timestamp(), 1)
+    timed(times, "finish", engine.finish, cfg)
+    attach(times)
     dbio.export()
     dbio.progress("done")
 
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
-    if cmd not in ("prepare", "finish"):
+    if cmd == "prepare":
+        prepare("manual" if "manual" in sys.argv[2:] else "scheduled")
+    elif cmd == "finish":
+        finish()
+    else:
         sys.exit(__doc__)
-    {"prepare": prepare, "finish": finish}[cmd]()

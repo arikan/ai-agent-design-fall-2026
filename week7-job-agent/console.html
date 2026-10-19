@@ -147,6 +147,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .segs-tabs{display:flex;flex-wrap:wrap;gap:4px;background:var(--sunk);border-radius:8px;padding:3px}
 .segtab{appearance:none;border:0;background:none;font:500 13px var(--font-ui);color:var(--muted);padding:5px 10px;border-radius:6px;cursor:pointer}
 .segtab[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 0 0 1px var(--line)}
+.runbar.plain{padding:4px 0 12px}
 .runbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px}
 .runbar-action.wide{flex:1 1 100%}
 #search-list{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
@@ -270,7 +271,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script>
-const COURSE_CAPS = {max_runs_per_day:1, max_searches:3, max_postings_per_source:1000, max_postings_per_run:3000, max_judged_per_search:12, trace_runs_kept:14};
+const COURSE_CAPS = {max_manual_runs_per_day:3, max_searches:3, max_postings_per_source:1000, max_postings_per_run:3000, max_judged_per_search:12, trace_runs_kept:14};
 const DEFAULT_DIMS = [
   {key:"industry", name:"Industry alignment", weight:15, rubric:"Strong: a sector I care about. Weak: a sector I avoid or feel neutral about."},
   {key:"role", name:"Role fit", weight:25, rubric:"Strong: the daily work is what I want to do. Weak: mostly tasks I want to move away from."},
@@ -678,14 +679,15 @@ function renderAgent(){
     <div class="card stack">
       <h3>Limits</h3>
       <div class="grid2">
-        <label for="a-judged">Postings judged per search, per run<input type="number" id="a-judged" min="1" max="${COURSE_CAPS.max_judged_per_search}" value="${a.settings.max_judged_per_search}"></label>
+        <label for="a-judged">Postings scored by Claude, per search and run<input type="number" id="a-judged" min="1" max="${COURSE_CAPS.max_judged_per_search}" value="${a.settings.max_judged_per_search}"></label>
       </div>
+      <p class="small muted" style="margin:0">Every collected posting goes through your deal breakers and the code ranking. Only this many of each search's top-ranked postings are sent to Claude per run; the rest wait for a later run. Scoring is the slow step and the one that uses your plan, so lower is faster and cheaper.</p>
       <div class="scroll"><table><thead><tr><th>Course cap, enforced</th><th>Value</th></tr></thead><tbody>
-        <tr><td>Runs per day</td><td class="num">${COURSE_CAPS.max_runs_per_day}</td></tr>
+        <tr><td>Runs started by hand, per 24 hours (the morning run is always allowed)</td><td class="num">${COURSE_CAPS.max_manual_runs_per_day}</td></tr>
         <tr><td>Active searches</td><td class="num">${COURSE_CAPS.max_searches}</td></tr>
-        <tr><td>Postings per source</td><td class="num">${COURSE_CAPS.max_postings_per_source}</td></tr>
-        <tr><td>Postings per run</td><td class="num">${COURSE_CAPS.max_postings_per_run}</td></tr>
-        <tr><td>Judged per search</td><td class="num">${COURSE_CAPS.max_judged_per_search}</td></tr>
+        <tr><td>Postings collected per source, per run</td><td class="num">${num(COURSE_CAPS.max_postings_per_source)}</td></tr>
+        <tr><td>Postings collected per run</td><td class="num">${num(COURSE_CAPS.max_postings_per_run)}</td></tr>
+        <tr><td>Postings scored by Claude, per search and run</td><td class="num">${COURSE_CAPS.max_judged_per_search}</td></tr>
         <tr><td>Runs with full traces kept</td><td class="num">${COURSE_CAPS.trace_runs_kept}</td></tr>
       </tbody></table></div>
     </div>
@@ -1157,7 +1159,13 @@ function runNowPhase(){
   return (Date.now() - new Date(r.requested_at)) / 60000 > 30 ? "stale" : "running";
 }
 // The course allows one run per day (UTC, as the engine counts it), so a second one would only stop.
-const ranToday = () => { const d = new Date().toISOString().slice(0,10).replace(/-/g,""); return S.runs.some(x => x.status === "ok" && String(x.id).startsWith(`run-${d}`)); };
+// Runs started by hand in the last 24 hours (the engine counts the same way). The morning run is never counted.
+function manualRuns(){
+  const since = Date.now() - 24 * 3600000;
+  const recent = S.runs.filter(x => x.trigger === "manual" && x.status === "ok" && new Date(x.started) >= since).map(x => new Date(x.started)).sort((a,b) => a - b);
+  const left = Math.max(0, COURSE_CAPS.max_manual_runs_per_day - recent.length);
+  return {used:recent.length, left, nextAt: left ? null : new Date(recent[0].getTime() + 24 * 3600000)};
+}
 // The running session's own page, where it can be stopped. The scheduled task's last run names it
 // (cse_X is the session at claude.ai/code/session_X); until it shows up, link the task's page instead.
 S.live = {since:null, url:null, busy:false};
@@ -1203,8 +1211,9 @@ function runNowBlock(context){
   if (ph === "stale") return `<div class="testbox bad small" role="alert"><b>No result after 30 minutes.</b> Open your scheduled task in Claude Code to see what happened.</div>${btn("Try again")}`;
   const daily = S.progress && !["done","stopped"].includes(S.progress.stage) && Date.now() - new Date(S.progress.updated_at) < 30 * 60000;
   if (daily) return progressBox(S.progress.started_at, "started");   // the morning run, started by its schedule
-  if (context !== "first" && ranToday()) return `<span class="small muted">Today's run is done. The next one starts tomorrow morning.</span>`;
-  return btn(context === "first" ? "Start my agent" : "Run now");
+  const m = manualRuns();
+  if (context !== "first" && !m.left) return `<div class="stack" style="gap:4px"><button type="button" class="btn primary" disabled>Run now</button><span class="small muted">You've started ${m.used} runs today. The next is allowed ${esc(when(m.nextAt))}; the morning run is not affected.</span></div>`;
+  return `<div class="stack" style="gap:4px">${btn(context === "first" ? "Start my agent" : "Run now")}${context !== "first" ? `<span class="small muted">${m.left} of ${COURSE_CAPS.max_manual_runs_per_day} runs by hand left today. Each scores the next ${Math.min(S.agent?.settings?.max_judged_per_search || COURSE_CAPS.max_judged_per_search, COURSE_CAPS.max_judged_per_search)} best postings.</span>` : ""}</div>`;
 }
 async function runNow(){
   if (!S.runner?.trigger_id){ S.setup.open = true; renderSetup(); return; }
@@ -1254,11 +1263,12 @@ function renderRuns(){
     </div>`;
     return;
   }
-  const last = S.runs.find(x => x.status === "ok") || S.runs[0];
-  top.innerHTML = ready ? `<div class="card runbar">
+  const last = S.runs[0];
+  const outcome = r => r.status === "ok" ? `${r.matches ?? 0} new matches` : r.status === "stopped" ? `stopped, ${r.cap_hit === "max_manual_runs_per_day" ? "the limit on runs by hand" : "a run had already happened that day"}` : esc(r.status);
+  top.innerHTML = ready ? `<div class="runbar plain">
       <div class="stack" style="gap:2px;min-width:0">
-        <b>Runs every morning</b>
-        <span class="small muted">Last run ${esc(when(last.started))} · ${last.matches ?? 0} new matches · one run per day</span>
+        <b>Runs every morning on its own</b>
+        <span class="small muted">Last run ${esc(when(last.started))}, ${outcome(last)}. You can also start a run now.</span>
       </div>
       <div class="runbar-action ${running ? "wide" : ""}">${runNowBlock("again")}</div>
     </div>` : "";
@@ -1266,12 +1276,18 @@ function renderRuns(){
     const sources = (r.sources||[]).map(s => `<tr><td class="mono">${esc(s.source)}</td><td><span class="pill ${s.status==="ok"?"ok":s.status==="empty"?"warn":s.status==="manual"?"":"bad"}">${esc(s.status)}</span></td><td class="num">${s.fetched ?? ""}</td><td class="num">${s.rejected ?? ""}</td><td class="num">${s.kept ?? ""}</td><td class="mono">${esc(s.error||s.reason||s.note||"")}</td></tr>`).join("");
     const filtered = (r.filtered||[]).map(f => `<tr><td>${esc(f.title)}</td><td>${esc(f.company)}</td><td>${esc(f.reason)}</td><td class="mono">${esc(f.search)}</td></tr>`).join("");
     const steps = (r.trace||[]).map(t => { const {step, at, ...rest} = t; return `<div class="step"><span class="k">${esc(step)}</span><span class="mono" style="white-space:pre-wrap;word-break:break-word">${esc(JSON.stringify(rest, null, 1))}</span></div>`; }).join("");
+    const took = r.started && r.ended ? clock(new Date(r.ended) - new Date(r.started)) : "";
+    const stageNames = {config:"settings", fetch:"collect", prepare:"filter and rank", judge:"score (Claude)", finish:"check and rank"};
+    const stages = r.timings ? Object.entries(r.timings).map(([k,v]) => `${stageNames[k] || k} ${v >= 60 ? clock(v * 1000) : v + "s"}`).join(" · ") : "";
+    const stoppedWhy = r.status === "stopped" ? (r.reason || (r.cap_hit === "max_runs_per_day" ? "Stopped before collecting anything: another run had already completed that day (the limit then was one run per day, counted in UTC)." : `Stopped: ${r.cap_hit}`)) : "";
     return `<details class="card" ${idx===0?"open":""}><summary class="row between" style="color:var(--fg)">
         <span><b>${esc(when(r.started))}</b> <span class="muted mono small">${esc(r.id)}</span></span>
-        <span class="row"><span class="pill ${r.status==="ok"?"ok":"warn"}">${esc(r.status)}${r.cap_hit?": "+esc(r.cap_hit):""}</span><span class="small muted">${(f => f ? `${num(f.collected)} collected · ${num(f.scored)} scored · ` : "")(runFunnel(r))}${r.matches ?? 0} matches · agent v${esc(r.agent_version)}</span></span></summary>
+        <span class="row"><span class="pill ${r.status==="ok"?"ok":"warn"}">${esc(r.status)}</span><span class="small muted">${(f => f ? `${num(f.collected)} collected · ${num(f.scored)} scored · ` : "")(runFunnel(r))}${r.matches ?? 0} matches${r.agent_version ? ` · agent v${esc(r.agent_version)}` : ""}</span></span></summary>
       <div class="stack" style="margin-top:12px">
+        <p class="small muted" style="margin:0">Started ${r.trigger === "manual" ? "by hand" : "by the morning schedule"}${took ? ` · took ${took}` : ""}${stages ? ` · ${stages}` : ""}</p>
+        ${stoppedWhy ? `<div class="testbox small"><b>Why it stopped.</b> ${esc(stoppedWhy)}</div>` : ""}
         ${(f => f ? funnelView(f) : "")(runFunnel(r))}
-        <h3>Sources</h3><div class="scroll"><table><thead><tr><th>Source</th><th>Status</th><th>Fetched</th><th>Incomplete</th><th>Collected</th><th>Note</th></tr></thead><tbody>${sources}</tbody></table></div>
+        ${sources ? `<h3>Sources</h3><div class="scroll"><table><thead><tr><th>Source</th><th>Status</th><th>Fetched</th><th>Incomplete</th><th>Collected</th><th>Note</th></tr></thead><tbody>${sources}</tbody></table></div>` : ""}
         ${filtered ? `<h3>Dropped by deal breakers (${r.filtered_total ?? r.filtered.length})</h3>${r.filtered_by_reason ? `<p class="small muted">${Object.entries(r.filtered_by_reason).map(([k,v]) => `${esc(k)}: ${v}`).join(" · ")}${r.filtered_total > r.filtered.length ? ` · first ${r.filtered.length} listed` : ""}</p>` : ""}<div class="scroll"><table><thead><tr><th>Posting</th><th>Company</th><th>Reason</th><th>Search</th></tr></thead><tbody>${filtered}</tbody></table></div>` : ""}
         <h3>Steps</h3><div>${steps}</div>
       </div></details>`;

@@ -24,7 +24,7 @@ A run should take few turns: do independent tool calls in the same turn, and nev
    Set its `status` to `"started"` (pass the version you read). Otherwise this is the daily run; continue. An extra message `TEST_SOURCE <id>` or `CHECK_SETUP` means the same as a request of that kind.
 2. **Get the engine.** In one command: shallow clone the course repo, `cd` into `week7-job-agent`, and run `pip install -q uv` if `uv` is missing.
 3. **Read the database**, all in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `runs` (list), `matches` (list), `meta` / `progress`, `meta` / `console` and `meta` / `postings` (get; any may not exist).
-4. **Collect, filter and rank:** `uv run run.py prepare`. It prints how long each stage took.
+4. **Collect, filter and rank:** `uv run run.py prepare`, or `uv run run.py prepare manual` when step 1 found a `run` request (the student pressed Run now; those runs are capped at a few a day, the morning run is not). It prints how long each stage took.
    - If it says the run stopped on the course cap, go to step 7.
    - Otherwise set `meta` / `progress` from `work/out/progress.json` (`file_path`, with the version from step 3; keep the version the write returns).
 5. **Judge** `work/batch.json`: follow its `matcher_instructions` and each search's dimension rubrics. For every item and every dimension give a score from 1 to 5 or `"unknown"`, a one sentence reason, and evidence copied exactly from the posting's `text`. Keep reasons short. Write the list to `work/judgments.json` in the batch's `answer_format`, in one file write. The engine rejects any score whose evidence is not in the text.

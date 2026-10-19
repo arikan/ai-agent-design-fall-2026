@@ -9,11 +9,13 @@ database reads as JSON files under work/db/ (ArtifactData with out_dir), then:
   uv run dbio.py progress <stage>
                           -> work/out/progress.json, the live status the page shows while a
                               run works (stages: fetching, filtering, judging, saving, done, stopped)
+  uv run dbio.py config [manual]
+                          -> the run is one the student started by hand (counted against its cap)
 """
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -25,25 +27,29 @@ def body(path):
     return d.get("data", d)
 
 
-def config():
+def config(trigger="scheduled"):
     db = WORK / "db"
     searches = []
     for p in sorted((db / "searches").glob("*.json")):
         s = body(p)
         s["id"] = p.stem
         searches.append(s)
-    today = datetime.now(timezone.utc).strftime("%Y%m%d")
-    runs_today = sum(1 for p in (db / "runs").glob("*.json")
-                     if p.stem.startswith(f"run-{today}") and body(p).get("status") == "ok") if (db / "runs").exists() else 0
+    # Runs the student started by hand in the last 24 hours. A rolling day, not a calendar day,
+    # so it means the same thing in every time zone. The scheduled morning run is never counted.
+    since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    manual = sorted(body(p).get("started", "") for p in (db / "runs").glob("*.json")
+                    if body(p).get("trigger") == "manual" and body(p).get("status") == "ok") if (db / "runs").exists() else []
+    recent = [t for t in manual if t >= since]
     # Postings already matched for a search are not judged again: only new ones cost a judgment,
     # and every database write stays a create.
     seen = {}
     for p in (db / "matches").glob("*.json") if (db / "matches").exists() else []:
         m = body(p)
         seen.setdefault(m["search_id"], []).append(m["posting_id"])
-    cfg = {"runs_today": runs_today, "agent": body(db / "agent" / "current.json"), "searches": searches, "seen": seen}
+    cfg = {"trigger": trigger, "manual_runs_24h": len(recent), "manual_runs_since": recent, "agent": body(db / "agent" / "current.json"),
+           "searches": searches, "seen": seen}
     (WORK / "config.json").write_text(json.dumps(cfg, indent=2))
-    print(f"config: {len(searches)} search(es), agent v{cfg['agent']['version']}, {runs_today} run(s) already today")
+    print(f"config: {len(searches)} search(es), agent v{cfg['agent']['version']}, {len(recent)} run(s) by hand in the last 24 hours")
 
 
 def safe(source_id):
@@ -162,7 +168,9 @@ if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "progress" and len(sys.argv) == 3:
         progress(sys.argv[2])
-    elif cmd in ("config", "export"):
-        {"config": config, "export": export}[cmd]()
+    elif cmd == "config":
+        config("manual" if "manual" in sys.argv[2:] else "scheduled")
+    elif cmd == "export":
+        export()
     else:
         sys.exit(__doc__)

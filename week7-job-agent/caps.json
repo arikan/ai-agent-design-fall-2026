@@ -1,5 +1,5 @@
 {
-  "max_runs_per_day": 1,
+  "max_manual_runs_per_day": 3,
   "max_searches": 3,
   "max_postings_per_source": 1000,
   "max_postings_per_run": 3000,
