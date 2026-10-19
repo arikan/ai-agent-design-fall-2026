@@ -946,7 +946,7 @@ function agentSuggest(){
     ${!doc ? `<p class="small muted" style="margin:0">The model reads your disagreements and proposes up to three Profile changes. You decide what to apply.</p>`
       : `<p class="small muted" style="margin:0">From ${esc(when(doc.at))}${doc.model ? ` by ${esc(modelName(doc.model))}` : ""}.${doc.rejected?.length ? ` ${doc.rejected.length} more failed the code check.` : ""}${!open.length ? " Nothing left to review." : ""}</p>`}
     ${open.map(({it, i}) => `<div class="sgitem">
-        <div class="row between"><span>${esc(it.label)}</span>${it.status === "applied" ? `<span class="small ok">Applied as preferences v${esc(it.applied_version)}</span>` : `<span class="row" style="gap:10px"><button type="button" class="btn small" data-apply="${esc(doc.id)}:${i}">Apply suggestion</button><button type="button" class="linkbtn small" data-dismiss="${esc(doc.id)}:${i}">Dismiss</button></span>`}</div>
+        <div class="row between"><span>${esc(it.label)}</span>${it.status === "applied" ? `<span class="small ok" title="Saved as preferences v${esc(it.applied_version)}. Posts scored before stay as they are.">Applied, the next run uses it</span>` : `<span class="row" style="gap:10px"><button type="button" class="btn small" data-apply="${esc(doc.id)}:${i}">Apply suggestion</button><button type="button" class="linkbtn small" data-dismiss="${esc(doc.id)}:${i}">Dismiss</button></span>`}</div>
         <p class="small" style="margin:0">${esc(it.why)}</p>
         ${suggestChange(it)}
         <details class="fold"><summary>Based on ${it.posts.length} post${it.posts.length === 1 ? "" : "s"}</summary><ul class="small sgposts">${it.posts.map(p => `<li>${esc(titles[p] || p)}</li>`).join("")}</ul></details>
