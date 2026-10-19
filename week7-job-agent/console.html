@@ -1029,11 +1029,11 @@ function runNowPhase(){
 function runNowBlock(context){
   const ph = runNowPhase(), r = S.request;
   if (ph === "starting") return `<button class="btn busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Starting…</button>`;
-  if (ph === "running") return `<div class="testbox small stack" style="gap:6px" role="status"><div class="row between"><span class="row"><span class="spin" aria-hidden="true"></span><b>Finding matches</b></span><span class="mono" data-elapsed="${esc(r.requested_at)}">0:00</span></div><div class="bar"><i></i></div><span class="muted">A cloud run is fetching postings from your sources, filtering them, and scoring the best candidates. This usually takes 3 to 8 minutes; matches appear here when it finishes.</span></div>`;
+  if (ph === "running") return `<div class="testbox small stack" style="gap:6px" role="status"><div class="row between"><span class="row"><span class="spin" aria-hidden="true"></span><b>Your agent is running</b></span><span class="mono" data-elapsed="${esc(r.requested_at)}">0:00</span></div><div class="bar"><i></i></div><span class="muted">A cloud run is fetching postings from your sources, filtering them, and scoring the best candidates. This usually takes 3 to 8 minutes; matches appear here when it finishes.</span></div>`;
   const btn = label => `<button type="button" class="btn primary" data-runnow>${label}</button>`;
   if (ph === "not_started") return `<div class="testbox bad small" role="alert"><b>The run didn't start.</b> ${esc(S.runNow.error)}</div>${btn("Try again")}`;
   if (ph === "stale") return `<div class="testbox bad small" role="alert"><b>No result after 30 minutes.</b> Open your scheduled task in Claude Code to see what happened.</div>${btn("Try again")}`;
-  return btn(context === "first" ? "Find my first matches" : "Run now");
+  return btn(context === "first" ? "Start my agent" : "Run now");
 }
 async function runNow(){
   if (!S.runner?.trigger_id){ S.setup.open = true; renderSetup(); return; }
