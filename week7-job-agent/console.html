@@ -1041,7 +1041,29 @@ function runNowPhase(){
 }
 // The course allows one run per day (UTC, as the engine counts it), so a second one would only stop.
 const ranToday = () => { const d = new Date().toISOString().slice(0,10).replace(/-/g,""); return S.runs.some(x => x.status === "ok" && String(x.id).startsWith(`run-${d}`)); };
+// The running session's own page, where it can be stopped. The scheduled task's last run names it
+// (cse_X is the session at claude.ai/code/session_X); until it shows up, link the task's page instead.
+S.live = {since:null, url:null, busy:false};
+async function findRunSession(since){
+  if (S.live.since !== since) S.live = {since, url:null, busy:false};
+  if (S.live.url || S.live.busy || !MCP || !S.runner?.trigger_id) return;
+  S.live.busy = true;
+  try {
+    const res = await MCP.callTool(RUNNER, "list_triggers", {limit:50});
+    const lr = (res.payload?.data || []).find(t => t.id === S.runner.trigger_id)?.last_run;
+    if (lr?.session_id && new Date(lr.fired_at) >= new Date(since) - 30 * 60000)
+      S.live.url = "https://claude.ai/code/" + lr.session_id.replace(/^cse_/, "session_");
+  } catch(e){}
+  S.live.busy = false;
+  if (S.live.url) renderAll();
+  else setTimeout(() => { if (S.live.since === since && document.querySelector(".psteps")) findRunSession(since); }, 15000);
+}
 // Live progress of a run: the request's status says the session started; meta/progress says what the engine did.
+function stopLink(since){
+  findRunSession(since);
+  const href = S.live.url || (S.runner?.trigger_id ? `https://claude.ai/code/routines/${encodeURIComponent(S.runner.trigger_id)}` : "");
+  return href ? `<a class="ext" href="${esc(href)}" target="_blank" rel="noopener" title="Opens the run in Claude Code, where the stop button ends it">${S.live.url ? "Open the run to stop it ↗" : "Open your daily run ↗"}</a>` : "";
+}
 function progressBox(since, reqStatus){
   const p = S.progress && new Date(S.progress.started_at) >= new Date(since) - 60000 ? S.progress : null;
   const stage = p?.stage || (reqStatus === "started" ? "collecting" : "starting");
@@ -1053,7 +1075,7 @@ function progressBox(since, reqStatus){
   const srcs = (p?.sources || []).map(x => `<span class="chip static ${x.status==="ok"?"":"warn"}" title="${esc(x.error||"")}">${esc(x.name)} ${x.status==="ok" ? x.kept : esc(x.status)}</span>`).join("");
   return `<div class="testbox small stack" style="gap:8px" role="status"><div class="row between"><b>Your agent is running</b><span class="mono" data-elapsed="${esc(since)}">0:00</span></div>
     <ol class="psteps">${steps}</ol>${srcs ? `<div class="chips">${srcs}</div>` : ""}
-    <span class="muted">Usually 5 to 10 minutes. Matches appear here when it finishes.</span></div>`;
+    <div class="row between"><span class="muted">Usually 5 to 10 minutes. Matches appear here when it finishes.</span>${stopLink(since)}</div></div>`;
 }
 function runNowBlock(context){
   const ph = runNowPhase(), r = S.request;
