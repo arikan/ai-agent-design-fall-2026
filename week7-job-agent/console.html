@@ -95,7 +95,18 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .unknown{font:500 12px var(--font-ui);color:var(--warn)}
 details summary{cursor:pointer;font-size:13px;color:var(--muted)}
 .whys{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 20px;margin:10px 0;font-size:13px}
-.evidence{border-left:2px solid var(--line);padding-left:8px;margin-top:4px;color:var(--muted)}
+.why{border-left:3px solid var(--line);padding:2px 0 2px 10px;display:grid;gap:3px}
+.why.t-hi{border-left-color:var(--s-hi)}.why.t-mid{border-left-color:var(--s-mid)}.why.t-lo{border-left-color:color-mix(in srgb,var(--s-lo) 70%,var(--surface))}.why.t-unk{border-left-style:dashed;border-left-color:var(--muted)}
+.whyhead{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.whyhead .segs{max-width:60px}
+.wscore{font:500 12px var(--font-data)}
+.t-hi .wscore{color:var(--s-hi)}.t-mid .wscore{color:color-mix(in srgb,var(--s-mid) 85%,var(--fg))}.t-lo .wscore{color:color-mix(in srgb,var(--s-lo) 75%,var(--fg))}.t-unk .wscore{color:var(--muted)}
+.wweight{font-size:12px;margin-left:auto}
+.evidence{padding:4px 8px;margin-top:2px;border-radius:4px;color:var(--fg);background:var(--sunk);font-style:italic}
+.t-hi .evidence{background:color-mix(in srgb,var(--s-hi) 12%,var(--surface))}.t-mid .evidence{background:color-mix(in srgb,var(--s-mid) 14%,var(--surface))}.t-lo .evidence{background:color-mix(in srgb,var(--s-lo) 12%,var(--surface))}
+.posttext summary{font-size:13px}.posttext p{line-height:1.6}
+mark{color:inherit;border-radius:3px;padding:0 2px}
+mark.t-hi{background:color-mix(in srgb,var(--s-hi) 22%,var(--surface))}mark.t-mid{background:color-mix(in srgb,var(--s-mid) 26%,var(--surface))}mark.t-lo{background:color-mix(in srgb,var(--s-lo) 22%,var(--surface))}
 .foot{text-align:right}
 details{padding-bottom:2px}
 .tip{appearance:none;position:relative;width:15px;height:15px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);font:500 10px/13px var(--font-data);padding:0;margin-left:4px;cursor:help;vertical-align:1px}
@@ -405,8 +416,19 @@ function renderMatches(){
         <span class="cname">${esc(d.name)}</span>
         <span class="meter" role="img" aria-label="${esc(d.name)}: ${unk ? "unknown" : n + " of 5"}"><span class="segs">${segs}</span></span></div>`;
     }).join("");
-    const why = dims.map(d => { const sc = m.scores?.[d.key]; if (!sc) return "";
-      return `<div class="why"><div><b>${esc(d.name)}</b> <span class="muted">${sc.score==="unknown"?"unknown":sc.score+" of 5"}</span></div><div>${esc(sc.reason)}</div>${sc.evidence?`<div class="evidence">“${esc(sc.evidence)}”</div>`:""}</div>`; }).join("");
+    // Each dimension in its score's color: strong green, middling amber, weak coral, unknown dashed.
+    const tone = sc => sc.score === "unknown" ? "t-unk" : sc.score >= 4 ? "t-hi" : sc.score === 3 ? "t-mid" : "t-lo";
+    const weights = toPercent(dims);
+    const why = dims.map((d, i) => { const sc = m.scores?.[d.key]; if (!sc) return "";
+      const t = tone(sc), n = sc.score === "unknown" ? 0 : sc.score;
+      const segs = [1,2,3,4,5].map(k => `<i class="${sc.score === "unknown" ? "u" : k <= n ? ({"t-hi":"hi","t-mid":"mid","t-lo":"lo"})[t] : ""}"></i>`).join("");
+      return `<div class="why ${t}"><div class="whyhead"><b>${esc(d.name)}</b><span class="segs">${segs}</span><span class="wscore">${sc.score==="unknown"?"unknown":sc.score+" of 5"}</span><span class="muted wweight">${weights[i]?.weight ?? ""}% weight</span></div>
+        <div>${esc(sc.reason)}</div>${sc.evidence?`<div class="evidence">“${esc(sc.evidence)}”</div>`:""}</div>`; }).join("");
+    // The posting with the quoted evidence marked in the same colors, so each score can be checked in place.
+    let posting = esc(m.text);
+    for (const d of dims){ const sc = m.scores?.[d.key]; if (!sc?.evidence) continue;
+      const q = esc(sc.evidence), at = posting.toLowerCase().indexOf(q.toLowerCase());
+      if (at >= 0) posting = posting.slice(0, at) + `<mark class="${tone(sc)}" title="${esc(d.name)}">` + posting.slice(at, at + q.length) + "</mark>" + posting.slice(at + q.length); }
     const pay = m.pay_min==null && m.pay_max==null ? `<span class="pay none">Pay not listed</span>` : `<span class="pay">${esc(money(m.pay_min,m.pay_max))}</span>`;
     const link = m.url ? `<a class="ext" href="${esc(m.url)}" target="_blank" rel="noopener">View posting ↗</a>` : `<span class="ext none" title="Postings in the frozen corpus are fictional">Example posting, no live page</span>`;
     const verdict = j?.verdict;
@@ -421,7 +443,7 @@ function renderMatches(){
         </div>
         <div class="cells">${cells}</div>
         <details><summary>Why these scores</summary><div class="whys">${why}</div>
-          <p class="small">${esc(m.text)}</p>
+          <details class="posttext"><summary>The posting, with the quoted parts marked</summary><p class="small">${posting}</p></details>
           <p class="small muted mono">scored by ${esc(modelName(m.model))} · agent v${esc(m.agent_version)} · CV v${esc(m.cv_version)} · preferences v${esc(m.prefs_version)} · unknown counts as ${esc(m.unknown_policy)}</p></details>
         <div class="judge">
           <div class="row between">
