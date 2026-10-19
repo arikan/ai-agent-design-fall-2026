@@ -217,7 +217,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .evhead{display:grid;gap:6px}
 .evbig{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.evbig b{font:600 28px var(--font-data);color:var(--accent)}.evbig span{font-size:14px}
 .evstrip{display:grid;gap:6px;margin-top:4px}
-.evrow{display:grid;grid-template-columns:44px 1fr;align-items:center;gap:8px}
+.evrow{display:grid;grid-template-columns:60px 1fr;align-items:center;gap:8px}
 .evlab{font-size:12px;color:var(--muted)}
 .evaxis{position:relative;height:18px;border-bottom:1px solid var(--line)}
 .evdot{position:absolute;top:3px;width:12px;height:12px;margin-left:-6px;border-radius:50%;box-shadow:0 0 0 2px var(--surface)}
@@ -906,12 +906,14 @@ function agentEval(){
     const ag = s.g.length && s.n.length ? Math.round(w / (s.g.length * s.n.length) * 100) + "%" : "–";
     return `<tr><td class="mono">v${esc(v)}</td><td class="num">${s.g.length}</td><td class="num">${s.n.length}</td><td class="num">${ag}</td></tr>`; }).join("");
   const few = good.length < 5 || nope.length < 5;
-  return `<div class="evhead"><div class="evbig"><b>${agree}%</b><span>of Good–Nope pairs, the Good post scored higher</span></div>
+  return `<div class="evhead"><div class="evbig"><b>${agree}%</b><span>agreement: pair any Good post with any Nope post, and this is how often the Good one scored higher</span></div>
       <div class="small muted">Good averaged ${avg(good)}, Nope ${avg(nope)}. 50% is a coin flip, 100% is perfect.${few ? ` Based on ${good.length} Good and ${nope.length} Nope, so still rough.` : ""}</div></div>
-    <div class="evstrip" role="img" aria-label="Each judged post placed by its score, Good and Nope on separate rows">
-      <div class="evrow"><span class="evlab">Good</span><div class="evaxis">${good.map(dot).join("")}</div></div>
-      <div class="evrow"><span class="evlab">Nope</span><div class="evaxis">${nope.map(dot).join("")}</div></div>
-      <div class="evrow"><span class="evlab"></span><div class="evticks small muted"><span>0</span><span>50</span><span>100</span></div></div>
+    <h3 class="sechead">Your verdicts against the agent's scores</h3>
+    <p class="small muted" style="margin:0">Each dot is a post you judged, placed left to right by the score the agent gave it. If the agent sorted posts the way you do, every Good dot would sit to the right of every Nope dot. Hover a dot to see the post.</p>
+    <div class="evstrip" role="img" aria-label="Each judged post placed by the agent's score, Good and Nope on separate rows">
+      <div class="evrow"><span class="evlab">Good ${good.length}</span><div class="evaxis">${good.map(dot).join("")}</div></div>
+      <div class="evrow"><span class="evlab">Nope ${nope.length}</span><div class="evaxis">${nope.map(dot).join("")}</div></div>
+      <div class="evrow"><span class="evlab"></span><div class="evticks small muted"><span>0</span><span>Agent's score</span><span>100</span></div></div>
     </div>
     ${misses.length ? `<h3 class="sechead">Where you disagree</h3><div class="scroll"><table class="drops"><thead><tr><th>Post</th><th>Score</th><th>What happened</th><th>Your reason</th></tr></thead><tbody>${misses.map(x => `<tr><td>${esc(x.m.title)} · ${esc(x.m.company)}</td><td class="num">${x.m.total}</td><td>${x.kind}</td><td>${esc(dims[x.why] || x.why || "")}</td></tr>`).join("")}</tbody></table></div>` : ""}
     <h3 class="sechead">By agent version</h3><div class="scroll"><table><thead><tr><th>Version</th><th>Good</th><th>Nope</th><th>Agreement</th></tr></thead><tbody>${verRows}</tbody></table></div>`;
