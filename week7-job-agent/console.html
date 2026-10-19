@@ -192,6 +192,7 @@ label > span{display:inline-flex;align-items:center;gap:2px}
 #preview.card{background:color-mix(in srgb,var(--accent-soft) 45%,var(--surface));border-color:color-mix(in srgb,var(--accent) 25%,var(--line))}
 #preview .funnel li{background:transparent;border-color:color-mix(in srgb,var(--accent) 22%,var(--line))}
 #preview .funnel li:nth-child(3){border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
+.pchev svg{transition:transform .15s}.pchev[aria-expanded="false"] svg{transform:rotate(-90deg)}
 #preview .linkbtn{font-weight:400;font-size:13px;margin-left:0}
 .prow.phead .num{text-align:left}#preview .linkbtn:hover{text-decoration:underline}
 #preview .pbar{background:color-mix(in srgb,var(--accent) 18%,transparent)}
@@ -505,7 +506,7 @@ const RANK = (() => {
 /* ---------- the day's postings and the preview ---------- */
 // The morning run keeps what it collected (meta/postings points at chunks in `postings`), so the
 // Search tab can show how an edited search would rank them, before saving and without a run.
-S.posts = {index:null, items:null, loading:false, showAll:false};
+S.posts = {index:null, items:null, loading:false, showAll:false, collapsed:(() => { try { return !!localStorage.getItem("preview-collapsed"); } catch(e){ return false; } })()};
 async function loadPosts(){
   const idx = S.posts.index; if (!idx || S.posts.loading) return;
   S.posts.loading = true;
@@ -528,10 +529,13 @@ function formSearch(){
 function renderPreview(s){
   const box = $("preview"); if (!box) return;
   const idx = S.posts.index, items = S.posts.items;
-  const head = `<div class="row between"><h3>Preview</h3>${idx ? `<span class="small muted">Posts collected ${esc(when(idx.collected_at))}</span>` : ""}</div>
-    <p class="small muted" style="margin:0">Which posts the next run would score, ranked by the fields above. Dimensions shape Claude's scores of these, not this list.</p>`;
-  if (!idx){ box.innerHTML = head + `<p class="small muted" style="margin:0">After your first run, this shows how your search ranks the posts it collected, so you can tune it without waiting for the next run.</p>`; return; }
-  if (!items){ box.innerHTML = head + `<p class="small muted" style="margin:0"><span class="spin" aria-hidden="true"></span>Loading the collected posts…</p>`; if (!S.posts.loading) loadPosts(); return; }
+  const open = !S.posts.collapsed;
+  const head = `<div class="row between"><h3>Preview</h3><span class="row" style="gap:10px">${idx ? `<span class="small muted">Posts collected ${esc(when(idx.collected_at))}</span>` : ""}<button type="button" class="xbtn pchev" id="preview-toggle" aria-expanded="${open}" aria-label="${open ? "Collapse the preview" : "Expand the preview"}" title="${open ? "Collapse" : "Expand"}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span></div>
+    ${open ? `<p class="small muted" style="margin:0">Which posts the next run would score, ranked by the fields above. Dimensions shape Claude's scores of these, not this list.</p>` : ""}`;
+  const wireToggle = () => { const t = $("preview-toggle"); if (t) t.onclick = () => { S.posts.collapsed = open; try { localStorage.setItem("preview-collapsed", open ? "1" : ""); } catch(e){} renderPreview(s); }; };
+  if (!open){ box.innerHTML = head; wireToggle(); return; }
+  if (!idx){ box.innerHTML = head + `<p class="small muted" style="margin:0">After your first run, this shows how your search ranks the posts it collected, so you can tune it without waiting for the next run.</p>`; wireToggle(); return; }
+  if (!items){ box.innerHTML = head + `<p class="small muted" style="margin:0"><span class="spin" aria-hidden="true"></span>Loading the collected posts…</p>`; if (!S.posts.loading) loadPosts(); wireToggle(); return; }
   const f = formSearch(), seen = new Set(S.matches.filter(m => m.search_id === (s?.id || "")).map(m => m.posting_id));
   const n = Math.min(S.agent?.settings?.max_judged_per_search || COURSE_CAPS.max_judged_per_search, COURSE_CAPS.max_judged_per_search);
   const floor = Math.min(Math.max(Number(S.agent?.settings?.min_rank_score) || 0, 0), 100);
@@ -561,6 +565,7 @@ function renderPreview(s){
   const counts = $("pcounts")?.textContent;      // flash the counts when an edit changes them
   if (S.posts.lastCounts && counts !== S.posts.lastCounts) $("pcounts").classList.add("flash");
   S.posts.lastCounts = counts;
+  wireToggle();
   const more = $("preview-more"); if (more) more.onclick = () => { S.posts.showAll = !S.posts.showAll; renderPreview(s); };
 }
 
