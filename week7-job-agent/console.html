@@ -159,6 +159,11 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .hdr-r{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .build{font-size:11px;opacity:.7}
 .newtag{font:600 10px var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:2px 6px;align-self:center}
+.funnel{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.funnel li{position:relative;border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:2px;align-content:start;background:var(--bg)}
+.funnel b{font:600 20px var(--font-data)}
+.funnel span{font-size:12px;color:var(--muted);line-height:1.4}
+.funnel li:nth-child(3){border-color:var(--accent)}
 .psteps{list-style:none;margin:0;padding:0;display:grid;gap:4px}
 .psteps li{display:flex;gap:8px;align-items:baseline;color:var(--muted)}
 .psteps li>span:first-child{width:16px;flex:none;text-align:center}
@@ -1103,6 +1108,25 @@ document.addEventListener("click", e => {
 });
 
 /* ---------- runs ---------- */
+// The funnel of one run: collected by sources, removed by code, ranked by code, scored by Claude.
+const num = n => Number(n || 0).toLocaleString();
+function runFunnel(r){
+  const tr = r.trace || [], norm = tr.find(t => t.step === "normalize"), judge = tr.find(t => t.step === "judge");
+  if (!norm) return null;
+  const fil = tr.filter(t => t.step === "filter"), sum = k => fil.reduce((n,t) => n + (t[k] || 0), 0);
+  const src = (r.sources || []).filter(x => x.status !== "manual");
+  return {collected: src.reduce((n,x) => n + (x.kept || 0), 0), nSources: src.length, dupes: norm.duplicates_merged || 0, unique: norm.postings,
+          seen: sum("already_matched"), dropped: sum("dropped"), ranked: sum("passed"), scored: sum("sent_to_judge"),
+          matches: judge?.accepted ?? r.matches ?? 0, rejected: judge?.rejected || 0};
+}
+function funnelView(f){
+  return `<ol class="funnel">
+    <li><b>${num(f.collected)}</b><span>collected from ${f.nSources} source${f.nSources === 1 ? "" : "s"}</span></li>
+    <li><b>${num(f.ranked)}</b><span>ranked by code${[f.dupes && `${num(f.dupes)} duplicates`, f.dropped && `${num(f.dropped)} deal breakers`, f.seen && `${num(f.seen)} already matched`].filter(Boolean).map(x => `<br>−${x}`).join("")}</span></li>
+    <li><b>${num(f.scored)}</b><span>scored by Claude<br>the top of the ranking</span></li>
+    <li><b>${num(f.matches)}</b><span>new matches${f.rejected ? `<br>${f.rejected} scores rejected` : ""}</span></li>
+  </ol>`;
+}
 function renderRuns(){
   const ready = setupDone(), ph = runNowPhase(), running = ["starting","running"].includes(ph);
   $("c-runs").textContent = S.runs.length || "";
@@ -1133,9 +1157,10 @@ function renderRuns(){
     const steps = (r.trace||[]).map(t => { const {step, at, ...rest} = t; return `<div class="step"><span class="k">${esc(step)}</span><span class="mono" style="white-space:pre-wrap;word-break:break-word">${esc(JSON.stringify(rest, null, 1))}</span></div>`; }).join("");
     return `<details class="card" ${idx===0?"open":""}><summary class="row between" style="color:var(--fg)">
         <span><b>${esc(when(r.started))}</b> <span class="muted mono small">${esc(r.id)}</span></span>
-        <span class="row"><span class="pill ${r.status==="ok"?"ok":"warn"}">${esc(r.status)}${r.cap_hit?": "+esc(r.cap_hit):""}</span><span class="small muted">${r.matches ?? 0} matches · agent v${esc(r.agent_version)}</span></span></summary>
+        <span class="row"><span class="pill ${r.status==="ok"?"ok":"warn"}">${esc(r.status)}${r.cap_hit?": "+esc(r.cap_hit):""}</span><span class="small muted">${(f => f ? `${num(f.collected)} collected · ${num(f.scored)} scored · ` : "")(runFunnel(r))}${r.matches ?? 0} matches · agent v${esc(r.agent_version)}</span></span></summary>
       <div class="stack" style="margin-top:12px">
-        <h3>Sources</h3><div class="scroll"><table><thead><tr><th>Source</th><th>Status</th><th>Fetched</th><th>Rejected</th><th>Kept</th><th>Note</th></tr></thead><tbody>${sources}</tbody></table></div>
+        ${(f => f ? funnelView(f) : "")(runFunnel(r))}
+        <h3>Sources</h3><div class="scroll"><table><thead><tr><th>Source</th><th>Status</th><th>Fetched</th><th>Incomplete</th><th>Collected</th><th>Note</th></tr></thead><tbody>${sources}</tbody></table></div>
         ${filtered ? `<h3>Dropped by deal breakers (${r.filtered_total ?? r.filtered.length})</h3>${r.filtered_by_reason ? `<p class="small muted">${Object.entries(r.filtered_by_reason).map(([k,v]) => `${esc(k)}: ${v}`).join(" · ")}${r.filtered_total > r.filtered.length ? ` · first ${r.filtered.length} listed` : ""}</p>` : ""}<div class="scroll"><table><thead><tr><th>Posting</th><th>Company</th><th>Reason</th><th>Search</th></tr></thead><tbody>${filtered}</tbody></table></div>` : ""}
         <h3>Steps</h3><div>${steps}</div>
       </div></details>`;
