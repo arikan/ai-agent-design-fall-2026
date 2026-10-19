@@ -382,6 +382,38 @@
    null
   ]
  },
+ "pay_cases": [
+  {
+   "target": 250000,
+   "pay_max": null,
+   "expected": null
+  },
+  {
+   "target": 250000,
+   "pay_max": 300000,
+   "expected": null
+  },
+  {
+   "target": 250000,
+   "pay_max": 190000,
+   "expected": null
+  },
+  {
+   "target": 250000,
+   "pay_max": 187500,
+   "expected": null
+  },
+  {
+   "target": 250000,
+   "pay_max": 187499,
+   "expected": "pay far below 250000"
+  },
+  {
+   "target": 250000,
+   "pay_max": 120000,
+   "expected": "pay far below 250000"
+  }
+ ],
  "expected": [
   {
    "id": "c001",
@@ -430,7 +462,7 @@
   },
   {
    "id": "c010",
-   "dropped": "pay below 90000",
+   "dropped": "location not in list",
    "score": 0.053
   },
   {

@@ -210,6 +210,9 @@ def rank_fixture():
            "postings": postings,
            "role_cases": {"roles": ROLE_CASE_ROLES, "titles": ROLE_CASE_TITLES,
                           "expected": [role_hit(ROLE_CASE_ROLES, {"title": t}) for t in ROLE_CASE_TITLES]},
+           "pay_cases": [{"target": 250000, "pay_max": m, "expected": deal_breaker(
+                {"title": "x", "text": "", "location": "", "remote": True, "pay_max": m}, {"min_pay": 250000})}
+                         for m in (None, 300000, 190000, 187500, 187499, 120000)],
            "expected": [{"id": p["id"], "dropped": deal_breaker(p, db), "score": prefilter_score(search, p)} for p in postings]}
     (HERE / "tests").mkdir(exist_ok=True)
     (HERE / "tests" / "rank_fixture.json").write_text(json.dumps(out, indent=1))
@@ -223,19 +226,29 @@ def drop_detail(p, reason, db):
         return f"Location {p.get('location') or 'not given'} matches none of {', '.join(db.get('locations_any', []))}, in the location or the title, and it isn't marked remote"
     if reason == "not remote":
         return f"Not marked remote ({p.get('location') or 'no location given'})"
-    if reason.startswith("pay below"):
-        return f"Pay tops out at {money(p['pay_max'])}, below your {money(db['min_pay'])} floor"
+    if reason.startswith("pay far below"):
+        return f"Pay tops out at {money(p['pay_max'])}, more than {round(PAY_SLACK * 100)}% below your {money(db['min_pay'])} target"
     if reason == "no pay listed":
         return "No pay listed, and you require it"
     return reason[0].upper() + reason[1:]
+
+
+# Target pay is a preference, not a floor: a post paying a bit less can still be a good one, and
+# Compensation fit scores how well pay fits. Only posts far below the target are dropped, so they
+# don't take the model's few slots.
+PAY_SLACK = 0.25
+
+
+def pay_cutoff(target):
+    return target * (1 - PAY_SLACK)
 
 
 def deal_breaker(p, db):
     text = f"{p['title']} {p['text']}".lower()
     if db.get("remote_only") and not p.get("remote"):
         return "not remote"
-    if db.get("min_pay") and p.get("pay_max") is not None and p["pay_max"] < db["min_pay"]:
-        return f"pay below {db['min_pay']}"
+    if db.get("min_pay") and p.get("pay_max") is not None and p["pay_max"] < pay_cutoff(db["min_pay"]):
+        return f"pay far below {db['min_pay']}"
     if db.get("min_pay") and p.get("pay_max") is None and db.get("require_pay_listed"):
         return "no pay listed"
     locs = [l.lower() for l in db.get("locations_any", [])]
@@ -289,7 +302,7 @@ def with_inputs(search):
         if d["key"] == "compensation":
             db = search["preferences"].get("deal_breakers", {})
             cur = db.get("currency") or "USD"
-            pay = [f"minimum {db['min_pay']:,.0f} {cur}" if db.get("min_pay") else "",
+            pay = [f"target {db['min_pay']:,.0f} {cur} (a bit below can still fit)" if db.get("min_pay") else "",
                    f"preferred {db['preferred_pay']:,.0f} {cur}" if db.get("preferred_pay") else ""]
             if any(pay):
                 parts.append(f"The student's total compensation targets: {', '.join(x for x in pay if x)} a year.")

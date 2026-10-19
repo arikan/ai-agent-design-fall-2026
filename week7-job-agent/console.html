@@ -397,7 +397,7 @@ const DEFAULT_DIMS = [
   {key:"industry", name:"Industry alignment", weight:15, rubric:"Strong: a sector I care about. Weak: a sector I avoid or feel neutral about."},
   {key:"role", name:"Role fit", weight:25, rubric:"Strong: the daily work is what I want to do. Weak: mostly tasks I want to move away from."},
   {key:"background", name:"Background match", weight:20, rubric:"Strong: I meet the requirements. Weak: missing several core requirements."},
-  {key:"compensation", name:"Compensation fit", weight:15, rubric:"Strong: at or above my target. Weak: below my floor."},
+  {key:"compensation", name:"Compensation fit", weight:15, rubric:"Strong: at or above my target. Middle: a bit below. Weak: far below my target."},
   {key:"upside", name:"Upside potential", weight:5, rubric:"Strong: growing company, equity, room to rise. Weak: flat or shrinking."},
   {key:"growth", name:"Growth and learning", weight:20, rubric:"Strong: mentorship, new skills, stretch scope. Weak: repetitive work, no support."}
 ];
@@ -626,10 +626,11 @@ const RANK = (() => {
     return out;
   };
   const score = (search, p) => { const ps = parts(search, p), total = ps.reduce((a, x) => a + x.w, 0); return total ? Math.round(ps.reduce((a, x) => a + x.w * x.v, 0) / total * 1000) / 1000 : 0; };
+  const PAY_SLACK = 0.25;      // as engine.py: only pay more than 25% below the target is dropped
   const dealBreaker = (p, db) => {
     const text = `${p.title} ${p.text}`.toLowerCase();
     if (db.remote_only && !p.remote) return "not remote";
-    if (db.min_pay && p.pay_max != null && p.pay_max < db.min_pay) return `pay below ${db.min_pay}`;
+    if (db.min_pay && p.pay_max != null && p.pay_max < db.min_pay * (1 - PAY_SLACK)) return `pay far below ${db.min_pay}`;
     if (db.min_pay && p.pay_max == null && db.require_pay_listed) return "no pay listed";
     const locs = (db.locations_any || []).map(l => l.toLowerCase());
     const where = `${p.location} | ${p.title}`.toLowerCase();     // some boards put the location only in the title
@@ -752,7 +753,7 @@ function renderSearchEditor(){
       <div class="stack" style="gap:12px">
         <label for="d-locs"><span>Locations <button type="button" class="tip" aria-label="How locations match" data-tip="Separate with commas. A post passes if one of these appears in its location or title, ignoring case, or if the job board marks it remote.">i</button></span><input type="text" id="d-locs" value="${esc((db.locations_any||[]).join(", "))}" placeholder="New York, NYC, Remote, Hybrid"></label>
         <div class="grid2">
-        <label for="d-minpay" style="max-width:320px"><span>Minimum compensation (USD a year) <button type="button" class="tip" aria-label="How the minimum works" data-tip="Total compensation. A post whose listed pay tops out below this is dropped. Posts that list no pay are kept, since most don't.">i</button></span><input type="number" id="d-minpay" min="0" step="10000" value="${db.min_pay ?? ""}" placeholder="250000"></label>
+        <label for="d-minpay" style="max-width:320px"><span>Target compensation (USD a year) <button type="button" class="tip" aria-label="How the target works" data-tip="Total compensation. A post paying a bit less is kept, and Compensation fit scores how close it is. Only posts whose listed pay tops out more than 25% below this are dropped. Posts that list no pay are kept, since most don't.">i</button></span><input type="number" id="d-minpay" min="0" step="10000" value="${db.min_pay ?? ""}" placeholder="250000"></label>
         </div>
         <div class="grid2">
         <label for="d-ind">Exclude industries<input type="text" id="d-ind" value="${esc((db.exclude_industries||[]).join(", "))}" placeholder="Defense"></label>
@@ -876,7 +877,7 @@ function agentPipeline(run){
     {key:"collect", who:"code", name:"Collect", n: f ? num(f.collected) : "–", what:"posts", from: f ? `from ${f.nSources} sources` : "",
      how:"Reads each job board and puts every post in the same shape: title, company, location, pay, text.", go:["sources","Sources"]},
     {key:"filter", who:"code", name:"Filter", n: f ? num(f.collected - f.ranked) : "–", what:"set aside", from: f ? `${num(f.dropped)} by your filters` : "",
-     how:"Removes posts outside your locations or below your minimum pay, duplicates, and posts already in Matches. Each drop is logged with its reason.", go:["searches","Profile"]},
+     how:"Removes posts outside your locations or paying far below your target, duplicates, and posts already in Matches. Each drop is logged with its reason.", go:["searches","Profile"]},
     {key:"rank", who:"code", name:"Rank", n: f ? num(f.ranked) : "–", what:"ranked", from: fil ? `${num(fil.ranked_above ?? (fil.passed - (fil.below_min_rank || 0)))} at ${set.min_rank_score ?? 0} or more` : "",
      how:"Word matching, 0 to 100: role in the title 45%, keywords 30%, CV overlap 15%, industry 10%. It decides which posts the model reads.", go:["searches","Profile"]},
     {key:"score", who:"model", name:"Score", n: f ? num(f.scored) : "–", what:"scored", from: run?.model ? modelName(run.model) : "",
@@ -1611,7 +1612,7 @@ function usageView(u){
 }
 // Deal-breaker kinds as the engine records them, in words.
 const dropLabel = k => k === "location not in list" ? "location outside your list" : k === "not remote" ? "not remote"
-  : k.startsWith("pay below") ? "pay below your floor" : k === "no pay listed" ? "no pay listed" : k;
+  : k.startsWith("pay far below") || k.startsWith("pay below") ? "pay far below your target" : k === "no pay listed" ? "no pay listed" : k;
 // The funnel of one run: collected by sources, removed by code, ranked by code, scored by Claude.
 function runFunnel(r){
   const tr = r.trace || [], norm = tr.find(t => t.step === "normalize"), judge = tr.find(t => t.step === "judge");

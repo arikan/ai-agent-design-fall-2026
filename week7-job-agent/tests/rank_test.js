@@ -20,5 +20,9 @@ for (const [i, t] of rc.titles.entries()) {
   const got = RANK.roleHit(rc.roles, {title: t});
   if (got !== rc.expected[i]) { bad++; console.log(`role "${t}": page says ${got}, engine says ${rc.expected[i]}`); }
 }
+for (const c of fx.pay_cases || []){
+  const got = RANK.dealBreaker({title:"x", text:"", location:"", remote:true, pay_max:c.pay_max}, {min_pay:c.target});
+  if (got !== c.expected){ bad++; console.log(`pay ${c.pay_max}: page says ${got}, engine says ${c.expected}`); }
+}
 console.log(bad ? `${bad} of ${fx.postings.length} differ` : `ok: ${fx.postings.length} postings rank the same in the page and the engine`);
 process.exit(bad ? 1 : 0);

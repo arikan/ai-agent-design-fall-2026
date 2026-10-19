@@ -51,7 +51,7 @@
     "key": "compensation",
     "name": "Compensation fit",
     "weight": 15,
-    "rubric": "Strong: at or above my target. Weak: below my floor."
+    "rubric": "Strong: at or above my target. Middle: a bit below. Weak: far below my target."
    },
    {
     "key": "upside",
