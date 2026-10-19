@@ -42,8 +42,15 @@ def html_to_text(markup, unescape_first=False):
     return re.sub(r"\n\s*\n+", "\n\n", text).strip()
 
 
-_NUM = r"\$\s?(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s?([kK])?"
-_RANGE = re.compile(_NUM + r"\s*(?:-|–|—|to)\s*" + r"\$?\s?(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s?([kK])?")
+_N = r"(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s?([kK])?"
+_SEP = r"\s*(?:-|–|—|to)\s*"
+_NUM = r"\$\s?" + _N
+_RANGE = re.compile(_NUM + _SEP + r"\$?\s?" + _N)
+# The same range with a currency code instead of a dollar sign: "130,000 to 190,000 USD", "USD 130,000 - 190,000".
+_CODE = r"(?:USD|US\$|US dollars)"
+_RANGE_CODE_AFTER = re.compile(_N + _SEP + _N + r"\s?" + _CODE)
+_RANGE_CODE_BEFORE = re.compile(_CODE + r"\s?" + _N + _SEP + r"(?:" + _CODE + r"\s?)?" + _N)
+_RANGES = (_RANGE, _RANGE_CODE_AFTER, _RANGE_CODE_BEFORE)
 _PAY_WORDS = re.compile(r"(salary|pay|compensation|base|range|ote|annual|per year|/yr|usd)", re.I)
 
 
@@ -54,23 +61,35 @@ def _value(num, k):
     return int(v)
 
 
-def extract_range(text):
-    """Pay range from a field that is known to be about pay, like '$120K – $150K'."""
-    m = _RANGE.search(text or "")
-    if not m:
-        return None, None
+def _range(m):
     lo, hi = _value(m.group(1), m.group(2)), _value(m.group(3), m.group(4) or m.group(2))
     if lo < 1000 or hi < lo:          # hourly or garbled; leave it out rather than guess
         return None, None
     return lo, hi
 
 
+def extract_range(text):
+    """Pay range from a field that is known to be about pay, like '$120K – $150K' or '120,000 - 150,000 USD'."""
+    for rx in _RANGES:
+        m = rx.search(text or "")
+        if m:
+            return _range(m)
+    return None, None
+
+
+def pay_match(text):
+    """The first pay range in free text, as a regex match: only accepted near a pay word, to avoid funding amounts."""
+    found = []
+    for rx in _RANGES:
+        for m in rx.finditer(text or ""):
+            window = text[max(0, m.start() - 80): m.end() + 40]
+            if _PAY_WORDS.search(window) and _range(m)[0]:
+                found.append(m)
+                break
+    return min(found, key=lambda m: m.start()) if found else None
+
+
 def extract_from_text(text):
     """Pay range from free text: only accepted near a pay word, to avoid funding amounts."""
-    for m in _RANGE.finditer(text or ""):
-        window = text[max(0, m.start() - 80): m.end() + 40]
-        if _PAY_WORDS.search(window):
-            lo, hi = extract_range(m.group(0))
-            if lo:
-                return lo, hi
-    return None, None
+    m = pay_match(text)
+    return _range(m) if m else (None, None)

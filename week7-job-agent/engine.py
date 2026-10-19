@@ -17,6 +17,8 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from adapters.text import pay_match
+
 HERE = Path(__file__).parent
 WORK = HERE / "work"
 CAPS = json.loads((HERE / "caps.json").read_text())
@@ -142,7 +144,7 @@ def judge_text(p):
     if p.get("pay_min") is None and p.get("pay_max") is None or len(text) <= JUDGE_TEXT_CHARS:
         return head
     tail = text[JUDGE_TEXT_CHARS:]
-    m = re.search(r"\$\s?\d", tail)
+    m = pay_match(tail) or re.search(r"\$\s?\d", tail)
     if not m:
         return head
     start = max(tail.rfind(". ", 0, m.start()) + 2, m.start() - 250, 0)
