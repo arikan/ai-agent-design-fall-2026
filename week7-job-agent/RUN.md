@@ -15,6 +15,8 @@ Students do this from the console's setup panel: it creates the scheduled task, 
 
 ## Steps
 
+The page shows a run's progress from `meta` / `progress`. **Report `<stage>`** below means: run `uv run dbio.py progress <stage>`, then set `meta` / `progress` from `work/out/progress.json` with ArtifactData (`file_path`), passing the version from step 3's read or from your previous progress write (none if the document did not exist). Progress is best effort: if a write fails, continue the run.
+
 0. Decide what this run is. Read `meta` / `request` from the console with ArtifactData. If it exists, its `status` is `"pending"`, and its `requested_at` is less than 30 minutes old:
    - `kind: "check"`: follow "Check setup" below instead of these steps.
    - `kind: "test"`: follow "Test one source" below for its `source_id`.
@@ -28,18 +30,19 @@ Students do this from the console's setup panel: it creates the scheduled task, 
    - If the republish asks for approval or fails, do not retry; note it for the report and continue.
 3. Read the console database with ArtifactData, saving each read under `work/db` (`out_dir`):
    - `searches` (list), `agent` / `current` (get), `runs` (list), `matches` (list), `proposals` (list)
-4. Run `uv run dbio.py config`.
-5. Run `uv run sources.py fetch work/config.json`. It prints one line per source.
+   - `meta` / `progress` (get), only for its version
+4. Run `uv run dbio.py config`. Report `fetching`.
+5. Run `uv run sources.py fetch work/config.json`. It prints one line per source. Report `filtering`.
 6. Repair, only for sources that failed or returned nothing this run, and only when the error is not a network block (a network block means a domain is missing from the environment's allowed list; report it instead):
    - Look at the source the way its adapter does: web fetch its API or page.
    - Work out the smallest change to the source's settings that fixes it: a board token, selectors, field paths. Change code only for a custom adapter.
    - Write the changed source as JSON and test it with `uv run sources.py try <file>`.
    - If the test returns postings, write a proposal to `proposals/<source id with characters other than letters, digits, dot, dash and underscore replaced by _>` with fields: `source_id`, `source` (the full changed source), `reason` (one sentence), `before` and `after` (each `status` and `kept`), `sample` (up to three titles), `at`. If a proposal already exists, read it first and pass its version.
    - Never change the agent settings yourself. The student applies or discards the proposal in the console.
-7. Run `uv run engine.py prepare work/config.json`. If it reports a stop on a course cap, skip to step 10.
+7. Run `uv run engine.py prepare work/config.json`. If it reports a stop on a course cap, report `stopped` and skip to step 10. Otherwise report `judging`.
 8. Judge `work/batch.json`. Follow its `matcher_instructions`, each dimension's rubric, and each dimension's `inputs` (the student's target roles, industries or background that apply to it). For every item and every dimension give a score from 1 to 5 or `"unknown"`, a one sentence reason, and evidence copied exactly from the posting. Write the list to `work/judgments.json` in the batch's `answer_format`. The engine rejects any score whose evidence is not in the posting.
-9. Run `uv run engine.py finish work/config.json`.
-10. Run `uv run dbio.py export`, then write `work/out/writes.json` to the console with ArtifactData batches of at most 50.
+9. Run `uv run engine.py finish work/config.json`. Report `saving`.
+10. Run `uv run dbio.py export`, then write `work/out/writes.json` to the console with ArtifactData batches of at most 50. Report `done` (unless this run stopped).
 11. If this run came from a `run` request, set `meta` / `request` `status` to `"done"`. Report in four lines: whether the console page was republished, new matches written, judgments rejected, sources failing (and any proposals written).
 
 ## Test one source
