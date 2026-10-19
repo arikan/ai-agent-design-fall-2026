@@ -948,7 +948,7 @@ function renderAgent(){
     </section>
     <section class="asec" id="a-eval">
       <h2>Is it any good?</h2>
-      <p class="small muted" style="margin:0">Tests the agent's scores against your Good and Nope verdicts. It changes nothing by itself: you adjust Profile or Settings, and each version is measured here. <button type="button" class="tip tip-left" aria-label="About this eval" data-tip="It measures ranking: for every pair of one Good and one Nope post, does the agent score the Good one higher? Data scientists call this AUC. It only covers posts the agent chose to score, so it can't see good posts it ranked too low to read.">i</button></p>
+      <p class="small muted" style="margin:0">Compares the agent's scores with your Good and Nope verdicts. <button type="button" class="tip" aria-label="About this eval" data-tip="It measures ranking: for every pair of one Good and one Nope post, does the agent score the Good one higher? Data scientists call this AUC. It doesn't change the agent; it measures each version, so you can see whether a change helped. It only covers posts the agent chose to score, so it can't see good posts it ranked too low to read.">i</button></p>
       ${agentEval()}
     </section>
     <section class="asec">
