@@ -9,8 +9,7 @@
   "cap": 50
  },
  "responses": {
-  "POST https://jobs.ashbyhq.com/api/non-user-graphql {\"org\": \"exampleai\"}": "{\"data\": {\"jobBoard\": {\"teams\": [{\"id\": \"t1\", \"name\": \"Design\"}], \"jobPostings\": [{\"id\": \"p1\", \"title\": \"Design Lead, Agents\", \"locationName\": \"Remote (US)\", \"teamId\": \"t1\", \"employmentType\": \"FullTime\"}]}}}",
-  "POST https://jobs.ashbyhq.com/api/non-user-graphql {\"jobPostingId\": \"p1\", \"org\": \"exampleai\"}": "{\"data\": {\"jobPosting\": {\"id\": \"p1\", \"descriptionHtml\": \"<p>Define how people supervise agents.</p><p>Requires 6+ years of product design.</p>\", \"compensationTierSummary\": \"$170K \\u2013 $210K \\u2022 Offers Equity\"}}}"
+  "GET https://api.ashbyhq.com/posting-api/job-board/exampleai?includeCompensation=true": "{\"jobs\": [{\"id\": \"p1\", \"title\": \"Design Lead, Agents\", \"location\": \"Remote (US)\", \"secondaryLocations\": [], \"isListed\": true, \"isRemote\": true, \"workplaceType\": \"Remote\", \"jobUrl\": \"https://jobs.ashbyhq.com/exampleai/p1\", \"publishedAt\": \"2026-10-01T00:00:00Z\", \"descriptionHtml\": \"<p>Define how people supervise agents.</p><p>Requires 6+ years of product design.</p>\", \"descriptionPlain\": \"Define how people supervise agents.\\nRequires 6+ years of product design.\", \"compensation\": {\"compensationTierSummary\": \"$170K \\u2013 $210K \\u2022 Offers Equity\", \"summaryComponents\": [{\"compensationType\": \"Salary\", \"minValue\": 170000, \"maxValue\": 210000}]}}, {\"id\": \"p2\", \"title\": \"Unlisted role\", \"location\": \"NYC\", \"isListed\": false, \"descriptionPlain\": \"x\"}]}"
  },
  "expect": {
   "kept": 1,

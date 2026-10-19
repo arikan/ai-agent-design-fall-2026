@@ -44,8 +44,7 @@
    "note": "",
    "config": {
     "company": "openai",
-    "company_name": "OpenAI",
-    "max_details": 30
+    "company_name": "OpenAI"
    }
   }
  ]

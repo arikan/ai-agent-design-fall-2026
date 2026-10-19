@@ -827,7 +827,7 @@ const ADAPTERS = {
   corpus:{label:"Frozen corpus", fields:[], help:"Fixed, fictional postings kept in the course repo, for repeatable tests."},
   greenhouse:{label:"Greenhouse", key:"board_token", fields:[["board_token","Board token","figma"],["company_name","Company name","Figma"],["company_from_title","Company in the title (pattern, optional)","^(Partner \\d+),"]], help:"A company's Greenhouse board. The token is the last part of boards.greenhouse.io/<token>. For a board that pools several companies' jobs and puts the company at the start of the title, give a pattern whose first group is the company."},
   lever:{label:"Lever", key:"company", fields:[["company","Company","examplestart"],["company_name","Company name",""]], help:"A company's Lever board, from jobs.lever.co/<company>."},
-  ashby:{label:"Ashby", key:"company", fields:[["company","Board name","openai"],["company_name","Company name",""],["max_details","Postings to read in full","50"]], help:"A company's Ashby board, from jobs.ashbyhq.com/<board name>. Each posting needs its own request, so keep the number modest."},
+  ashby:{label:"Ashby", key:"company", fields:[["company","Board name","openai"],["company_name","Company name",""]], help:"A company's Ashby board, from jobs.ashbyhq.com/<board name>. One request reads the whole board, with descriptions and pay."},
   getro:{label:"Getro portfolio board", key:"domain", fields:[["domain","Board domain","jobs.example-vc.com"]], help:"Job boards that venture firms run for their portfolio companies. Lists the 20 newest jobs, without descriptions."},
   json_api:{label:"JSON API", key:"url", fields:[["url","API address","https://..."],["items_path","Where the list sits","jobs or data.items, empty for a bare list"],["fields","Where each field sits (JSON)",'{"title":"position","company":"company","location":"location","url":"url","text":"description"}'],["filter_words","Keep only jobs mentioning","design, research"],["company_name","Company name, if items have none",""]], help:"Any API that returns a list of jobs. When it changes shape, fix the paths here; no code needed."},
   html_scraper:{label:"Web page", key:"url", fields:[["url","Careers page address","https://..."],["sel_job_card","Job card selector","li.job-row"],["sel_title","Title selector",".title"],["sel_company","Company selector",""],["sel_location","Location selector",".location"],["sel_link","Link selector","a"],["detail_text","Description selector on each job page",""],["company_name","Company name, if cards have none",""]], help:"A careers page read with CSS selectors. When it stops working, the selectors usually need updating. Pages built with JavaScript come back empty."},
@@ -838,7 +838,7 @@ const ADAPTERS = {
 const host = u => { try { return new URL(u).hostname; } catch(e){ return ""; } };
 function srcDomains(s){
   const c = s.config || {};
-  return ({greenhouse:["boards-api.greenhouse.io"], lever:["api.lever.co"], ashby:["jobs.ashbyhq.com"], getro:[c.domain],
+  return ({greenhouse:["boards-api.greenhouse.io"], lever:["api.lever.co"], ashby:["api.ashbyhq.com"], getro:[c.domain],
     json_api:[host(c.url)], html_scraper:[host(c.url)], rss:[host(c.url)], custom:c.domains||[]}[s.adapter] || []).filter(Boolean);
 }
 function srcHealth(id){

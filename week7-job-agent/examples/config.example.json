@@ -31,8 +31,7 @@
         "cap": 10,
         "config": {
           "company": "openai",
-          "company_name": "OpenAI",
-          "max_details": 10
+          "company_name": "OpenAI"
         }
       }
     ]
