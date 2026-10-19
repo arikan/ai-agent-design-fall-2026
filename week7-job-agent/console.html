@@ -162,10 +162,8 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .newtag{font:600 10px var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:2px 6px;align-self:center}
 .usage{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--bg)}
 .drops td{font-weight:400 !important;font-size:13px;color:var(--muted)}
-.dbgrid{display:grid;gap:14px}
-.dbgrid fieldset{border:0;border-top:1px solid var(--line);margin:0;padding:12px 0 0;min-width:0;display:grid;gap:8px}
-.dbgrid legend{font-size:13px;font-weight:600;padding:0 8px 0 0}
-.dbgrid label > span{display:inline-flex;align-items:center;gap:2px}
+.grid2 > .span2{grid-column:1/-1}
+label > span{display:inline-flex;align-items:center;gap:2px}
 .sechead{margin-top:12px}.sechead h3{margin:0}.sechead p{margin:4px 0 0}
 .funnel{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
 .funnel li{position:relative;border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:2px;align-content:start;background:var(--bg)}
@@ -566,22 +564,12 @@ function renderSearchEditor(){
     <div class="card stack">
       <h3>Deal breakers</h3>
       <p class="small muted" style="margin:0">Checked in code before anything is scored. A post that fails one is dropped, and the run log says why.</p>
-      <div class="dbgrid">
-        <fieldset><legend>Locations</legend>
-          <label for="d-locs"><span>Locations <button type="button" class="tip" aria-label="How locations match" data-tip="Separate with commas. A post passes if one of these appears in its location or title, ignoring case, or if the job board marks it remote.">i</button></span><input type="text" id="d-locs" value="${esc((db.locations_any||[]).join(", "))}" placeholder="New York, NYC, Remote, Hybrid"></label>
-        </fieldset>
-        <fieldset><legend>Compensation <span class="muted small">(${esc(db.currency || "USD")} a year, total)</span></legend>
-          <div class="grid2">
-            <label for="d-minpay"><span>Minimum <button type="button" class="tip" aria-label="How the minimum works" data-tip="A post whose listed pay tops out below this is dropped. Posts that list no pay are kept, since most don't.">i</button></span><input type="number" id="d-minpay" min="0" step="10000" value="${db.min_pay ?? ""}" placeholder="250000"></label>
-            <label for="d-prefpay"><span>Preferred <button type="button" class="tip" aria-label="How the preferred amount works" data-tip="Not a deal breaker. Claude uses it to score Compensation fit: at or above it is strong.">i</button></span><input type="number" id="d-prefpay" min="0" step="10000" value="${db.preferred_pay ?? ""}" placeholder="300000"></label>
-          </div>
-        </fieldset>
-        <fieldset><legend>Exclude</legend>
-          <div class="grid2">
-            <label for="d-ind">Industries<input type="text" id="d-ind" value="${esc((db.exclude_industries||[]).join(", "))}" placeholder="Defense"></label>
-            <label for="d-kw">Words<input type="text" id="d-kw" value="${esc((db.exclude_keywords||[]).join(", "))}" placeholder="clearance, 60 percent travel"></label>
-          </div>
-        </fieldset>
+      <div class="grid2">
+        <label for="d-locs" class="span2"><span>Locations <button type="button" class="tip" aria-label="How locations match" data-tip="Separate with commas. A post passes if one of these appears in its location or title, ignoring case, or if the job board marks it remote.">i</button></span><input type="text" id="d-locs" value="${esc((db.locations_any||[]).join(", "))}" placeholder="New York, NYC, Remote, Hybrid"></label>
+        <label for="d-minpay"><span>Compensation minimum (USD a year) <button type="button" class="tip" aria-label="How the minimum works" data-tip="Total compensation. A post whose listed pay tops out below this is dropped. Posts that list no pay are kept, since most don't.">i</button></span><input type="number" id="d-minpay" min="0" step="10000" value="${db.min_pay ?? ""}" placeholder="250000"></label>
+        <label for="d-prefpay"><span>Compensation preferred (USD a year) <button type="button" class="tip" aria-label="How the preferred amount works" data-tip="Not a deal breaker. Claude uses it to score Compensation fit: at or above it is strong.">i</button></span><input type="number" id="d-prefpay" min="0" step="10000" value="${db.preferred_pay ?? ""}" placeholder="300000"></label>
+        <label for="d-ind">Exclude industries<input type="text" id="d-ind" value="${esc((db.exclude_industries||[]).join(", "))}" placeholder="Defense"></label>
+        <label for="d-kw">Exclude words<input type="text" id="d-kw" value="${esc((db.exclude_keywords||[]).join(", "))}" placeholder="clearance, 60 percent travel"></label>
       </div>
     </div>
     <div class="card stack" id="preview"></div>
