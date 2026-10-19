@@ -20,7 +20,7 @@
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--font-ui)}
 .wrap{max-width:980px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 16px;margin-bottom:16px}
+header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px 16px;margin-bottom:16px}
 h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.01em}
 h2{font-size:17px;font-weight:600;margin:0}
 h3{font-size:14px;font-weight:600;margin:0}
@@ -156,6 +156,9 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .conn{padding:4px 8px;margin:-4px -8px;border:1px solid transparent}
 .conn:not(:disabled):hover{border-color:var(--line)}
 .conn[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.hdr-r{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.build{font-size:11px;opacity:.7}
+.newtag{font:600 10px var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:2px 6px;align-self:center}
 .lamp{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
 .conn[data-state="on"] .lamp{background:#2FB872;box-shadow:0 0 0 3px color-mix(in srgb,#2FB872 22%,transparent),0 0 6px #2FB872}
 .conn[data-state="wait"] .lamp{background:var(--warn)}
@@ -196,7 +199,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 <div class="wrap">
   <header>
     <h1>Job Agent</h1>
-    <span class="small muted"><button type="button" class="conn" id="conn-wrap" data-state="wait" aria-expanded="false" aria-controls="setup" disabled><i class="lamp" aria-hidden="true"></i><span id="conn">Connecting…</span><svg class="chev" id="conn-chev" hidden viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span id="build"></span></span>
+    <div class="hdr-r small muted"><button type="button" class="conn" id="conn-wrap" data-state="wait" aria-expanded="false" aria-controls="setup" disabled><i class="lamp" aria-hidden="true"></i><span id="conn">Connecting…</span><svg class="chev" id="conn-chev" hidden viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span id="build" class="build"></span></div>
   </header>
 
   <section id="setup" hidden></section>
@@ -248,7 +251,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script>
-const COURSE_CAPS = {max_runs_per_day:1, max_searches:3, max_postings_per_source:100, max_postings_per_run:200, max_judged_per_search:12, trace_runs_kept:14};
+const COURSE_CAPS = {max_runs_per_day:1, max_searches:3, max_postings_per_source:1000, max_postings_per_run:3000, max_judged_per_search:12, trace_runs_kept:14};
 const DEFAULT_DIMS = [
   {key:"industry", name:"Industry alignment", weight:15, rubric:"Strong: a sector I care about. Weak: a sector I avoid or feel neutral about."},
   {key:"role", name:"Role fit", weight:25, rubric:"Strong: the daily work is what I want to do. Weak: mostly tasks I want to move away from."},
@@ -289,10 +292,13 @@ function renderMatches(){
   const dimsFor = id => (S.searches.find(s=>s.id===id)?.preferences?.dimensions) || DEFAULT_DIMS;
   const scope = S.matches.filter(m => !sel.value || m.search_id === sel.value);
   let rows = $("f-hide").checked ? scope.filter(m => !S.judgments[m.id]) : scope;
-  rows = [...rows].sort((a,b) => b.total - a.total);
+  const lastRun = [...S.runs].filter(r => r.status === "ok").sort((a,b) => String(b.started).localeCompare(String(a.started)))[0];
+  const isNew = m => !!lastRun && m.run_id === lastRun.id && S.runs.filter(r => r.status === "ok").length > 1;
+  rows = [...rows].sort((a,b) => (isNew(b) - isNew(a)) || (b.total - a.total));
   $("c-matches").textContent = S.matches.length || "";
   $("f-hide").closest(".row.between").hidden = !S.matches.length;
-  $("m-summary").textContent = scope.length ? `${scope.filter(m=>S.judgments[m.id]).length} of ${scope.length} judged` : "";
+  const nNew = scope.filter(isNew).length;
+  $("m-summary").textContent = scope.length ? `${nNew ? `${nNew} new from the last run · ` : ""}${scope.filter(m=>S.judgments[m.id]).length} of ${scope.length} judged` : "";
   if (!rows.length){
     if (S.matches.length){ $("matches").innerHTML = `<div class="card empty">Nothing left to judge here.</div>`; return; }
     const ready = setupDone(), running = ["starting","running"].includes(runNowPhase());
@@ -332,7 +338,7 @@ function renderMatches(){
       <div class="score ${m.total >= 80 ? "hi" : m.total >= 60 ? "mid" : "lo"}">${m.total}<small>of 100</small></div>
       <div class="body">
         <div class="head">
-          <h2><span>${esc(m.title)}</span><span class="dot" aria-hidden="true">·</span><span>${esc(m.company)}</span></h2>
+          <h2>${isNew(m) ? `<span class="newtag">New</span>` : ""}<span>${esc(m.title)}</span><span class="dot" aria-hidden="true">·</span><span>${esc(m.company)}</span></h2>
           ${pay}
         </div>
         <div class="meta"><span>${esc(m.location)}${m.industry?` · ${esc(m.industry)}`:""}</span>${link}</div>
@@ -624,7 +630,7 @@ function renderSources(){
     <div id="src-new"></div>
     ${a.sources.map(s => sourceCard(s)).join("")}`;
   if ($("pick-runner")) $("pick-runner").onclick = pickRunner;
-  $("add-source").onclick = () => { $("src-new").innerHTML = sourceEditor({id:"", adapter:"greenhouse", enabled:true, category:"", cap:50, config:{}}, true); wireEditor($("src-new").firstElementChild); };
+  $("add-source").onclick = () => { $("src-new").innerHTML = sourceEditor({id:"", adapter:"greenhouse", enabled:true, category:"", cap:COURSE_CAPS.max_postings_per_source, config:{}}, true); wireEditor($("src-new").firstElementChild); };
   $("copy-doms").onclick = async e => { try { await navigator.clipboard.writeText(doms.join("\n")); e.target.textContent = "Copied"; } catch(err){ const r=document.createRange(); r.selectNodeContents($("domlist")); getSelection().removeAllRanges(); getSelection().addRange(r); } };
 }
 function sourceCard(s){
@@ -636,7 +642,7 @@ function sourceCard(s){
     <div class="row between">
       <div class="stack" style="gap:2px;min-width:0">
         <div class="row"><h3 class="mono">${esc(s.id)}</h3><span class="pill ${st[0]}">${st[1]}</span>${h.repair?`<span class="pill bad">Needs repair</span>`:""}${h.blocked && s.enabled?`<span class="pill warn">Domain not allowed yet</span>`:""}</div>
-        <div class="small muted">${esc(ADAPTERS[s.adapter]?.label || s.adapter)}${s.category?` · ${esc(s.category)}`:""}${s.adapter!=="corpus"&&s.adapter!=="manual"?` · up to ${s.cap} postings`:""}${h.lastOk?` · last worked ${esc(when(h.lastOk))}`:""}</div>
+        <div class="small muted">${esc(ADAPTERS[s.adapter]?.label || s.adapter)}${s.category?` · ${esc(s.category)}`:""}${s.adapter!=="corpus"&&s.adapter!=="manual"?` · up to ${s.cap||COURSE_CAPS.max_postings_per_source} postings`:""}${h.lastOk?` · last worked ${esc(when(h.lastOk))}`:""}</div>
       </div>
       <div class="row">${strip}${s.enabled && s.adapter!=="corpus" && s.adapter!=="manual" ? testButton(s) : ""}<label class="inline small" for="on-${esc(s.id)}"><input type="checkbox" id="on-${esc(s.id)}" data-toggle ${s.enabled?"checked":""}> On</label><button class="btn" data-edit>Edit</button></div>
     </div>
@@ -663,7 +669,7 @@ function sourceEditor(s, isNew){
     <div class="grid2">
       <label>Adapter<select data-adapter>${opts}</select></label>
       <label>Category<input type="text" data-common="category" value="${esc(s.category||"")}" placeholder="design, ai, civic"></label>
-      ${s.adapter!=="corpus"&&s.adapter!=="manual"?`<label>Most postings per run<input type="number" data-common="cap" min="1" max="${COURSE_CAPS.max_postings_per_source}" value="${s.cap||50}"></label>`:""}
+      ${s.adapter!=="corpus"&&s.adapter!=="manual"?`<label>Most postings to read<input type="number" data-common="cap" min="1" max="${COURSE_CAPS.max_postings_per_source}" value="${s.cap||COURSE_CAPS.max_postings_per_source}"></label>`:""}
       ${fields}
     </div>
     <p class="small muted" style="margin:0">${esc(A.help)}</p>
@@ -689,7 +695,7 @@ function readEditor(f){
   const keyVal = A.key ? (A.key === "url" ? host(config.url) : config[A.key]) : "";
   const id = adapter === "corpus" ? "corpus" : adapter === "manual" ? "manual:" + (host(config.url) || slug(common("note"))) : `${adapter}:${keyVal}`;
   if (A.key && !keyVal) throw new Error(`Fill in ${A.fields.find(x=>x[0]===A.key || (A.key==="url"&&x[0]==="url"))?.[1] || A.key}.`);
-  return {id, adapter, enabled:true, category:common("category")||"", cap:Math.min(Number(common("cap"))||50, COURSE_CAPS.max_postings_per_source), note:common("note")||"", config};
+  return {id, adapter, enabled:true, category:common("category")||"", cap:Math.min(Number(common("cap"))||COURSE_CAPS.max_postings_per_source, COURSE_CAPS.max_postings_per_source), note:common("note")||"", config};
 }
 async function saveSources(sources, msg){
   const a = S.agent, next = {...a, version:a.version+1, sources, updated:new Date().toISOString()};
@@ -699,7 +705,7 @@ async function saveSources(sources, msg){
 }
 function wireEditor(f){
   f.querySelector("[data-adapter]").onchange = e => {
-    const cur = {id:f.dataset.orig, adapter:e.target.value, enabled:true, cap:50, config:{}};
+    const cur = {id:f.dataset.orig, adapter:e.target.value, enabled:true, cap:COURSE_CAPS.max_postings_per_source, config:{}};
     const fresh = document.createElement("div"); fresh.innerHTML = sourceEditor(cur, !!f.dataset.new);
     const nf = fresh.firstElementChild; f.replaceWith(nf); wireEditor(nf);
   };
@@ -1082,7 +1088,7 @@ function renderRuns(){
         <span class="row"><span class="pill ${r.status==="ok"?"ok":"warn"}">${esc(r.status)}${r.cap_hit?": "+esc(r.cap_hit):""}</span><span class="small muted">${r.matches ?? 0} matches · agent v${esc(r.agent_version)}</span></span></summary>
       <div class="stack" style="margin-top:12px">
         <h3>Sources</h3><div class="scroll"><table><thead><tr><th>Source</th><th>Status</th><th>Fetched</th><th>Rejected</th><th>Kept</th><th>Note</th></tr></thead><tbody>${sources}</tbody></table></div>
-        ${filtered ? `<h3>Dropped by deal breakers (${r.filtered.length})</h3><div class="scroll"><table><thead><tr><th>Posting</th><th>Company</th><th>Reason</th><th>Search</th></tr></thead><tbody>${filtered}</tbody></table></div>` : ""}
+        ${filtered ? `<h3>Dropped by deal breakers (${r.filtered_total ?? r.filtered.length})</h3>${r.filtered_by_reason ? `<p class="small muted">${Object.entries(r.filtered_by_reason).map(([k,v]) => `${esc(k)}: ${v}`).join(" · ")}${r.filtered_total > r.filtered.length ? ` · first ${r.filtered.length} listed` : ""}</p>` : ""}<div class="scroll"><table><thead><tr><th>Posting</th><th>Company</th><th>Reason</th><th>Search</th></tr></thead><tbody>${filtered}</tbody></table></div>` : ""}
         <h3>Steps</h3><div>${steps}</div>
       </div></details>`;
   }).join("");
@@ -1105,7 +1111,7 @@ function renderRuns(){
   db.doc("meta/request").onSnapshot(d => { S.request = d.exists ? d.data() : null; renderAll(); }, fail);
   db.doc("meta/app").onSnapshot(d => { S.app = d.exists ? d.data() : null; renderSetup(); }, fail);
   db.doc("meta/console").onSnapshot(d => { const m = d.exists ? d.data() : null;
-    $("build").textContent = m ? ` · page from commit ${m.commit}, published ${when(m.published_at)}` : ""; }, fail);
+    $("build").textContent = m ? `Updated ${when(m.published_at)} · ${m.commit}` : ""; }, fail);
   db.collection("proposals").onSnapshot(q => { S.proposals = Object.fromEntries(q.docs.map(d => [d.data().source_id, d.data()])); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
   db.collection("judgments").onSnapshot(q => { S.judgments = Object.fromEntries(q.docs.map(d => [d.id, d.data()])); renderMatches(); }, fail);
 })();

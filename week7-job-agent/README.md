@@ -9,11 +9,16 @@ It runs two ways:
 
 ## Start here
 
-Students: open [Claude Code](https://claude.ai/code), start a new session, and send:
+> **You need a paid Claude plan (Pro or higher).** The daily run is a Claude Code scheduled task on Claude's servers, which the free plan doesn't include. Each run uses your plan's usage.
 
-> Set up my Job Agent by following week7-job-agent/SETUP.md in https://github.com/arikan/ai-agent-design-fall-2026
+1. Open [Claude Code](https://claude.ai/code) and start a new session.
+2. Send this prompt:
 
-Claude asks which roles you're after, then creates your own Job Agent page and its daily run. Change one network setting, press Check on your page, and find your first matches. Needs a paid Claude plan.
+   > Set up my Job Agent by following week7-job-agent/SETUP.md in https://github.com/arikan/ai-agent-design-fall-2026
+
+3. Answer Claude's question about the roles, industries and location you're after. Claude creates your Job Agent page and its daily run, then links you to the page.
+4. On the page, follow the setup panel: allow the daily run to reach job sites (one network setting), then press **I've changed it, check my setup**.
+5. When the light turns green, press **Start my agent**. Your first matches appear in a few minutes.
 
 ## How it works
 
@@ -92,7 +97,7 @@ Locally, nothing is written to the Job Agent page. That step needs a Claude sess
 
 ## Run it in Claude's cloud
 
-The daily run is a scheduled task in Claude Code that clones this repository and follows [`RUN.md`](RUN.md). It needs a paid Claude plan. Setup happens on the Job Agent page, in three steps:
+The daily run is a scheduled task in Claude Code that clones this repository and follows [`RUN.md`](RUN.md). It needs a paid Claude plan (Pro or higher). Setup happens on the Job Agent page, in three steps:
 
 1. **Create your daily run.** The page gives you a message to paste into a new Claude Code session. Claude creates the scheduled task, and the page connects to it.
 2. **Let it reach job sites.** In the task's cloud environment, set Network access to Full. (For tighter control, use Custom with the domains the page lists under Sources.)
@@ -128,7 +133,7 @@ Built in adapters: Greenhouse, Lever, Ashby, Getro (venture firm portfolio board
 
 ## Limits
 
-Course limits live in `caps.json` and are enforced in code: one daily run, three active searches, 100 postings per source, 200 per run, 12 judged per search. The page can lower them, never raise them.
+Course limits live in `caps.json` and are enforced in code: one daily run, three active searches, 1,000 postings read per source, 3,000 per run, 12 judged per search. Reading is cheap and done in code, so every fetched posting goes through deal breakers and the prefilter; judging is what uses your plan, so that is the tight cap. The page can lower them, never raise them.
 
 ## Your data
 

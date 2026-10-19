@@ -19,7 +19,6 @@
         "id": "greenhouse:anthropic",
         "adapter": "greenhouse",
         "enabled": true,
-        "cap": 25,
         "config": {
           "board_token": "anthropic",
           "company_name": "Anthropic"

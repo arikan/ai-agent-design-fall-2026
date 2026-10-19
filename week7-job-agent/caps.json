@@ -1,8 +1,8 @@
 {
   "max_runs_per_day": 1,
   "max_searches": 3,
-  "max_postings_per_source": 100,
-  "max_postings_per_run": 200,
+  "max_postings_per_source": 1000,
+  "max_postings_per_run": 3000,
   "max_judged_per_search": 12,
   "trace_runs_kept": 14
 }

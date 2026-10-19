@@ -10,7 +10,6 @@
    "adapter": "corpus",
    "enabled": false,
    "category": "test",
-   "cap": 100,
    "note": "Fictional postings for repeatable tests. Turn on only for testing.",
    "config": {}
   },
@@ -19,7 +18,6 @@
    "adapter": "greenhouse",
    "enabled": true,
    "category": "ai",
-   "cap": 25,
    "note": "",
    "config": {
     "board_token": "anthropic",
@@ -31,7 +29,6 @@
    "adapter": "greenhouse",
    "enabled": true,
    "category": "design tools",
-   "cap": 25,
    "note": "",
    "config": {
     "board_token": "figma",
@@ -43,12 +40,11 @@
    "adapter": "ashby",
    "enabled": true,
    "category": "ai",
-   "cap": 25,
    "note": "",
    "config": {
     "company": "openai",
     "company_name": "OpenAI",
-    "max_details": 25
+    "max_details": 100
    }
   }
  ]

@@ -11,6 +11,7 @@ Everything the engine decides is written to the trace, so a run can be read step
 
 import hashlib
 import json
+from collections import Counter
 import re
 import sys
 from datetime import datetime, timezone
@@ -85,6 +86,9 @@ def load_sources(agent, trace):
         health.append(h)
     step(trace, "fetch", sources=health)
     return postings, health
+
+
+FILTERED_KEPT = 100   # deal-breaker drops listed one by one in a run record; the rest are counted
 
 
 def normalize_and_dedupe(postings, trace):
@@ -352,7 +356,9 @@ def finish(config):
 
     run = {"id": batch["run_id"], "status": "ok", "started": state["started"], "ended": now(),
            "agent_version": batch["agent_version"], "searches": [s["id"] for s in batch["searches"]],
-           "sources": state["sources"], "filtered": state["filtered"], "matches": len(matches),
+           "sources": state["sources"], "filtered": state["filtered"][:FILTERED_KEPT],
+           "filtered_total": len(state["filtered"]), "filtered_by_reason": dict(Counter(f["reason"] for f in state["filtered"]).most_common()),
+           "matches": len(matches),
            "rejected": len(rejected), "trace": trace}
     (WORK / "results.json").write_text(json.dumps({"run": run, "matches": matches}, indent=2))
     print(f"{batch['run_id']}: {len(matches)} matches scored, {len(rejected)} judgments rejected. Wrote work/results.json")
