@@ -139,6 +139,20 @@ def rank_fixture():
     print(f"wrote tests/rank_fixture.json: {len(postings)} postings")
 
 
+def drop_detail(p, reason, db):
+    """The reason in words a student can check against the posting and their settings."""
+    money = lambda n: f"${n:,.0f}"
+    if reason == "location not in list":
+        return f"Location {p.get('location') or 'not given'} matches none of {', '.join(db.get('locations_any', []))}, and it isn't marked remote"
+    if reason == "not remote":
+        return f"Not marked remote ({p.get('location') or 'no location given'})"
+    if reason.startswith("pay below"):
+        return f"Pay tops out at {money(p['pay_max'])}, below your {money(db['min_pay'])} floor"
+    if reason == "no pay listed":
+        return "No pay listed, and you require it"
+    return reason[0].upper() + reason[1:]
+
+
 def deal_breaker(p, db):
     text = f"{p['title']} {p['text']}".lower()
     if db.get("remote_only") and not p.get("remote"):
@@ -277,7 +291,8 @@ def prepare(config):
                 continue
             reason = deal_breaker(p, db)
             if reason:
-                filtered.append({"search": s["id"], "posting": p["id"], "title": p["title"], "company": p["company"], "reason": reason})
+                filtered.append({"search": s["id"], "posting": p["id"], "title": p["title"], "company": p["company"], "reason": reason,
+                                 "detail": drop_detail(p, reason, db)})
             else:
                 passed.append((prefilter_score(s, p), p))
         passed.sort(key=lambda t: -t[0])

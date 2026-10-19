@@ -160,6 +160,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .hdr-r{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .build{font-size:11px;opacity:.7}
 .newtag{font:600 10px var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:2px 6px;align-self:center}
+.sechead{margin-top:12px}.sechead h3{margin:0}.sechead p{margin:4px 0 0}
 .funnel{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
 .funnel li{position:relative;border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:2px;align-content:start;background:var(--bg)}
 .funnel b{font:600 20px var(--font-data)}
@@ -510,7 +511,7 @@ function renderPreview(s){
       <span class="ptitle">${x.p.url ? `<a href="${esc(x.p.url)}" target="_blank" rel="noopener">${esc(x.p.title)}</a>` : esc(x.p.title)} <span class="muted">· ${esc(x.p.company)}</span></span>
       <span class="pwhy small muted">${x.parts.map(q => `<span class="${q.v > 0 ? "hit" : ""}">${label[q.key]}${q.key === "role" || q.key === "industry" ? (q.v ? " ✓" : " ✗") : ` ${Math.round(q.v * 100)}%`}</span>`).join("")}</span></li>`).join("");
   box.innerHTML = head + `
-    <p class="small muted" style="margin:0">${num(dropped)} dropped by your deal breakers${dropped ? ` (${Object.entries(drops).map(([k,v]) => `${esc(k)}: ${v}`).join(", ")})` : ""}${already ? `, ${num(already)} already matched` : ""}. ${num(passed.length)} ranked by code; the top <b>${n}</b> would be scored by Claude. Edit the fields above and this updates.</p>
+    <p class="small muted" style="margin:0">${num(dropped)} dropped by your deal breakers${dropped ? ` (${Object.entries(drops).map(([k,v]) => `${esc(dropLabel(k))}: ${v}`).join(", ")})` : ""}${already ? `, ${num(already)} already matched` : ""}. ${num(passed.length)} ranked by code; the top <b>${n}</b> would be scored by Claude. Edit the fields above and this updates.</p>
     ${rows ? `<ol class="plist">${rows}</ol>` : `<p class="small muted" style="margin:0">Nothing passes your deal breakers.</p>`}
     ${passed.length > n ? `<button type="button" class="btn" id="preview-more">${S.posts.showAll ? "Show fewer" : `Show the next ${Math.min(25, passed.length) - n}`}</button>` : ""}`;
   const more = $("preview-more"); if (more) more.onclick = () => { S.posts.showAll = !S.posts.showAll; renderPreview(s); };
@@ -710,7 +711,7 @@ function renderAgent(){
 /* ---------- sources ---------- */
 const ADAPTERS = {
   corpus:{label:"Frozen corpus", fields:[], help:"Fixed, fictional postings kept in the course repo, for repeatable tests."},
-  greenhouse:{label:"Greenhouse", key:"board_token", fields:[["board_token","Board token","figma"],["company_name","Company name","Figma"]], help:"A company's Greenhouse board. The token is the last part of boards.greenhouse.io/<token>."},
+  greenhouse:{label:"Greenhouse", key:"board_token", fields:[["board_token","Board token","figma"],["company_name","Company name","Figma"],["company_from_title","Company in the title (pattern, optional)","^(Partner \\d+),"]], help:"A company's Greenhouse board. The token is the last part of boards.greenhouse.io/<token>. For a board that pools several companies' jobs and puts the company at the start of the title, give a pattern whose first group is the company."},
   lever:{label:"Lever", key:"company", fields:[["company","Company","examplestart"],["company_name","Company name",""]], help:"A company's Lever board, from jobs.lever.co/<company>."},
   ashby:{label:"Ashby", key:"company", fields:[["company","Board name","openai"],["company_name","Company name",""],["max_details","Postings to read in full","50"]], help:"A company's Ashby board, from jobs.ashbyhq.com/<board name>. Each posting needs its own request, so keep the number modest."},
   getro:{label:"Getro portfolio board", key:"domain", fields:[["domain","Board domain","jobs.example-vc.com"]], help:"Job boards that venture firms run for their portfolio companies. Lists the 20 newest jobs, without descriptions."},
@@ -1232,6 +1233,9 @@ document.addEventListener("click", e => {
 });
 
 /* ---------- runs ---------- */
+// Deal-breaker kinds as the engine records them, in words.
+const dropLabel = k => k === "location not in list" ? "location outside your list" : k === "not remote" ? "not remote"
+  : k.startsWith("pay below") ? "pay below your floor" : k === "no pay listed" ? "no pay listed" : k;
 // The funnel of one run: collected by sources, removed by code, ranked by code, scored by Claude.
 function runFunnel(r){
   const tr = r.trace || [], norm = tr.find(t => t.step === "normalize"), judge = tr.find(t => t.step === "judge");
@@ -1279,7 +1283,7 @@ function renderRuns(){
     </div>` : "";
   $("runs").innerHTML = S.runs.map((r,idx) => {
     const sources = (r.sources||[]).map(s => `<tr><td class="mono">${esc(s.source)}</td><td><span class="pill ${s.status==="ok"?"ok":s.status==="empty"?"warn":s.status==="manual"?"":"bad"}">${esc(s.status)}</span></td><td class="num">${s.fetched ?? ""}</td><td class="num">${s.rejected ?? ""}</td><td class="num">${s.kept ?? ""}</td><td class="mono">${esc(s.error||s.reason||s.note||"")}</td></tr>`).join("");
-    const filtered = (r.filtered||[]).map(f => `<tr><td>${esc(f.title)}</td><td>${esc(f.company)}</td><td>${esc(f.reason)}</td><td class="mono">${esc(f.search)}</td></tr>`).join("");
+    const filtered = (r.filtered||[]).map(f => `<tr><td>${esc(f.title)}</td><td>${esc(f.company)}</td><td>${esc(f.detail || dropLabel(f.reason))}</td></tr>`).join("");
     const steps = (r.trace||[]).map(t => { const {step, at, ...rest} = t; return `<div class="step"><span class="k">${esc(step)}</span><span class="mono" style="white-space:pre-wrap;word-break:break-word">${esc(JSON.stringify(rest, null, 1))}</span></div>`; }).join("");
     const took = r.started && r.ended ? clock(new Date(r.ended) - new Date(r.started)) : "";
     const stageNames = {config:"settings", fetch:"collect", prepare:"filter and rank", judge:"score (Claude)", finish:"check and rank"};
@@ -1292,8 +1296,8 @@ function renderRuns(){
         <p class="small muted" style="margin:0">Started ${r.trigger === "manual" ? "by hand" : "by the morning schedule"}${took ? ` · took ${took}` : ""}${stages ? ` · ${stages}` : ""}</p>
         ${stoppedWhy ? `<div class="testbox small"><b>Why it stopped.</b> ${esc(stoppedWhy)}</div>` : ""}
         ${(f => f ? funnelView(f) : "")(runFunnel(r))}
-        ${sources ? `<h3>Sources</h3><div class="scroll"><table><thead><tr><th>Source</th><th>Status</th><th>Fetched</th><th>Incomplete</th><th>Collected</th><th>Note</th></tr></thead><tbody>${sources}</tbody></table></div>` : ""}
-        ${filtered ? `<h3>Dropped by deal breakers (${r.filtered_total ?? r.filtered.length})</h3>${r.filtered_by_reason ? `<p class="small muted">${Object.entries(r.filtered_by_reason).map(([k,v]) => `${esc(k)}: ${v}`).join(" · ")}${r.filtered_total > r.filtered.length ? ` · first ${r.filtered.length} listed` : ""}</p>` : ""}<div class="scroll"><table><thead><tr><th>Posting</th><th>Company</th><th>Reason</th><th>Search</th></tr></thead><tbody>${filtered}</tbody></table></div>` : ""}
+        ${sources ? `<h3 class="sechead">Sources</h3><div class="scroll"><table><thead><tr><th>Source</th><th>Status</th><th>Fetched</th><th>Incomplete</th><th>Collected</th><th>Note</th></tr></thead><tbody>${sources}</tbody></table></div>` : ""}
+        ${filtered ? `<div class="sechead"><h3>Dropped by deal breakers (${num(r.filtered_total ?? r.filtered.length)})</h3>${r.filtered_by_reason ? `<p class="small muted">${Object.entries(r.filtered_by_reason).map(([k,v]) => `${esc(dropLabel(k))}: ${num(v)}`).join(" · ")}${r.filtered_total > r.filtered.length ? ` · first ${r.filtered.length} listed` : ""}</p>` : ""}</div><div class="scroll"><table><thead><tr><th>Posting</th><th>Company</th><th>Why it was dropped</th></tr></thead><tbody>${filtered}</tbody></table></div>` : ""}
         <h3>Steps</h3><div>${steps}</div>
       </div></details>`;
   }).join("");
