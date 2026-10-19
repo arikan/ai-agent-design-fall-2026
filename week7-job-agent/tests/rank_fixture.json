@@ -1,0 +1,449 @@
+{
+ "search": {
+  "target_roles": null,
+  "keywords": [
+   "product designer",
+   "ux researcher",
+   "design research",
+   "service design",
+   "design strategy",
+   "product strategy"
+  ],
+  "industries": null,
+  "cv_text": "Product designer, 4 years. Service design, design research, prototyping with LLM tools. Interests: AI agents, civic tech, climate."
+ },
+ "deal_breakers": {
+  "min_pay": 90000,
+  "locations_any": [
+   "New York",
+   "Brooklyn"
+  ],
+  "exclude_industries": [
+   "Defense"
+  ]
+ },
+ "postings": [
+  {
+   "id": "c001",
+   "title": "Senior Product Designer, Patient Experience",
+   "company": "Northwind Health",
+   "location": "New York, NY",
+   "remote": false,
+   "pay_min": 145000,
+   "pay_max": 175000,
+   "industry": "Healthcare",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Design the scheduling and messaging tools patients use to reach their care teams. You will run research with patients and clinicians, prototype flows in Figma, and partner with engineering to ship weekly. Requires 5+ years of product design, a portfolio of shipped work, and comfort presenting to executives. We offer a mentorship program pairing every designer with a principal."
+  },
+  {
+   "id": "c002",
+   "title": "Product Strategy Lead",
+   "company": "Fieldstone Analytics",
+   "location": "Remote (US)",
+   "remote": true,
+   "pay_min": 160000,
+   "pay_max": 190000,
+   "industry": "Enterprise software",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Own the strategy for our data platform: market sizing, pricing experiments, and the multi-year roadmap. You will work with the CEO and lead a team of two analysts. Requires 6+ years in product or strategy consulting and experience with B2B SaaS. Series C company growing 80 percent year over year, with meaningful equity for this role."
+  },
+  {
+   "id": "c003",
+   "title": "Service Designer",
+   "company": "Harbor Civic Lab",
+   "location": "Brooklyn, NY",
+   "remote": false,
+   "pay_min": 95000,
+   "pay_max": 115000,
+   "industry": "Public sector",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Help city agencies redesign how residents apply for housing benefits. You will map services end to end, facilitate workshops with caseworkers, and test new forms with residents. Requires 3+ years of service or UX design and experience working with government or nonprofits. Small team, high ownership, and a budget for conferences and courses."
+  },
+  {
+   "id": "c004",
+   "title": "UX Researcher",
+   "company": "Kestrel Defense Systems",
+   "location": "Arlington, VA",
+   "remote": false,
+   "pay_min": 130000,
+   "pay_max": 150000,
+   "industry": "Defense",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Conduct field research with operators to improve targeting and surveillance software. Requires 4+ years of UX research and eligibility for a security clearance. Mixed methods experience preferred."
+  },
+  {
+   "id": "c005",
+   "title": "Learning Experience Designer",
+   "company": "Lumen Learning Co",
+   "location": "Remote (Global)",
+   "remote": true,
+   "pay_min": null,
+   "pay_max": null,
+   "industry": "Education",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Design online courses that teach adults practical data skills. You will storyboard lessons, write interactive exercises, and analyze learner data to improve completion. Requires 2+ years in instructional or UX design. We are a fully remote team across eight time zones and run a weekly learning hour for staff."
+  },
+  {
+   "id": "c006",
+   "title": "Strategic Designer, Urban Transit",
+   "company": "Meridian Mobility",
+   "location": "Berlin, Germany",
+   "remote": false,
+   "pay_min": 80000,
+   "pay_max": 95000,
+   "industry": "Transportation",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Shape the future of shared mobility services in European cities. Combine systems mapping, scenario planning, and prototyping to help transit agencies plan new services. Requires 4+ years in strategic or service design and fluency in English; German is a plus. Early stage venture backed by two city governments."
+  },
+  {
+   "id": "c007",
+   "title": "Senior Product Manager, Payments Risk",
+   "company": "Quanta Pay",
+   "location": "New York, NY",
+   "remote": false,
+   "pay_min": 185000,
+   "pay_max": 225000,
+   "industry": "Fintech",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Lead the roadmap for fraud and risk products used by 40,000 merchants. Work with data science on model launches and with compliance on policy. Requires 5+ years of product management in payments or fintech and strong SQL. Public company, stable, with a structured career ladder."
+  },
+  {
+   "id": "c008",
+   "title": "Design Lead, AI Agents",
+   "company": "Atlas AI Studio",
+   "location": "Remote (US)",
+   "remote": true,
+   "pay_min": 170000,
+   "pay_max": 210000,
+   "industry": "Artificial intelligence",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Lead design for agent products that run tasks for small businesses. Define how people specify, supervise, and correct agents, and build the evaluation practice for agent quality. Requires 6+ years of product design, including 1+ year leading a team, and hands on experience prototyping with LLMs. Seed stage, 14 people, large equity grant."
+  },
+  {
+   "id": "c009",
+   "title": "Product Designer, Grid Tools",
+   "company": "Greenline Energy",
+   "location": "Hybrid, New York, NY",
+   "remote": false,
+   "pay_min": 125000,
+   "pay_max": 150000,
+   "industry": "Climate",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Design dashboards that help utilities balance renewable energy on the grid. You will turn complex data into clear interfaces and test with grid operators. Requires 3+ years of product design and an interest in climate. We fund a yearly learning stipend and offer rotations across product teams."
+  },
+  {
+   "id": "c010",
+   "title": "Visual Merchandising Designer",
+   "company": "Orchard Retail Group",
+   "location": "Columbus, OH",
+   "remote": false,
+   "pay_min": 60000,
+   "pay_max": 72000,
+   "industry": "Retail",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Create in store displays and seasonal window concepts for 300 locations. Requires 2+ years of retail or spatial design and proficiency in Adobe Creative Suite."
+  },
+  {
+   "id": "c011",
+   "title": "Research and Strategy Lead",
+   "company": "Civic Signal",
+   "location": "Remote (US)",
+   "remote": true,
+   "pay_min": 120000,
+   "pay_max": 140000,
+   "industry": "Nonprofit",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Lead research on how communities use public data to hold institutions accountable. Design studies, synthesize findings into strategy, and present to funders and partner organizations. Requires 5+ years in design research or strategy, experience with mixed methods, and strong writing. Mission driven organization with a sabbatical program."
+  },
+  {
+   "id": "c012",
+   "title": "Senior Consultant, Digital Strategy",
+   "company": "Vantage Consulting",
+   "location": "New York, NY",
+   "remote": false,
+   "pay_min": 150000,
+   "pay_max": 170000,
+   "industry": "Consulting",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Advise Fortune 500 clients on digital transformation programs. Lead workstreams, build business cases, and facilitate executive workshops. Requires 4+ years in consulting or strategy and an MBA or equivalent. Travel up to 60 percent. Formal training curriculum and promotion track to manager in two years."
+  },
+  {
+   "id": "c013",
+   "title": "Prototyper, Design Technology",
+   "company": "Polymer Labs",
+   "location": "Brooklyn, NY",
+   "remote": false,
+   "pay_min": 110000,
+   "pay_max": 135000,
+   "industry": "Consumer hardware",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Build interactive prototypes that connect software, sensors, and physical products. Work across design and engineering to test ideas in days, not months. Requires experience with JavaScript or Python, physical computing, and a portfolio of interactive work. Studio culture with weekly critiques and a materials budget."
+  },
+  {
+   "id": "c014",
+   "title": "UX Designer, Claims",
+   "company": "Beacon Insurance",
+   "location": "Hartford, CT",
+   "remote": false,
+   "pay_min": 90000,
+   "pay_max": 105000,
+   "industry": "Insurance",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Improve the claims filing experience on web and mobile. Work within an established design system and an agile squad. Requires 2+ years of UX design."
+  },
+  {
+   "id": "c015",
+   "title": "Head of Design",
+   "company": "Tessellate",
+   "location": "Remote (US)",
+   "remote": true,
+   "pay_min": 200000,
+   "pay_max": 240000,
+   "industry": "Enterprise software",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Build and lead a design team of eight across product, brand, and research. Set the design vision for a collaboration platform used by 2 million people. Requires 10+ years of design and 4+ years managing designers. Series B, recently raised, hiring fast."
+  },
+  {
+   "id": "c016",
+   "title": "Program Designer, Economic Mobility",
+   "company": "Riverbank Foundation",
+   "location": "New York, NY",
+   "remote": false,
+   "pay_min": 85000,
+   "pay_max": 100000,
+   "industry": "Philanthropy",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Design and pilot grant programs that help workers move into better paying jobs. Combine participatory research, program design, and evaluation. Requires 3+ years in program design, social innovation, or service design. Strong professional development culture, with coaching for every staff member."
+  },
+  {
+   "id": "c017",
+   "title": "Product Designer, Agent Evaluation",
+   "company": "Atlas AI Studio",
+   "location": "Remote (US)",
+   "remote": true,
+   "pay_min": 140000,
+   "pay_max": 165000,
+   "industry": "Artificial intelligence",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Design the tools our team and customers use to evaluate agent runs: trace viewers, golden sets, and review queues. Requires 3+ years of product design and curiosity about how AI systems fail. Seed stage, 14 people, equity for all employees."
+  },
+  {
+   "id": "c018",
+   "title": "Content Strategist",
+   "company": "Summit Media",
+   "location": "Los Angeles, CA",
+   "remote": false,
+   "pay_min": null,
+   "pay_max": null,
+   "industry": "Media",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Plan editorial calendars and content programs for a lifestyle brand. Requires 3+ years in content strategy or editorial roles."
+  },
+  {
+   "id": "c019",
+   "title": "Platform Strategy Manager",
+   "company": "Nimbus Cloud",
+   "location": "Seattle, WA",
+   "remote": false,
+   "pay_min": 155000,
+   "pay_max": 185000,
+   "industry": "Cloud infrastructure",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Shape partner and developer ecosystem strategy for our cloud platform: marketplace pricing, partner incentives, and API programs. Requires 5+ years in platform strategy, product, or business development. Large company with strong internal mobility."
+  },
+  {
+   "id": "c020",
+   "title": "Product Designer, Cooperative Platforms",
+   "company": "Commonplace Coop",
+   "location": "Remote (Global)",
+   "remote": true,
+   "pay_min": 90000,
+   "pay_max": 110000,
+   "industry": "Platform cooperatives",
+   "category": null,
+   "url": null,
+   "sources": [
+    "corpus"
+   ],
+   "text": "Design tools that let worker cooperatives run their own platforms for scheduling, payments, and governance. Research with cooperative members, design flows, and help shape how members vote on product decisions. Requires 3+ years of product design and interest in alternative economic models. Worker owned; designers become members after one year."
+  }
+ ],
+ "expected": [
+  {
+   "id": "c001",
+   "dropped": null,
+   "score": 0.17
+  },
+  {
+   "id": "c002",
+   "dropped": null,
+   "score": 0.144
+  },
+  {
+   "id": "c003",
+   "dropped": null,
+   "score": 0.053
+  },
+  {
+   "id": "c004",
+   "dropped": "location not in list",
+   "score": 0.148
+  },
+  {
+   "id": "c005",
+   "dropped": null,
+   "score": 0.034
+  },
+  {
+   "id": "c006",
+   "dropped": "location not in list",
+   "score": 0.111
+  },
+  {
+   "id": "c007",
+   "dropped": null,
+   "score": 0.028
+  },
+  {
+   "id": "c008",
+   "dropped": null,
+   "score": 0.06
+  },
+  {
+   "id": "c009",
+   "dropped": null,
+   "score": 0.194
+  },
+  {
+   "id": "c010",
+   "dropped": "pay below 90000",
+   "score": 0.053
+  },
+  {
+   "id": "c011",
+   "dropped": null,
+   "score": 0.094
+  },
+  {
+   "id": "c012",
+   "dropped": null,
+   "score": 0.012
+  },
+  {
+   "id": "c013",
+   "dropped": null,
+   "score": 0.012
+  },
+  {
+   "id": "c014",
+   "dropped": "location not in list",
+   "score": 0.071
+  },
+  {
+   "id": "c015",
+   "dropped": null,
+   "score": 0.067
+  },
+  {
+   "id": "c016",
+   "dropped": null,
+   "score": 0.115
+  },
+  {
+   "id": "c017",
+   "dropped": null,
+   "score": 0.187
+  },
+  {
+   "id": "c018",
+   "dropped": "location not in list",
+   "score": 0.03
+  },
+  {
+   "id": "c019",
+   "dropped": "location not in list",
+   "score": 0.03
+  },
+  {
+   "id": "c020",
+   "dropped": null,
+   "score": 0.185
+  }
+ ]
+}

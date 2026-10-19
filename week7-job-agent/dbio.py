@@ -63,8 +63,46 @@ def export():
         p = out / f"{m['id']}.json"
         p.write_text(json.dumps(m))
         writes.append({"op": "set", "collection": "matches", "doc_id": m["id"], "file_path": str(p.resolve())})
+    snap = snapshot(r["run"], out)
+    writes.extend(snap)
     (out / "writes.json").write_text(json.dumps(writes, indent=1))
-    print(f"export: {len(writes)} writes in work/out/writes.json (batches of 50 at most)")
+    print(f"export: {len(writes)} writes in work/out/writes.json (batches of 50 at most), {len(snap)} of them the day's postings")
+
+
+CHUNK_BYTES = 180_000   # a document may hold 256 KiB; keep chunks well under it
+
+
+def snapshot(run, out):
+    """The day's collected postings, in chunks the page can load, so the Search tab can rank them
+    without a run. Chunk ids carry the run id, so every write is a create; the page deletes
+    yesterday's. The index goes to work/out/postings-index.json for the session to write to
+    meta/postings with its version."""
+    path = WORK / "postings.json"
+    if not path.exists():
+        return []
+    items = json.loads(path.read_text())
+    chunks, cur, size = [], [], 0
+    for it in items:
+        n = len(json.dumps(it))
+        if cur and size + n > CHUNK_BYTES:
+            chunks.append(cur)
+            cur, size = [], 0
+        cur.append(it)
+        size += n
+    if cur:
+        chunks.append(cur)
+    writes, ids = [], []
+    for i, chunk in enumerate(chunks):
+        doc_id = f"{run['id']}-{i:02d}"
+        p = out / f"postings-{i:02d}.json"
+        p.write_text(json.dumps({"run_id": run["id"], "n": i, "items": chunk}))
+        writes.append({"op": "set", "collection": "postings", "doc_id": doc_id, "file_path": str(p.resolve())})
+        ids.append(doc_id)
+    (out / "postings-index.json").write_text(json.dumps({
+        "run_id": run["id"], "collected_at": run["started"], "count": len(items), "chunks": ids,
+        "sources": [{"id": s["source"], "status": s["status"], "fetched": s.get("fetched"), "kept": s.get("kept")}
+                    for s in run.get("sources", []) if s.get("status") != "manual"]}, indent=1))
+    return writes
 
 
 STAGES = [("fetching", "Collect job posts"), ("filtering", "Filter and rank"),

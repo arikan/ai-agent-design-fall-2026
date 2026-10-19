@@ -113,6 +113,32 @@ def normalize_and_dedupe(postings, trace):
     return out
 
 
+SNAPSHOT_FIELDS = ("id", "title", "company", "location", "remote", "pay_min", "pay_max", "industry", "category", "url", "sources")
+
+
+def snapshot_item(p):
+    """What the page keeps of a collected posting: the fields the ranking and the judge use."""
+    return {**{k: p.get(k) for k in SNAPSHOT_FIELDS}, "text": p["text"][:JUDGE_TEXT_CHARS]}
+
+
+def rank_fixture():
+    """The ranking of the corpus postings for the example search, as the page's JavaScript must reproduce it.
+    `node tests/rank_test.js` compares the two."""
+    cfg = json.loads((HERE / "examples" / "config.example.json").read_text())
+    search = cfg["searches"][0]
+    rows = load_jsonl(HERE / "corpus" / "postings.jsonl")
+    for r in rows:
+        r["source"] = "corpus"
+    postings = [snapshot_item(p) for p in normalize_and_dedupe(rows, [])]
+    db = search["preferences"].get("deal_breakers", {})
+    out = {"search": {k: search.get(k) for k in ("target_roles", "keywords", "industries", "cv_text")}, "deal_breakers": db,
+           "postings": postings,
+           "expected": [{"id": p["id"], "dropped": deal_breaker(p, db), "score": prefilter_score(search, p)} for p in postings]}
+    (HERE / "tests").mkdir(exist_ok=True)
+    (HERE / "tests" / "rank_fixture.json").write_text(json.dumps(out, indent=1))
+    print(f"wrote tests/rank_fixture.json: {len(postings)} postings")
+
+
 def deal_breaker(p, db):
     text = f"{p['title']} {p['text']}".lower()
     if db.get("remote_only") and not p.get("remote"):
@@ -230,6 +256,7 @@ def prepare(config):
     agent = config["agent"]
     postings, health = load_sources(agent, trace)
     postings = normalize_and_dedupe(postings, trace)
+    (WORK / "postings.json").write_text(json.dumps([snapshot_item(p) for p in postings]))
 
     per_search_cap = min(agent["settings"].get("max_judged_per_search", CAPS["max_judged_per_search"]), CAPS["max_judged_per_search"])
     items, filtered = [], []
@@ -366,6 +393,9 @@ def finish(config):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 2 and sys.argv[1] == "rank-fixture":
+        rank_fixture()
+        sys.exit(0)
     if len(sys.argv) != 3 or sys.argv[1] not in ("prepare", "finish"):
         sys.exit(__doc__)
     cfg = json.loads(Path(sys.argv[2]).read_text())

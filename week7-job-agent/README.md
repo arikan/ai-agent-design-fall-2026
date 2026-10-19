@@ -107,12 +107,14 @@ After that:
 
 - The agent runs once a day and new matches appear on the page.
 - **Test** on any source runs just that source in the cloud, so a new source can be checked before the next daily run.
+- Each run keeps the day's collected postings on the page. The Search tab ranks them live as you edit your roles, keywords and deal breakers, and shows which postings the next run would score, so you can tune a search without waiting a day. Ranking is code; only the scoring needs Claude.
 - Code changes reach the cloud on the next run: each run clones the repository's default branch fresh.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
+| `uv run engine.py rank-fixture` then `node tests/rank_test.js` | Check that the page's in-browser ranking matches the engine's |
 | `uv run run.py prepare` / `finish` | The cloud run's two halves: everything before Claude scores, and everything after |
 | `uv run sources.py test` | Run every adapter against its saved responses, offline |
 | `uv run sources.py try <source.json> [out.json]` | Run one source live and show a sample |
@@ -139,7 +141,7 @@ Course limits live in `caps.json` and are enforced in code: one daily run, three
 ## Your data
 
 - Your CV file never leaves your computer. The page extracts its text in your browser, you edit what the agent may read, and only that text is saved.
-- Searches, matches, verdicts and run records live in the Job Agent page's database on Claude's servers, readable only by you. Nothing personal goes into this repository; `work/` is ignored by git.
+- Searches, matches, verdicts, run records and the latest day's collected postings live in the Job Agent page's database on Claude's servers, readable only by you. Nothing personal goes into this repository; `work/` is ignored by git.
 
 ## Known limits
 

@@ -23,7 +23,7 @@ A run should take few turns: do independent tool calls in the same turn, and nev
    - `kind: "run"`: the student asked for a run now; continue.
    Set its `status` to `"started"` (pass the version you read). Otherwise this is the daily run; continue. An extra message `TEST_SOURCE <id>` or `CHECK_SETUP` means the same as a request of that kind.
 2. **Get the engine.** In one command: shallow clone the course repo, `cd` into `week7-job-agent`, and run `pip install -q uv` if `uv` is missing.
-3. **Read the database**, all in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `runs` (list), `matches` (list), `meta` / `progress` and `meta` / `console` (get; either may not exist).
+3. **Read the database**, all in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `runs` (list), `matches` (list), `meta` / `progress`, `meta` / `console` and `meta` / `postings` (get; any may not exist).
 4. **Collect, filter and rank:** `uv run run.py prepare`. It prints how long each stage took.
    - If it says the run stopped on the course cap, go to step 7.
    - Otherwise set `meta` / `progress` from `work/out/progress.json` (`file_path`, with the version from step 3; keep the version the write returns).
@@ -32,6 +32,7 @@ A run should take few turns: do independent tool calls in the same turn, and nev
 7. **Write back**, in one turn:
    - `work/out/writes.json` with ArtifactData `batch` (at most 50 writes per call; each entry already has its `file_path`)
    - `meta` / `progress` from `work/out/progress.json` (with the version you kept)
+   - `meta` / `postings` from `work/out/postings-index.json`, if that file exists (with the version from step 3): it points the page at the day's collected postings, which `writes.json` already carried
    - if this run came from a request, `meta` / `request` `status` `"done"`
 8. **Repair** (skip when every source in the fetch output is `ok`, or the failure is a network block, which you report instead): for a source that failed or returned nothing, look at its API or page with a web fetch, work out the smallest settings change that fixes it (board token, selectors, field paths; code only for a custom adapter), write it as JSON and test it with `uv run sources.py try <file>`. If it returns postings, write a proposal to `proposals/<source id with characters other than letters, digits, dot, dash and underscore replaced by _>` with `source_id`, `source` (the full changed source), `reason` (one sentence), `before` and `after` (each `status` and `kept`), `sample` (up to three titles), `at`. Never change the agent settings yourself.
 9. **Sync the page** (last, so matches appear first): if `sha256sum console.html` differs from the `sha256` in `meta` / `console` (read in step 3), republish `console.html` to `CONSOLE_URL` with the Artifact tool (pass `url`; omit `capabilities` and `icon`), then write `meta` / `console` with `sha256`, `commit` (`git log -1 --format=%h -- console.html`) and `published_at`. If the republish asks for approval or fails, skip it.

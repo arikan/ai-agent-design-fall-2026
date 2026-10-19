@@ -164,6 +164,14 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .funnel b{font:600 20px var(--font-data)}
 .funnel span{font-size:12px;color:var(--muted);line-height:1.4}
 .funnel li:nth-child(3){border-color:var(--accent)}
+.plist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.prow{display:grid;grid-template-columns:32px 60px minmax(0,1fr) auto;gap:10px;align-items:center;font-size:13px;opacity:.55}
+.prow.in{opacity:1}
+.prow .num{text-align:right;color:var(--muted)}
+.pbar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}.pbar i{display:block;height:100%;background:var(--accent)}
+.ptitle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ptitle a{color:inherit}
+.pwhy{display:flex;gap:8px;white-space:nowrap}.pwhy .hit{color:var(--fg)}
+@media (max-width:640px){.prow{grid-template-columns:32px 1fr}.pbar,.pwhy{display:none}}
 .psteps{list-style:none;margin:0;padding:0;display:grid;gap:4px}
 .psteps li{display:flex;gap:8px;align-items:baseline;color:var(--muted)}
 .psteps li>span:first-child{width:16px;flex:none;text-align:center}
@@ -276,6 +284,7 @@ const $ = id => document.getElementById(id);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money = (a,b) => a==null && b==null ? "Pay not listed" : "$" + [a,b].filter(x=>x!=null).map(x=>Math.round(x/1000)+"k").join("–");
 const list = s => String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
+const num = n => Number(n || 0).toLocaleString();
 const slug = s => String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "search";
 const when = iso => iso ? new Date(iso).toLocaleString([], {dateStyle:"medium", timeStyle:"short"}) : "";
 
@@ -403,6 +412,106 @@ $("matches").addEventListener("change", e => {
   if ((S.judgments[id]?.reason||"") !== n.value.trim()) saveJudgment(id, {reason:n.value.trim()}, n);
 });
 
+/* rank:begin  A port of engine.py's deal_breaker and prefilter_score. Keep the two identical:
+   `uv run engine.py rank-fixture && node tests/rank_test.js` checks them against each other. */
+const RANK = (() => {
+  const esc = k => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const normTitle = t => {
+    t = t.toLowerCase().replace(/&/g, " and ");
+    for (const [long, short] of [["vice president", "vp"], ["senior", "sr"], ["chief product officer", "cpo"]]) t = t.split(long).join(short);
+    t = t.replace(/[^a-z0-9]+/g, " ");
+    return " " + t.split(" ").filter(w => w && !["of", "the", "and"].includes(w)).join(" ") + " ";
+  };
+  const roleMatch = (roles, p) => { const title = normTitle(p.title); return roles.some(r => normTitle(r).trim() && title.includes(normTitle(r))) ? 1 : 0; };
+  const keywordHits = (keywords, p) => {
+    if (!keywords.length) return 0;
+    const title = p.title.toLowerCase(), text = p.text.toLowerCase();
+    const pat = k => new RegExp("(?<![a-z])" + esc(k.toLowerCase()) + "(?![a-z])");
+    return keywords.reduce((n, k) => n + (pat(k).test(title) ? 2 : pat(k).test(text) ? 1 : 0), 0) / (2 * keywords.length);
+  };
+  const overlap = (cv, p) => {
+    const words = str => new Set(str.toLowerCase().match(/[a-z]{5,}/g) || []);
+    const pw = words(p.title + " " + p.text), cw = words(cv || "");
+    let both = 0; for (const w of pw) if (cw.has(w)) both++;
+    return both / Math.max(1, pw.size);
+  };
+  // The parts of the score, so the preview can say why a posting ranks where it does.
+  const parts = (search, p) => {
+    const out = [];
+    if (search.target_roles?.length) out.push({key:"role", w:0.45, v:roleMatch(search.target_roles, p)});
+    if (search.keywords?.length) out.push({key:"keywords", w:0.3, v:keywordHits(search.keywords, p)});
+    if (search.industries?.length) out.push({key:"industry", w:0.1, v:keywordHits(search.industries, {...p, text:`${p.text} ${p.industry || ""} ${p.category || ""}`}) > 0 ? 1 : 0});
+    if ((search.cv_text || "").trim()) out.push({key:"cv", w:0.15, v:overlap(search.cv_text, p)});
+    return out;
+  };
+  const score = (search, p) => { const ps = parts(search, p), total = ps.reduce((a, x) => a + x.w, 0); return total ? Math.round(ps.reduce((a, x) => a + x.w * x.v, 0) / total * 1000) / 1000 : 0; };
+  const dealBreaker = (p, db) => {
+    const text = `${p.title} ${p.text}`.toLowerCase();
+    if (db.remote_only && !p.remote) return "not remote";
+    if (db.min_pay && p.pay_max != null && p.pay_max < db.min_pay) return `pay below ${db.min_pay}`;
+    if (db.min_pay && p.pay_max == null && db.require_pay_listed) return "no pay listed";
+    const locs = (db.locations_any || []).map(l => l.toLowerCase());
+    if (locs.length && !p.remote && !locs.some(l => p.location.toLowerCase().includes(l))) return "location not in list";
+    for (const ind of db.exclude_industries || []) if (ind.toLowerCase() === String(p.industry || "").toLowerCase()) return `excluded industry: ${ind}`;
+    for (const kw of db.exclude_keywords || []) if (text.includes(kw.toLowerCase())) return `excluded keyword: ${kw}`;
+    return null;
+  };
+  return {score, parts, dealBreaker};
+})();
+/* rank:end */
+
+/* ---------- the day's postings and the preview ---------- */
+// The morning run keeps what it collected (meta/postings points at chunks in `postings`), so the
+// Search tab can show how an edited search would rank them, before saving and without a run.
+S.posts = {index:null, items:null, loading:false, showAll:false};
+async function loadPosts(){
+  const idx = S.posts.index; if (!idx || S.posts.loading) return;
+  S.posts.loading = true;
+  try {
+    const q = await S.db.collection("postings").where("run_id", "==", idx.run_id).get();
+    const chunks = q.docs.map(d => d.data()).sort((a,b) => a.n - b.n);
+    if (S.posts.index?.run_id === idx.run_id) S.posts.items = chunks.flatMap(c => c.items || []);
+    try { const old = await S.db.collection("postings").where("run_id", "!=", idx.run_id).get(); for (const d of old.docs) await S.db.doc("postings/" + d.id).delete(); } catch(e){}   // yesterday's; only the owner can
+  } catch(e){ S.posts.items = []; }
+  S.posts.loading = false;
+  if (S.editing && S.editing !== "new" && $("preview")) renderPreview(S.searches.find(x => x.id === S.editing));
+  else if ($("preview")) renderPreview(null);
+}
+// What the form says right now, in the shape the engine's config has.
+function formSearch(){
+  return {target_roles:list($("s-roles")?.value), keywords:list($("s-kw")?.value), industries:list($("s-ind")?.value), cv_text:$("s-cv")?.value || "",
+    deal_breakers:{remote_only:$("d-remote")?.checked, require_pay_listed:$("d-paylisted")?.checked, min_pay:$("d-minpay")?.value ? Number($("d-minpay").value) : null,
+      locations_any:list($("d-locs")?.value), exclude_industries:list($("d-ind")?.value), exclude_keywords:list($("d-kw")?.value)}};
+}
+function renderPreview(s){
+  const box = $("preview"); if (!box) return;
+  const idx = S.posts.index, items = S.posts.items;
+  const head = `<div class="row between"><h3>What the next run would score</h3>${idx ? `<span class="small muted">${num(idx.count)} posts collected ${esc(when(idx.collected_at))}</span>` : ""}</div>`;
+  if (!idx){ box.innerHTML = head + `<p class="small muted" style="margin:0">After your first run, this shows how your search ranks the posts it collected, so you can tune it without waiting for the next run.</p>`; return; }
+  if (!items){ box.innerHTML = head + `<p class="small muted" style="margin:0"><span class="spin" aria-hidden="true"></span>Loading the collected posts…</p>`; if (!S.posts.loading) loadPosts(); return; }
+  const f = formSearch(), seen = new Set(S.matches.filter(m => m.search_id === (s?.id || "")).map(m => m.posting_id));
+  const n = Math.min(S.agent?.settings?.max_judged_per_search || COURSE_CAPS.max_judged_per_search, COURSE_CAPS.max_judged_per_search);
+  const drops = {}; let already = 0; const passed = [];
+  for (const p of items){
+    if (seen.has(p.id)){ already++; continue; }
+    const why = RANK.dealBreaker(p, f.deal_breakers);
+    if (why){ drops[why] = (drops[why] || 0) + 1; continue; }
+    passed.push({p, score:RANK.score(f, p), parts:RANK.parts(f, p)});
+  }
+  passed.sort((a,b) => b.score - a.score);
+  const dropped = Object.values(drops).reduce((a,b) => a + b, 0);
+  const shown = passed.slice(0, S.posts.showAll ? 25 : n);
+  const label = {role:"role", keywords:"keywords", industry:"industry", cv:"CV"};
+  const rows = shown.map((x, i) => `<li class="prow ${i < n ? "in" : ""}"><span class="mono num">${Math.round(x.score * 100)}</span><span class="pbar"><i style="width:${Math.round(x.score * 100)}%"></i></span>
+      <span class="ptitle">${x.p.url ? `<a href="${esc(x.p.url)}" target="_blank" rel="noopener">${esc(x.p.title)}</a>` : esc(x.p.title)} <span class="muted">· ${esc(x.p.company)}</span></span>
+      <span class="pwhy small muted">${x.parts.map(q => `<span class="${q.v > 0 ? "hit" : ""}">${label[q.key]}${q.key === "role" || q.key === "industry" ? (q.v ? " ✓" : " ✗") : ` ${Math.round(q.v * 100)}%`}</span>`).join("")}</span></li>`).join("");
+  box.innerHTML = head + `
+    <p class="small muted" style="margin:0">${num(dropped)} dropped by your deal breakers${dropped ? ` (${Object.entries(drops).map(([k,v]) => `${esc(k)}: ${v}`).join(", ")})` : ""}${already ? `, ${num(already)} already matched` : ""}. ${num(passed.length)} ranked by code; the top <b>${n}</b> would be scored by Claude. Edit the fields above and this updates.</p>
+    ${rows ? `<ol class="plist">${rows}</ol>` : `<p class="small muted" style="margin:0">Nothing passes your deal breakers.</p>`}
+    ${passed.length > n ? `<button type="button" class="btn" id="preview-more">${S.posts.showAll ? "Show fewer" : `Show the next ${Math.min(25, passed.length) - n}`}</button>` : ""}`;
+  const more = $("preview-more"); if (more) more.onclick = () => { S.posts.showAll = !S.posts.showAll; renderPreview(s); };
+}
+
 /* ---------- searches ---------- */
 function renderSearchList(){
   $("c-searches").textContent = S.searches.length || "";
@@ -454,6 +563,7 @@ function renderSearchEditor(){
         <label for="d-kw">Words to exclude<input type="text" id="d-kw" value="${esc((db.exclude_keywords||[]).join(", "))}" placeholder="clearance, 60 percent travel"></label>
       </div>
     </div>
+    <div class="card stack" id="preview"></div>
     <div class="card stack">
       <div class="row between"><h3>Dimensions</h3><button type="button" class="btn" id="add-dim">Add dimension</button></div>
       <p class="small muted" style="margin:0">The agent scores each dimension 1 to 5, or unknown, with a reason and a quote from the posting. Weights add up to 100%; raising one leaves less room for the others.</p>
@@ -507,6 +617,8 @@ function wireSearchForm(s){
     showTotal();
   };
   showTotal();
+  let pt; $("sform").addEventListener("input", () => { clearTimeout(pt); pt = setTimeout(() => renderPreview(s), 250); });
+  renderPreview(s);
   $("s-file").onchange = async e => {
     const f = e.target.files[0], st = $("s-file-status"); if (!f) return;
     st.className = "status"; st.textContent = "Reading " + f.name + "…";
@@ -1109,7 +1221,6 @@ document.addEventListener("click", e => {
 
 /* ---------- runs ---------- */
 // The funnel of one run: collected by sources, removed by code, ranked by code, scored by Claude.
-const num = n => Number(n || 0).toLocaleString();
 function runFunnel(r){
   const tr = r.trace || [], norm = tr.find(t => t.step === "normalize"), judge = tr.find(t => t.step === "judge");
   if (!norm) return null;
@@ -1181,6 +1292,7 @@ function renderRuns(){
   db.collection("source_tests").onSnapshot(q => { S.tests = Object.fromEntries(q.docs.map(d => [d.data().source_id, d.data()])); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
   db.doc("meta/agent").onSnapshot(d => { S.runner = d.exists ? d.data() : null; renderSetup(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
   db.doc("meta/setup_check").onSnapshot(d => { const was = S.check?.status; S.check = d.exists ? d.data() : null; if (was && was !== "ok" && S.check?.status === "ok") S.setup.open = true; renderSetup(); }, fail);
+  db.doc("meta/postings").onSnapshot(d => { const was = S.posts.index?.run_id; S.posts.index = d.exists ? d.data() : null; if (S.posts.index?.run_id !== was){ S.posts.items = null; S.posts.showAll = false; loadPosts(); } }, fail);
   db.doc("meta/progress").onSnapshot(d => { S.progress = d.exists ? d.data() : null; renderMatches(); renderRuns(); }, fail);
   db.doc("meta/request").onSnapshot(d => { S.request = d.exists ? d.data() : null; renderAll(); }, fail);
   db.doc("meta/app").onSnapshot(d => { S.app = d.exists ? d.data() : null; renderSetup(); }, fail);
