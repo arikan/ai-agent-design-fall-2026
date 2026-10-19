@@ -905,13 +905,12 @@ function agentEval(){
     let w = 0; for (const g of s.g) for (const n of s.n) w += g > n ? 1 : g === n ? .5 : 0;
     return `v${esc(v)} <b>${Math.round(w / (s.g.length * s.n.length) * 100)}%</b> <span class="muted">(${s.g.length + s.n.length} posts)</span>`; });
   const few = good.length < 5 || nope.length < 5;
-  return `<div class="evbig"><b>${agree}%</b><span>agreement</span><span class="small muted">How often a Good post scored above a Nope post. 50% is a coin flip.${few ? " Still rough with this few verdicts." : ""}</span></div>
+  return `<div class="evbig"><b>${agree}%</b><span>agreement with agent</span><span class="small muted">How often the agent scores a Good post above a Nope post. 50% is a coin flip.${few ? " Still rough with this few verdicts." : ""}</span></div>
     <div class="evstrip" role="img" aria-label="Each judged post placed by the agent's score, Good and Nope on separate rows">
       <div class="evrow"><span class="evlab">Good ${good.length}</span><div class="evaxis">${good.map(dot).join("")}</div></div>
       <div class="evrow"><span class="evlab">Nope ${nope.length}</span><div class="evaxis">${nope.map(dot).join("")}</div></div>
       <div class="evrow"><span class="evlab"></span><div class="evticks small muted"><span>0</span><span>Agent's score</span><span>100</span></div></div>
     </div>
-    <p class="small muted" style="margin:0">One dot per post you judged. Ideally every Good dot sits right of every Nope dot.</p>
     ${vers.length > 1 ? `<p class="small" style="margin:0">By version: ${vers.join(" · ")}</p>` : ""}
     ${misses.length ? `<details class="fold"><summary>Biggest disagreements <span class="muted">${misses.length}</span></summary><div class="scroll"><table class="drops"><thead><tr><th>Post</th><th>Score</th><th>You said</th><th>Reason</th></tr></thead><tbody>${misses.map(x => `<tr><td>${esc(x.m.title)} · ${esc(x.m.company)}</td><td class="num">${x.m.total}</td><td>${x.kind}</td><td>${esc(dims[x.why] || x.why || "")}</td></tr>`).join("")}</tbody></table></div></details>` : ""}`;
 }
@@ -949,7 +948,7 @@ function renderAgent(){
     </section>
     <section class="asec" id="a-eval">
       <h2>Is it any good?</h2>
-      <p class="small muted" style="margin:0">Yes, this is an eval. Your verdicts are the labels. <button type="button" class="tip tip-left" aria-label="About this eval" data-tip="It measures ranking: for every pair of one Good and one Nope post, does the agent score the Good one higher? Data scientists call this AUC. It only covers posts the agent chose to score, so it can't see good posts it ranked too low to read.">i</button></p>
+      <p class="small muted" style="margin:0">Tests the agent's scores against your Good and Nope verdicts. It changes nothing by itself: you adjust Profile or Settings, and each version is measured here. <button type="button" class="tip tip-left" aria-label="About this eval" data-tip="It measures ranking: for every pair of one Good and one Nope post, does the agent score the Good one higher? Data scientists call this AUC. It only covers posts the agent chose to score, so it can't see good posts it ranked too low to read.">i</button></p>
       ${agentEval()}
     </section>
     <section class="asec">

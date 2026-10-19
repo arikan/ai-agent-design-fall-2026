@@ -150,7 +150,7 @@ Course limits live in `caps.json` and are enforced in code: the morning run alwa
 
 - Getro boards list jobs without descriptions, and web page sources read only the listing unless a description selector is set; expect more unknown scores from these.
 - Which postings get scored is decided by a cheap prefilter: your search's keywords (a keyword in the title counts double), plus word overlap with your CV. It decides what the agent sees, so choose keywords with care.
-- Your verdicts are stored with a frozen copy of each posting, ready to become an answer key, but there is no eval command yet.
+- Your verdicts are the answer key for the Agent tab's "Is it any good?" check, which compares them with the agent's scores per version. They don't feed back into scoring; you change Profile or Settings and measure again.
 
 ## Files
 
