@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 import dbio
 import engine
 import sources
+import usage
 
 CAPS = json.loads((engine.HERE / "caps.json").read_text())
 TIMINGS = dbio.WORK / "timings.json"
@@ -34,6 +35,10 @@ def attach(times, model=None):
     """Put the stage times, and the scoring model, into the results the engine wrote."""
     r = json.loads((dbio.WORK / "results.json").read_text())
     r["run"]["timings"] = times
+    u = usage.session_usage()
+    if u:
+        r["run"]["usage"] = u
+        model = model or u["model"]      # the transcript knows which model actually answered
     if model:
         r["run"]["model"] = model
         for m in r.get("matches", []):

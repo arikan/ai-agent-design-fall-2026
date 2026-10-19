@@ -115,6 +115,7 @@ After that:
 | Command | What it does |
 |---|---|
 | `uv run engine.py rank-fixture` then `node tests/rank_test.js` | Check that the page's in-browser ranking matches the engine's |
+| `uv run usage.py` | Token usage of the Claude session running it, from its transcript (each run records this) |
 | `uv run run.py prepare` / `finish` | The cloud run's two halves: everything before Claude scores, and everything after |
 | `uv run sources.py test` | Run every adapter against its saved responses, offline |
 | `uv run sources.py try <source.json> [out.json]` | Run one source live and show a sample |

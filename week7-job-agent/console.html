@@ -160,6 +160,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .hdr-r{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .build{font-size:11px;opacity:.7}
 .newtag{font:600 10px var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:2px 6px;align-self:center}
+.usage{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--bg)}
 .sechead{margin-top:12px}.sechead h3{margin:0}.sechead p{margin:4px 0 0}
 .funnel{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
 .funnel li{position:relative;border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:2px;align-content:start;background:var(--bg)}
@@ -1233,6 +1234,17 @@ document.addEventListener("click", e => {
 });
 
 /* ---------- runs ---------- */
+const tok = n => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? Math.round(n / 1e3) + "k" : String(n || 0);
+// What the run's Claude session consumed. Read tokens are mostly the cache: the same instructions and
+// files re-read on every model call, which counts far less toward plan limits than new input.
+function usageView(u){
+  const read = (u.input || 0) + (u.cache_write || 0) + (u.cache_read || 0);
+  return `<div class="usage small"><b>Tokens</b>
+    <span><b>${tok(u.output)}</b> written by the model</span>
+    <span><b>${tok(read)}</b> read, ${tok(u.cache_read)} of it from cache</span>
+    <span>${u.calls} model calls${u.model ? ` to ${esc(modelName(u.model))}` : ""}</span>
+    <span class="muted" title="${esc(u.note || "")}">until scoring finished</span></div>`;
+}
 // Deal-breaker kinds as the engine records them, in words.
 const dropLabel = k => k === "location not in list" ? "location outside your list" : k === "not remote" ? "not remote"
   : k.startsWith("pay below") ? "pay below your floor" : k === "no pay listed" ? "no pay listed" : k;
@@ -1291,9 +1303,10 @@ function renderRuns(){
     const stoppedWhy = r.status === "stopped" ? (r.reason || (r.cap_hit === "max_runs_per_day" ? "Stopped before collecting anything: another run had already completed that day (the limit then was one run per day, counted in UTC)." : `Stopped: ${r.cap_hit}`)) : "";
     return `<details class="card" ${idx===0?"open":""}><summary class="row between" style="color:var(--fg)">
         <span><b>${esc(when(r.started))}</b> <span class="muted mono small">${esc(r.id)}</span></span>
-        <span class="row"><span class="pill ${r.status==="ok"?"ok":"warn"}">${esc(r.status)}</span><span class="small muted">${(f => f ? `${num(f.collected)} collected · ${num(f.scored)} scored by ${esc(modelName(f.model))}${f.rejected ? ` · ${f.rejected} rejected` : ""}` : `${r.matches ?? 0} matches`)(runFunnel(r))}${r.agent_version ? ` · agent v${esc(r.agent_version)}` : ""}</span></span></summary>
+        <span class="row"><span class="pill ${r.status==="ok"?"ok":"warn"}">${esc(r.status)}</span><span class="small muted">${r.usage ? `${tok((r.usage.input||0) + (r.usage.cache_write||0) + (r.usage.cache_read||0) + (r.usage.output||0))} tokens · ` : ""}${(f => f ? `${num(f.collected)} collected · ${num(f.scored)} scored by ${esc(modelName(f.model))}${f.rejected ? ` · ${f.rejected} rejected` : ""}` : `${r.matches ?? 0} matches`)(runFunnel(r))}${r.agent_version ? ` · agent v${esc(r.agent_version)}` : ""}</span></span></summary>
       <div class="stack" style="margin-top:12px">
         <p class="small muted" style="margin:0">Started ${r.trigger === "manual" ? "by hand" : "by the morning schedule"}${took ? ` · took ${took}` : ""}${stages ? ` · ${stages}` : ""}</p>
+        ${r.usage ? usageView(r.usage) : ""}
         ${stoppedWhy ? `<div class="testbox small"><b>Why it stopped.</b> ${esc(stoppedWhy)}</div>` : ""}
         ${(f => f ? funnelView(f) : "")(runFunnel(r))}
         ${sources ? `<h3 class="sechead">Sources</h3><div class="scroll"><table><thead><tr><th>Source</th><th>Status</th><th>Fetched</th><th>Incomplete</th><th>Collected</th><th>Note</th></tr></thead><tbody>${sources}</tbody></table></div>` : ""}
