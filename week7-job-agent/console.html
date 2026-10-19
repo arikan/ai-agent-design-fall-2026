@@ -889,7 +889,7 @@ function agentPipeline(run){
 function agentSample(run){
   const ps = run?.prompt_sample;
   if (!ps) return `<p class="small muted" style="margin:0">Appears after the next run.</p>`;
-  return `<p class="small muted" style="margin:0">Your settings become the text the model reads. Here is that text for one post from the last run, <b>${esc(ps.title)}</b> at ${esc(ps.company)}, and the model's answer. Open a part to read it.</p>
+  return `<p class="small muted" style="margin:0">Your settings, combined into the text the model reads for each post. Shown for the last run's top post, <span title="${esc(ps.title)} · ${esc(ps.company)}">${esc(ps.company)}</span>.</p>
     <div class="psample">${ps.parts.map((p, i) => `<details class="ppart"><summary><span>${esc(p.label.replace("What Claude answered", "What the model answered"))}</span><span class="muted">from ${esc(p.from)}</span><span class="muted mono">${num(p.text.length)} characters</span></summary><pre>${esc(p.text)}</pre></details>`).join("")}</div>`;
 }
 function agentEval(){
