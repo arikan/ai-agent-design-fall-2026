@@ -168,6 +168,13 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .testbox a{color:var(--accent)}
 .src-edit{border-top:1px solid var(--line);padding-top:12px}
 .domlist{display:block;white-space:pre;background:var(--sunk);border-radius:6px;padding:8px 10px;flex:1;min-width:0;overflow-x:auto}
+.emptystate{display:grid;justify-items:center;text-align:center;gap:10px;padding:40px 20px}
+.emptystate h2{font-size:18px}
+.emptystate p{margin:0;max-width:440px}
+.es-icon{color:var(--accent);background:var(--accent-soft);border-radius:50%;padding:10px;box-sizing:content-box}
+.es-action{width:min(100%,440px);display:grid;justify-items:center;text-align:left;margin-top:4px}
+.es-action .testbox{width:100%}
+.es-foot{margin-top:6px}
 .empty{text-align:center;padding:32px 16px;color:var(--muted)}
 .status{font-size:13px;min-height:1.4em}
 .status.ok{color:var(--accent)}.status.err{color:var(--bad)}
@@ -278,10 +285,20 @@ function renderMatches(){
   let rows = $("f-hide").checked ? scope.filter(m => !S.judgments[m.id]) : scope;
   rows = [...rows].sort((a,b) => b.total - a.total);
   $("c-matches").textContent = S.matches.length || "";
+  $("f-hide").closest(".row.between").hidden = !S.matches.length;
   $("m-summary").textContent = scope.length ? `${scope.filter(m=>S.judgments[m.id]).length} of ${scope.length} judged` : "";
   if (!rows.length){
     if (S.matches.length){ $("matches").innerHTML = `<div class="card empty">Nothing left to judge here.</div>`; return; }
-    $("matches").innerHTML = `<div class="card empty stack" style="justify-items:center;gap:10px"><span>Matches appear here after your agent's first run. Each one shows a score per dimension, the reason, and the words from the posting it relied on.</span>${setupDone() ? `<div style="width:min(100%,520px);text-align:left">${runNowBlock("first")}</div>` : `<button type="button" class="btn" data-opensetup>Finish setup</button>`}</div>`;
+    const ready = setupDone(), running = ["starting","running"].includes(runNowPhase());
+    $("matches").innerHTML = `<div class="card emptystate">
+      <svg class="es-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15.5 15.5L20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <h2>${running ? "Finding your first matches" : "No matches yet"}</h2>
+      <p class="muted">${!ready ? "Finish setting up your agent, then it can look for jobs that fit you."
+        : running ? "Your agent is reading postings from your sources and scoring the best candidates."
+        : "Your agent runs every morning. Start a run now to see your first matches in a few minutes."}</p>
+      <div class="es-action">${ready ? runNowBlock("first") : `<button type="button" class="btn primary" data-opensetup>Finish setup</button>`}</div>
+      ${running ? "" : `<p class="small muted es-foot">Each match shows a score for every dimension you care about, the reason, and the words from the posting it relied on.</p>`}
+    </div>`;
     return;
   }
   $("matches").innerHTML = rows.map(m => {
