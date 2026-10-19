@@ -86,7 +86,9 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .ext:hover{text-decoration:underline}
 .ext.none{color:var(--muted);font-weight:400}
 .cellsrow{display:grid;grid-template-columns:minmax(0,1fr) 20px;align-items:center;gap:8px;border-top:1px solid var(--line);cursor:pointer;border-radius:4px}
-.cellsrow{margin:0 -8px;padding:0 8px;transition:background .15s}
+.cellsrow{margin:0 -8px -10px;padding:0 8px;transition:background .15s;border-radius:0}
+.cellsrow .cells{padding:10px 0 12px}
+.cellsrow[aria-expanded="true"]{margin-bottom:0}
 .cellsrow:hover,.cellsrow:focus-visible{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 .cellsrow:hover .chev,.cellsrow:focus-visible .chev{color:var(--accent)}
 .cellsrow:hover .cname{color:var(--fg)}
