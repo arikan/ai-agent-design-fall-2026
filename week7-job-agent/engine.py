@@ -133,6 +133,24 @@ def normalize_and_dedupe(postings, trace):
 SNAPSHOT_FIELDS = ("id", "title", "company", "location", "remote", "pay_min", "pay_max", "industry", "category", "url", "sources")
 
 
+def judge_text(p):
+    """What Claude reads of a posting: its start, plus the pay passage when that sits further down.
+    Many boards put pay at the very end, past the cut, which left Compensation fit unknown
+    even when the posting lists pay."""
+    text = p["text"]
+    head = text[:JUDGE_TEXT_CHARS]
+    if p.get("pay_min") is None and p.get("pay_max") is None or len(text) <= JUDGE_TEXT_CHARS:
+        return head
+    tail = text[JUDGE_TEXT_CHARS:]
+    m = re.search(r"\$\s?\d", tail)
+    if not m:
+        return head
+    start = max(tail.rfind(". ", 0, m.start()) + 2, m.start() - 250, 0)
+    end = tail.find(". ", m.end())
+    end = min(end + 1 if end >= 0 else len(tail), m.end() + 250)
+    return f"{head} … {tail[start:end].strip()}"
+
+
 def snapshot_item(p):
     """What the page keeps of a collected posting: the fields the ranking and the judge use."""
     return {**{k: p.get(k) for k in SNAPSHOT_FIELDS}, "text": p["text"][:RANK_TEXT_CHARS]}
@@ -357,7 +375,7 @@ def prepare(config):
                           "company": p["company"], "title": p["title"], "location": p["location"],
                           "remote": p.get("remote"), "pay_min": p.get("pay_min"), "pay_max": p.get("pay_max"),
                           "industry": p.get("industry"), "url": p.get("url") or None,
-                          "sources": p.get("sources", []), "text": p["text"][:JUDGE_TEXT_CHARS]})
+                          "sources": p.get("sources", []), "text": judge_text(p)})
 
     batch = {
         "run_id": run_id,
