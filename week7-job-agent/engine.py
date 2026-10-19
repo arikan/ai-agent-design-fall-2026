@@ -143,7 +143,7 @@ def drop_detail(p, reason, db):
     """The reason in words a student can check against the posting and their settings."""
     money = lambda n: f"${n:,.0f}"
     if reason == "location not in list":
-        return f"Location {p.get('location') or 'not given'} matches none of {', '.join(db.get('locations_any', []))}, and it isn't marked remote"
+        return f"Location {p.get('location') or 'not given'} matches none of {', '.join(db.get('locations_any', []))}, in the location or the title, and it isn't marked remote"
     if reason == "not remote":
         return f"Not marked remote ({p.get('location') or 'no location given'})"
     if reason.startswith("pay below"):
@@ -162,7 +162,8 @@ def deal_breaker(p, db):
     if db.get("min_pay") and p.get("pay_max") is None and db.get("require_pay_listed"):
         return "no pay listed"
     locs = [l.lower() for l in db.get("locations_any", [])]
-    if locs and not p.get("remote") and not any(l in p["location"].lower() for l in locs):
+    where = f"{p['location']} | {p['title']}".lower()     # some boards put the location only in the title
+    if locs and not p.get("remote") and not any(l in where for l in locs):
         return "location not in list"
     for ind in db.get("exclude_industries", []):
         if ind.lower() == str(p.get("industry", "")).lower():

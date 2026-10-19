@@ -161,6 +161,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .build{font-size:11px;opacity:.7}
 .newtag{font:600 10px var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:2px 6px;align-self:center}
 .usage{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--bg)}
+.drops td{font-weight:400;font-size:13px}.drops td:not(:first-child){color:var(--muted)}
 .sechead{margin-top:12px}.sechead h3{margin:0}.sechead p{margin:4px 0 0}
 .funnel{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
 .funnel li{position:relative;border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:2px;align-content:start;background:var(--bg)}
@@ -457,7 +458,8 @@ const RANK = (() => {
     if (db.min_pay && p.pay_max != null && p.pay_max < db.min_pay) return `pay below ${db.min_pay}`;
     if (db.min_pay && p.pay_max == null && db.require_pay_listed) return "no pay listed";
     const locs = (db.locations_any || []).map(l => l.toLowerCase());
-    if (locs.length && !p.remote && !locs.some(l => p.location.toLowerCase().includes(l))) return "location not in list";
+    const where = `${p.location} | ${p.title}`.toLowerCase();     // some boards put the location only in the title
+    if (locs.length && !p.remote && !locs.some(l => where.includes(l))) return "location not in list";
     for (const ind of db.exclude_industries || []) if (ind.toLowerCase() === String(p.industry || "").toLowerCase()) return `excluded industry: ${ind}`;
     for (const kw of db.exclude_keywords || []) if (text.includes(kw.toLowerCase())) return `excluded keyword: ${kw}`;
     return null;
@@ -564,7 +566,7 @@ function renderSearchEditor(){
         <label class="inline" for="d-remote"><input type="checkbox" id="d-remote" ${db.remote_only?"checked":""}> Remote only</label>
         <label class="inline" for="d-paylisted"><input type="checkbox" id="d-paylisted" ${db.require_pay_listed?"checked":""}> Pay must be listed</label>
         <label for="d-minpay">Pay floor (USD a year)<input type="number" id="d-minpay" min="0" step="5000" value="${db.min_pay ?? ""}"></label>
-        <label for="d-locs">Locations, if not remote<input type="text" id="d-locs" value="${esc((db.locations_any||[]).join(", "))}" placeholder="New York, Brooklyn"></label>
+        <label for="d-locs">Locations, if not remote<input type="text" id="d-locs" value="${esc((db.locations_any||[]).join(", "))}" placeholder="New York, NYC, Remote, Hybrid"></label>
         <label for="d-ind">Industries to exclude<input type="text" id="d-ind" value="${esc((db.exclude_industries||[]).join(", "))}" placeholder="Defense"></label>
         <label for="d-kw">Words to exclude<input type="text" id="d-kw" value="${esc((db.exclude_keywords||[]).join(", "))}" placeholder="clearance, 60 percent travel"></label>
       </div>
@@ -1310,7 +1312,7 @@ function renderRuns(){
         ${stoppedWhy ? `<div class="testbox small"><b>Why it stopped.</b> ${esc(stoppedWhy)}</div>` : ""}
         ${(f => f ? funnelView(f) : "")(runFunnel(r))}
         ${sources ? `<h3 class="sechead">Sources</h3><div class="scroll"><table><thead><tr><th>Source</th><th>Status</th><th>Fetched</th><th>Incomplete</th><th>Collected</th><th>Note</th></tr></thead><tbody>${sources}</tbody></table></div>` : ""}
-        ${filtered ? `<div class="sechead"><h3>Dropped by deal breakers (${num(r.filtered_total ?? r.filtered.length)})</h3>${r.filtered_by_reason ? `<p class="small muted">${Object.entries(r.filtered_by_reason).map(([k,v]) => `${esc(dropLabel(k))}: ${num(v)}`).join(" · ")}${r.filtered_total > r.filtered.length ? ` · first ${r.filtered.length} listed` : ""}</p>` : ""}</div><div class="scroll"><table><thead><tr><th>Posting</th><th>Company</th><th>Why it was dropped</th></tr></thead><tbody>${filtered}</tbody></table></div>` : ""}
+        ${filtered ? `<div class="sechead"><h3>Dropped by deal breakers (${num(r.filtered_total ?? r.filtered.length)})</h3>${r.filtered_by_reason ? `<p class="small muted">${Object.entries(r.filtered_by_reason).map(([k,v]) => `${esc(dropLabel(k))}: ${num(v)}`).join(" · ")}${r.filtered_total > r.filtered.length ? ` · first ${r.filtered.length} listed` : ""}</p>` : ""}</div><div class="scroll"><table class="drops"><thead><tr><th>Posting</th><th>Company</th><th>Why it was dropped</th></tr></thead><tbody>${filtered}</tbody></table></div>` : ""}
         <h3>Steps</h3><div>${steps}</div>
       </div></details>`;
   }).join("");
