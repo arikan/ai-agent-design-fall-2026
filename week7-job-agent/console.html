@@ -186,7 +186,9 @@ label > span{display:inline-flex;align-items:center;gap:2px}
 @keyframes flash{from{background:var(--accent-soft);color:var(--fg)}to{background:transparent}}
 #pcounts.flash li{animation:flash 1.2s ease-out}
 .funnel.mini{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
-.funnel.mini li{padding:6px 10px;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.funnel.mini li{padding:6px 10px;display:grid;gap:1px;align-content:start}
+#preview.card{background:var(--sunk)}
+#preview .funnel li{background:var(--surface)}
 .funnel.mini b{font-size:15px}.funnel.mini span{font-size:12px}
 @media (max-width:640px){.funnel.mini{grid-template-columns:1fr}}
 .pcut{list-style:none;border-top:1px dashed var(--line);padding-top:4px;margin-top:2px}
