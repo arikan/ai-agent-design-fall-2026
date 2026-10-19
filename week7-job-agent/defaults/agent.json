@@ -438,6 +438,17 @@
     "company": "ava-labs",
     "company_name": "Ava Labs"
    }
+  },
+  {
+   "id": "greenhouse:cycles",
+   "adapter": "greenhouse",
+   "enabled": true,
+   "category": "crypto",
+   "note": "",
+   "config": {
+    "board_token": "cycles",
+    "company_name": "Cycles"
+   }
   }
  ]
 }
