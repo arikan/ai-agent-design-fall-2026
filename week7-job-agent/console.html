@@ -584,7 +584,7 @@ function renderSearchEditor(){
     </div>
     <div class="card stack" id="preview"></div>
     <div class="card stack">
-      <div class="row between"><h3>Dimensions</h3><div class="row" style="gap:12px"><div class="wtotal small" id="wtotal" role="status"></div><button type="button" class="btn" id="add-dim">Add dimension</button></div></div>
+      <div class="row between"><h3>Dimensions</h3><div class="row" style="gap:24px"><div class="wtotal small" id="wtotal" role="status"></div><button type="button" class="btn" id="add-dim">Add dimension</button></div></div>
       <p class="small muted" style="margin:0">Claude rates each post 1 to 5 on these. Weights set how much each counts.</p>
       <div id="dims" class="stack">${toPercent(s.preferences.dimensions).map((d,i)=>dimRow(d,i)).join("")}</div>
       <label for="s-unknown" style="max-width:320px">When a dimension is unknown
