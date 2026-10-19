@@ -199,6 +199,7 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .segtab[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 0 0 1px var(--line)}
 .asec{display:grid;gap:10px;padding:4px 2px 20px;border-bottom:1px solid var(--line)}
 .asec h2{margin:0}
+.asec:last-child{border-bottom:0}
 .pipe{display:flex;flex-wrap:wrap;align-items:stretch;gap:4px}
 .pipe-arrow{align-self:center;color:var(--muted)}
 .pstep{appearance:none;font:inherit;text-align:left;display:grid;gap:1px;min-width:92px;flex:1 1 92px;padding:8px 10px;border:0;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;background:var(--sunk);color:var(--fg);cursor:pointer}
@@ -1006,10 +1007,6 @@ function renderAgent(){
       ${agentEval()}
       ${agentSuggest()}
     </section>
-    <section class="asec">
-      <h2>Versions and cost</h2>
-      ${agentVersions()}
-    </section>
     <form class="card stack" id="aform">
       <div class="row between"><h2>Settings</h2><span class="small muted">Version ${a.version}</span></div>
       <label for="a-instr"><span>Scoring instructions <button type="button" class="tip" aria-label="What these are" data-tip="Sent to the model with every post, as shown above. It is asked to follow them; the rules that must hold, like real quotes and the limits below, are enforced in code.">i</button></span><textarea id="a-instr" rows="5">${esc(a.matcher_instructions)}</textarea></label>
@@ -1028,7 +1025,11 @@ function renderAgent(){
         <tr><td>Runs with full traces kept</td><td class="num">${COURSE_CAPS.trace_runs_kept}</td></tr>
       </tbody></table></div></details>
       <div class="row"><button class="btn primary" type="submit">Save as new version</button><span class="status" id="a-status"></span></div>
-    </form></div>`;
+    </form>
+    <section class="asec">
+      <h2>Versions and cost</h2>
+      ${agentVersions()}
+    </section></div>`;
   $("agent-editor").onclick = e => {
     const st = e.target.closest("[data-astep]"); if (st){ S.agentStep = st.dataset.astep; renderAgent(); return; }
     const g = e.target.closest("[data-goview]"); if (g){ goTab(g.dataset.goview); window.scrollTo({top:0}); return; }
