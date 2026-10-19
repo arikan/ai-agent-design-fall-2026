@@ -883,7 +883,7 @@ function agentPipeline(run){
     {key:"check", who:"code", name:"Check", n: judge ? num(judge.accepted) : "–", what:"accepted", from: judge ? `${judge.rejected} rejected` : "",
      how:"Rejects any score whose quote isn't in the post word for word, then computes the weighted total.", go:["runs","Runs"]},
     {key:"you", who:"you", name:"Judge", n: num(judged), what:"judged", from: "",
-     how:"You mark posts Good or Nope. Those verdicts are used to measure the agent, below.", go:["a-eval","Evaluation"]},
+     how:"You mark posts Good or Nope. Your verdicts measure the agent and drive the changes it suggests.", go:["a-eval","Feedback"]},
   ];
 }
 function agentSample(run){
@@ -912,7 +912,7 @@ function agentEval(){
     const [av, pv] = v.split(".");
     return `agent v${esc(av)}, profile v${esc(pv)} <b>${Math.round(w / (s.g.length * s.n.length) * 100)}%</b> <span class="muted">(${s.g.length + s.n.length} posts)</span>`; });
   const few = good.length < 5 || nope.length < 5;
-  return `<div class="evbig"><b>${agree}%</b><span>agreement with agent</span><span class="small muted">How often the agent scores a Good post above a Nope post. 50% is a coin flip.${few ? " Still rough with this few verdicts." : ""}</span></div>
+  return `<div class="evbig"><b>${agree}%</b><span>agreement <button type="button" class="tip" aria-label="What agreement is" data-tip="For every pair of one Good and one Nope post, does the agent score the Good one higher? Data scientists call this AUC. It is a signal from your own verdicts, not a fixed test: each version is judged on different posts, and only posts the agent chose to score get a verdict, so good jobs it ranked too low are never counted. A fixed test set would rescore the same posts with every version.">i</button></span><span class="small muted">How often the agent scores a Good post above a Nope post. 50% is a coin flip.${few ? " Still rough with this few verdicts." : ""}</span></div>
     <div class="evstrip" role="img" aria-label="Each judged post placed by the agent's score, Good and Nope on separate rows">
       <div class="evrow"><span class="evlab">Good ${good.length}</span><div class="evaxis">${good.map(dot).join("")}</div></div>
       <div class="evrow"><span class="evlab">Nope ${nope.length}</span><div class="evaxis">${nope.map(dot).join("")}</div></div>
@@ -1000,8 +1000,8 @@ function renderAgent(){
         <button type="button" class="linkbtn small" ${cur.go[0].startsWith("a-") ? `data-jump="${cur.go[0]}"` : `data-goview="${cur.go[0]}"`}>${cur.go[1]} ${cur.go[0].startsWith("a-") ? "↓" : "→"}</button></div>
     </section>
     <section class="card stack" id="a-eval">
-      <h2>Evaluation</h2>
-      <p class="small muted" style="margin:0">Compares the agent's scores with your Good and Nope verdicts. <button type="button" class="tip" aria-label="About this eval" data-tip="It measures ranking: for every pair of one Good and one Nope post, does the agent score the Good one higher? Data scientists call this AUC. It doesn't change the agent; it measures each version, so you can see whether a change helped. It only covers posts the agent chose to score, so it can't see good posts it ranked too low to read.">i</button></p>
+      <h2>Feedback</h2>
+      <p class="small muted" style="margin:0">Your verdicts measure the agent and update what it reads. <button type="button" class="tip" aria-label="How feedback works" data-tip="Agreement measures how well the agent's scores match your verdicts. Suggested changes are edits to your Profile, the text the agent reads every run, so applying one works like updating its memory. The model itself doesn't change. You decide what to apply, and agreement by version shows whether it helped.">i</button></p>
       ${agentEval()}
       ${agentSuggest()}
     </section>
