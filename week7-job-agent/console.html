@@ -255,6 +255,7 @@ label > span{display:inline-flex;align-items:center;gap:2px}
 .emptystate{display:grid;justify-items:center;text-align:center;gap:10px;padding:40px 20px}
 .emptystate h2{font-size:18px}
 .emptystate p{margin:0;max-width:440px}
+.es-emoji{display:inline-grid;place-items:center;width:28px;height:28px;font-size:20px;line-height:1}
 .es-icon{color:var(--accent);background:var(--accent-soft);border-radius:50%;padding:10px;box-sizing:content-box}
 .es-action{width:min(100%,440px);display:grid;justify-items:center;text-align:left;margin-top:4px}
 .es-action .testbox{width:100%}
@@ -1324,7 +1325,7 @@ function runNowBlock(context){
   const ph = runNowPhase(), r = S.request;
   if (ph === "starting") return `<button class="btn busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Starting…</button>`;
   if (ph === "running") return progressBox(r.requested_at, r.status);
-  const btn = label => `<button type="button" class="btn primary" data-runnow>${label}</button>`;
+  const btn = label => `<button type="button" class="btn primary" data-runnow><span aria-hidden="true">⚡</span> ${label}</button>`;
   if (ph === "not_started") return `<div class="testbox bad small" role="alert"><b>The run didn't start.</b> ${esc(S.runNow.error)}</div>${btn("Try again")}`;
   if (ph === "stale") return `<div class="testbox bad small" role="alert"><b>No result after 30 minutes.</b> Open your scheduled task in Claude Code to see what happened.</div>${btn("Try again")}`;
   const daily = S.progress && !["done","stopped"].includes(S.progress.stage) && Date.now() - new Date(S.progress.updated_at) < 30 * 60000;
@@ -1388,7 +1389,7 @@ function renderRuns(){
   if (!S.runs.length){
     top.innerHTML = "";
     $("runs").innerHTML = `<div class="card emptystate">
-      <svg class="es-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="es-icon es-emoji" aria-hidden="true">⚡</span>
       <h2>${running ? "Your first run is working" : "No runs yet"}</h2>
       <p class="muted">${!ready ? "Finish setting up your agent, then it runs every morning on its own."
         : running ? "When it finishes, it appears here with every step it took."
