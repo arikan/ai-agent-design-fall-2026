@@ -162,6 +162,9 @@ td.num{font-family:var(--font-data);font-variant-numeric:tabular-nums}
 .cfg{white-space:pre-wrap;word-break:break-word;margin:6px 0 0}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
+.testbox.live{position:relative;overflow:hidden;border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+.testbox.live::before{content:"";position:absolute;top:0;left:0;width:40%;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:slide 1.4s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.testbox.live::before{animation:none;width:100%;opacity:.6}}
 .spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin-right:6px;vertical-align:-2px;animation:spin .8s linear infinite}
 .btn.busy{display:inline-flex;align-items:center;cursor:progress;opacity:1;color:var(--muted)}
 .bar{height:3px;background:var(--line);border-radius:2px;overflow:hidden}
@@ -1343,7 +1346,7 @@ function progressBox(since, reqStatus){
     ["Score the best candidates", c.to_score != null ? `${c.to_score} posts` : ""], ["Save matches", ""]]
     .map(([label, note], i) => `<li class="${i < at ? "done" : i === at ? "active" : ""}"><span>${i < at ? "✓" : i === at ? `<span class="spin" aria-hidden="true"></span>` : ""}</span><b>${label}</b>${note ? `<span class="muted"> · ${esc(note)}</span>` : ""}</li>`).join("");
   const srcs = (p?.sources || []).map(x => `<span class="chip static ${x.status==="ok"?"":"warn"}" title="${esc(x.error||"")}">${esc(x.name)} ${x.status==="ok" ? x.kept : esc(x.status)}</span>`).join("");
-  return `<div class="testbox small stack" style="gap:8px" role="status"><div class="row between"><b>Your agent is running</b><span class="mono" data-elapsed="${esc(since)}">0:00</span></div>
+  return `<div class="testbox small stack live" style="gap:8px" role="status"><div class="row between"><b>Your agent is running</b><span class="mono" data-elapsed="${esc(since)}">0:00</span></div>
     <ol class="psteps">${steps}</ol>${srcs ? `<div class="chips">${srcs}</div>` : ""}
     <div class="row between"><span class="muted">Usually 5 to 10 minutes. Matches appear here when it finishes.</span>${stopLink(since)}</div></div>`;
 }
