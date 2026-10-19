@@ -119,6 +119,13 @@ def read(path, default=None):
     return json.loads(path.read_text()) if path.exists() else default
 
 
+def session_url():
+    """This Claude Code session's page, where the run can be watched or stopped (cse_X is claude.ai/code/session_X)."""
+    import os
+    sid = os.environ.get("CLAUDE_CODE_REMOTE_SESSION_ID", "")
+    return "https://claude.ai/code/" + sid.replace("cse_", "session_", 1) if sid else None
+
+
 def progress(stage):
     """Summarize what the run has done so far, from the files the engine already wrote."""
     out = WORK / "out"
@@ -157,7 +164,7 @@ def progress(stage):
            "run_id": (results or {}).get("run", {}).get("id") or (read(WORK / "batch.json") or {}).get("run_id"),
            "steps": [{"key": k, "label": label, "status": "done" if i < at else "active" if i == at else "pending"}
                      for i, (k, label) in enumerate(STAGES)],
-           "sources": sources, "counts": counts}
+           "sources": sources, "counts": counts, "session_url": session_url()}
     if stage == "stopped" and results:
         doc["note"] = results["run"].get("cap_hit")
     (out / "progress.json").write_text(json.dumps(doc, indent=1))

@@ -1329,6 +1329,8 @@ async function findRunSession(since){
 // Live progress of a run: the request's status says the session started; meta/progress says what the engine did.
 function stopLink(since){
   findRunSession(since);
+  const own = S.progress && new Date(S.progress.started_at) >= new Date(since) - 30 * 60000 ? S.progress.session_url : null;
+  if (own) S.live.url = own;
   const href = S.live.url || (S.runner?.trigger_id ? `https://claude.ai/code/routines/${encodeURIComponent(S.runner.trigger_id)}` : "");
   return href ? `<a class="ext" href="${esc(href)}" target="_blank" rel="noopener" title="Opens the run in Claude Code, where the stop button ends it">${S.live.url ? "Open the run to stop it ↗" : "Open your daily run ↗"}</a>` : "";
 }
@@ -1467,6 +1469,7 @@ function renderRuns(){
         ${stoppedWhy ? `<div class="testbox small"><b>Why it stopped.</b> ${esc(stoppedWhy)}</div>` : ""}
         ${f ? funnelView(f) : ""}
         <div class="folds">
+        ${r.session_url ? `<a class="ext small" href="${esc(r.session_url)}" target="_blank" rel="noopener" style="justify-self:start;padding:6px 0">Open this run's session in Claude Code ↗</a>` : ""}
         ${fold(`Sources <span class="muted">${(r.sources||[]).length}</span>`, sources ? `<div class="scroll"><table><thead><tr><th>Source</th><th>Status</th><th>Fetched</th><th>Incomplete</th><th>Collected</th><th>Note</th></tr></thead><tbody>${sources}</tbody></table></div>` : "")}
         ${fold(`Filtered out <span class="muted">${num(r.filtered_total ?? (r.filtered||[]).length)}</span>`, filtered ? `${r.filtered_by_reason ? `<p class="small muted" style="margin:0">${Object.entries(r.filtered_by_reason).map(([k,v]) => `${esc(dropLabel(k))}: ${num(v)}`).join(" · ")}${r.filtered_total > r.filtered.length ? ` · first ${r.filtered.length} listed` : ""}</p>` : ""}<div class="scroll"><table class="drops"><thead><tr><th>Posting</th><th>Company</th><th>Why it was dropped</th></tr></thead><tbody>${filtered}</tbody></table></div>` : "")}
         ${fold("Time, tokens and steps", `<p class="small muted mono" style="margin:0">${esc(r.id)}${r.agent_version ? ` · agent v${esc(r.agent_version)}` : ""}${r.model ? ` · ${esc(modelName(r.model))}` : ""}</p>${stages ? `<p class="small muted" style="margin:0">${stages}</p>` : ""}${r.usage ? usageView(r.usage) : ""}<div>${steps}</div>`)}

@@ -35,6 +35,8 @@ def attach(times, model=None):
     """Put the stage times, and the scoring model, into the results the engine wrote."""
     r = json.loads((dbio.WORK / "results.json").read_text())
     r["run"]["timings"] = times
+    if dbio.session_url():
+        r["run"]["session_url"] = dbio.session_url()
     u = usage.session_usage()
     if u:
         r["run"]["usage"] = u
