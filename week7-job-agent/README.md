@@ -139,7 +139,7 @@ Built in adapters: Greenhouse, Lever, Ashby, Workable, Getro (venture firm portf
 
 ## Limits
 
-Course limits live in `caps.json` and are enforced in code: the morning run always runs and the student may start three more a day by hand (a rolling 24 hours), three active searches, 1,000 postings read per source, 10,000 per run, 12 judged per search. Reading is cheap and done in code, so every fetched posting goes through deal breakers and the prefilter; judging is what uses your plan, so that is the tight cap. The page can lower them, never raise them.
+Course limits live in `caps.json` and are enforced in code: the morning run always runs and the student may start ten more a day by hand (a rolling 24 hours), three active searches, 1,000 postings read per source, 10,000 per run, 12 judged per search. Reading is cheap and done in code, so every fetched posting goes through deal breakers and the prefilter; judging is what uses your plan, so that is the tight cap. The page can lower them, never raise them.
 
 ## Your data
 
