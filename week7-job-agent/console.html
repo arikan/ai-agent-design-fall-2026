@@ -883,14 +883,14 @@ function agentPipeline(run){
     {key:"check", who:"code", name:"Check", n: judge ? num(judge.accepted) : "–", what:"accepted", from: judge ? `${judge.rejected} rejected` : "",
      how:"Rejects any score whose quote isn't in the post word for word, then computes the weighted total.", go:["runs","Runs"]},
     {key:"you", who:"you", name:"Judge", n: num(judged), what:"judged", from: "",
-     how:"You mark posts Good or Nope. Those verdicts are used to measure the agent, below.", go:["a-eval","Is it any good?"]},
+     how:"You mark posts Good or Nope. Those verdicts are used to measure the agent, below.", go:["a-eval","Evaluation"]},
   ];
 }
 function agentSample(run){
   const ps = run?.prompt_sample;
   if (!ps) return `<p class="small muted" style="margin:0">Appears after the next run.</p>`;
-  return `<p class="small muted" style="margin:0">Everything the model read for <b>${esc(ps.title)}</b> at ${esc(ps.company)} in the last run, and its answer.</p>
-    <div class="psample">${ps.parts.map((p, i) => `<details class="ppart"${i < 3 ? " open" : ""}><summary><span>${esc(p.label.replace("What Claude answered", "What the model answered"))}</span><span class="muted">from ${esc(p.from)}</span><span class="muted mono">${num(p.text.length)} characters</span></summary><pre>${esc(p.text)}</pre></details>`).join("")}</div>`;
+  return `<p class="small muted" style="margin:0">Your settings become the text the model reads. Here is that text for one post from the last run, <b>${esc(ps.title)}</b> at ${esc(ps.company)}, and the model's answer. Open a part to read it.</p>
+    <div class="psample">${ps.parts.map((p, i) => `<details class="ppart"><summary><span>${esc(p.label.replace("What Claude answered", "What the model answered"))}</span><span class="muted">from ${esc(p.from)}</span><span class="muted mono">${num(p.text.length)} characters</span></summary><pre>${esc(p.text)}</pre></details>`).join("")}</div>`;
 }
 function agentEval(){
   const rows = S.matches.map(m => ({m, v: S.judgments[m.id]?.verdict, why: S.judgments[m.id]?.main_dimension})).filter(x => x.v === "accept" || x.v === "dismiss");
@@ -940,12 +940,12 @@ function agentSuggest(){
   const titles = Object.fromEntries(S.matches.map(m => [m.id, `${m.title} · ${m.company}`]));
   const open = doc ? doc.items.map((it, i) => ({it, i})).filter(x => x.it.status !== "dismissed") : [];
   const btn = busy === "suggest" ? `<span class="small muted"><span class="spin" aria-hidden="true"></span>Working on suggestions…</span>`
-    : `<button type="button" class="btn" data-suggest ${busy || !S.runner?.trigger_id ? "disabled" : ""}>${doc ? "Suggest again" : "Suggest changes"}</button>`;
+    : `<button type="button" class="btn" data-suggest ${busy || !S.runner?.trigger_id ? "disabled" : ""}>Suggest changes</button>`;
   return `<div class="sghead row between"><h3 class="sechead" style="margin:0">Suggested changes</h3>${btn}</div>
     ${!doc ? `<p class="small muted" style="margin:0">The model reads your disagreements and proposes up to three Profile changes. You decide what to apply.</p>`
       : `<p class="small muted" style="margin:0">From ${esc(when(doc.at))}${doc.model ? ` by ${esc(modelName(doc.model))}` : ""}.${doc.rejected?.length ? ` ${doc.rejected.length} more failed the code check.` : ""}${!open.length ? " Nothing left to review." : ""}</p>`}
     ${open.map(({it, i}) => `<div class="sgitem">
-        <div class="row between"><span>${esc(it.label)}</span>${it.status === "applied" ? `<span class="small ok">Applied as preferences v${esc(it.applied_version)}</span>` : `<span class="row" style="gap:10px"><button type="button" class="btn small" data-apply="${esc(doc.id)}:${i}">Apply</button><button type="button" class="linkbtn small" data-dismiss="${esc(doc.id)}:${i}">Dismiss</button></span>`}</div>
+        <div class="row between"><span>${esc(it.label)}</span>${it.status === "applied" ? `<span class="small ok">Applied as preferences v${esc(it.applied_version)}</span>` : `<span class="row" style="gap:10px"><button type="button" class="btn small" data-apply="${esc(doc.id)}:${i}">Apply suggestion</button><button type="button" class="linkbtn small" data-dismiss="${esc(doc.id)}:${i}">Dismiss</button></span>`}</div>
         <p class="small" style="margin:0">${esc(it.why)}</p>
         ${suggestChange(it)}
         <details class="fold"><summary>Based on ${it.posts.length} post${it.posts.length === 1 ? "" : "s"}</summary><ul class="small sgposts">${it.posts.map(p => `<li>${esc(titles[p] || p)}</li>`).join("")}</ul></details>
@@ -1000,8 +1000,8 @@ function renderAgent(){
       <h2>What the model sees</h2>
       ${agentSample(run)}
     </section>
-    <section class="asec" id="a-eval">
-      <h2>Is it any good?</h2>
+    <section class="card stack" id="a-eval">
+      <h2>Evaluation</h2>
       <p class="small muted" style="margin:0">Compares the agent's scores with your Good and Nope verdicts. <button type="button" class="tip" aria-label="About this eval" data-tip="It measures ranking: for every pair of one Good and one Nope post, does the agent score the Good one higher? Data scientists call this AUC. It doesn't change the agent; it measures each version, so you can see whether a change helped. It only covers posts the agent chose to score, so it can't see good posts it ranked too low to read.">i</button></p>
       ${agentEval()}
       ${agentSuggest()}
