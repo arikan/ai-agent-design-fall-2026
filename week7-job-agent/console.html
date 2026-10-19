@@ -581,7 +581,6 @@ function renderSearchEditor(){
       <p class="small muted" style="margin:0">The agent scores each dimension 1 to 5, or unknown, with a reason and a quote from the posting. Weights add up to 100%; raising one leaves less room for the others.</p>
       <div id="dims" class="stack">${toPercent(s.preferences.dimensions).map((d,i)=>dimRow(d,i)).join("")}</div>
       <div class="wtotal small" id="wtotal" role="status"></div>
-      <label for="d-prefpay" style="max-width:320px"><span>Preferred compensation (USD a year) <button type="button" class="tip" aria-label="How the preferred amount works" data-tip="Total compensation. Claude uses it, with your minimum, to score Compensation fit: at or above it is strong.">i</button></span><input type="number" id="d-prefpay" min="0" step="10000" value="${db.preferred_pay ?? ""}" placeholder="300000"></label>
       <label for="s-unknown" style="max-width:320px">When a dimension is unknown
         <select id="s-unknown"><option value="neutral" ${s.preferences.unknown_policy!=="penalty"?"selected":""}>Count it as neutral (3 of 5)</option><option value="penalty" ${s.preferences.unknown_policy==="penalty"?"selected":""}>Count it as a miss (1 of 5)</option></select></label>
     </div>
@@ -645,7 +644,7 @@ function wireSearchForm(s){
     const active = $("s-active").checked;
     if (active && !s.active && S.searches.filter(x=>x.active).length >= COURSE_CAPS.max_searches){ st.className="status err"; st.textContent=`At most ${COURSE_CAPS.max_searches} searches can be active. Pause one first.`; return; }
     const prefs = {deal_breakers:{remote_only:false, require_pay_listed:false, currency:"USD",
-        min_pay:$("d-minpay").value ? Number($("d-minpay").value) : null, preferred_pay:$("d-prefpay").value ? Number($("d-prefpay").value) : null,
+        min_pay:$("d-minpay").value ? Number($("d-minpay").value) : null, preferred_pay:null,
         locations_any:list($("d-locs").value),
         exclude_industries:list($("d-ind").value), exclude_keywords:list($("d-kw").value)},
       dimensions:readDims(), unknown_policy:$("s-unknown").value};
