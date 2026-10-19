@@ -46,8 +46,13 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .btn{appearance:none;font:600 13px var(--font-ui);border-radius:6px;padding:7px 12px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
 .btn:hover{border-color:var(--muted)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
-.btn.good[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
-.btn.bad[aria-pressed="true"]{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.btn.good,.btn.bad{display:inline-flex;align-items:center;gap:6px}
+.btn.good{background:color-mix(in srgb,var(--accent-soft) 55%,var(--surface));border-color:color-mix(in srgb,var(--accent) 30%,var(--line));color:var(--accent)}
+.btn.bad{background:color-mix(in srgb,var(--warn-soft) 60%,var(--surface));border-color:color-mix(in srgb,var(--warn) 30%,var(--line));color:var(--warn)}
+.btn.good:hover{background:var(--accent-soft)}.btn.bad:hover{background:var(--warn-soft)}
+.btn.good[aria-pressed="true"]{background:color-mix(in srgb,var(--s-hi) 30%,var(--surface));border-color:var(--s-hi);color:var(--accent)}
+.btn.bad[aria-pressed="true"]{background:color-mix(in srgb,var(--s-mid) 35%,var(--surface));border-color:var(--s-mid);color:var(--warn)}
+.match.moved{opacity:.6}.match.moved:hover{opacity:1}
 .btn:disabled{opacity:.5;cursor:default}
 .pill{display:inline-block;font:500 12px var(--font-ui);padding:2px 8px;border-radius:999px;background:var(--sunk);color:var(--muted)}
 .pill.ok{background:var(--accent-soft);color:var(--accent)}
@@ -281,7 +286,7 @@ label > span{display:inline-flex;align-items:center;gap:2px}
       <div class="row">
         <label class="inline" for="f-search">Search
           <select id="f-search"><option value="">All searches</option></select></label>
-        <label class="inline" for="f-hide"><input type="checkbox" id="f-hide"> Hide judged</label>
+        <div class="segs-tabs" role="tablist" aria-label="Which matches" id="m-views"></div>
       </div>
       <span class="small muted" id="m-summary"></span>
     </div>
@@ -356,16 +361,22 @@ function renderMatches(){
   sel.closest("label").hidden = S.searches.length <= 1;
   const dimsFor = id => (S.searches.find(s=>s.id===id)?.preferences?.dimensions) || DEFAULT_DIMS;
   const scope = S.matches.filter(m => !sel.value || m.search_id === sel.value);
-  let rows = $("f-hide").checked ? scope.filter(m => !S.judgments[m.id]) : scope;
+  // Views: to review (no verdict yet), Good, Nope, All. A card judged in this view stays,
+  // marked, until you switch views, so you can still pick a reason or undo.
+  const verdictOf = m => S.judgments[m.id]?.verdict || null;
+  const VIEWS = [["review","To review", m => !verdictOf(m)], ["good","Good", m => verdictOf(m) === "accept"], ["nope","Nope", m => verdictOf(m) === "dismiss"], ["all","All", () => true]];
+  const view = VIEWS.find(v => v[0] === S.mview) || VIEWS[0];
+  $("m-views").innerHTML = VIEWS.map(([k,label,f]) => `<button role="tab" class="segtab" data-mview="${k}" aria-selected="${k === view[0]}">${label} <span class="muted">${scope.filter(f).length}</span></button>`).join("");
+  let rows = scope.filter(m => view[2](m) || S.sticky.has(m.id));
   const lastRun = [...S.runs].filter(r => r.status === "ok").sort((a,b) => String(b.started).localeCompare(String(a.started)))[0];
   const isNew = m => !!lastRun && m.run_id === lastRun.id && S.runs.filter(r => r.status === "ok").length > 1;
   rows = [...rows].sort((a,b) => (isNew(b) - isNew(a)) || (b.total - a.total));
   $("c-matches").textContent = S.matches.length || "";
-  $("f-hide").closest(".row.between").hidden = !S.matches.length;
+  $("m-views").closest(".row.between").hidden = !S.matches.length;
   const nNew = scope.filter(isNew).length;
-  $("m-summary").textContent = scope.length ? `${nNew ? `${nNew} new from the last run · ` : ""}${scope.filter(m=>S.judgments[m.id]).length} of ${scope.length} judged` : "";
+  $("m-summary").textContent = nNew ? `${nNew} new from the last run` : "";
   if (!rows.length){
-    if (S.matches.length){ $("matches").innerHTML = `<div class="card empty">Nothing left to judge here.</div>`; return; }
+    if (S.matches.length){ $("matches").innerHTML = `<div class="card empty">${view[0] === "review" ? "All caught up. New matches arrive with the next run." : view[0] === "good" ? "Nothing marked Good yet." : "Nothing marked Nope yet."}</div>`; return; }
     const ready = setupDone(), running = ["starting","running"].includes(runNowPhase());
     $("matches").innerHTML = `<div class="card emptystate">
       <svg class="es-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15.5 15.5L20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -399,7 +410,8 @@ function renderMatches(){
     const pay = m.pay_min==null && m.pay_max==null ? `<span class="pay none">Pay not listed</span>` : `<span class="pay">${esc(money(m.pay_min,m.pay_max))}</span>`;
     const link = m.url ? `<a class="ext" href="${esc(m.url)}" target="_blank" rel="noopener">View posting ↗</a>` : `<span class="ext none" title="Postings in the frozen corpus are fictional">Example posting, no live page</span>`;
     const verdict = j?.verdict;
-    return `<article class="card match" data-id="${esc(m.id)}">
+    const moved = S.sticky.has(m.id) && !view[2](m);
+    return `<article class="card match${moved ? " moved" : ""}" data-id="${esc(m.id)}">
       <div class="score ${m.total >= 80 ? "hi" : m.total >= 60 ? "mid" : "lo"}">${m.total}<small>of 100</small>${isNew(m) ? `<span class="newtag">New</span>` : ""}</div>
       <div class="body">
         <div class="mtop">
@@ -414,10 +426,11 @@ function renderMatches(){
         <div class="judge">
           <div class="row between">
            <div class="row">
-            <button class="btn good" data-act="accept" aria-pressed="${verdict==="accept"}">Good match</button>
-            <button class="btn bad" data-act="dismiss" aria-pressed="${verdict==="dismiss"}">Not a fit</button>
+            <button class="btn good" data-act="accept" aria-pressed="${verdict==="accept"}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M5 7v7H2.5V7H5zm1 7V7l2.6-4.6c.3-.5 1-.6 1.4-.2.3.3.4.7.3 1.1L9.6 6.5h3.3c.7 0 1.2.6 1.1 1.3l-.8 5c-.1.7-.7 1.2-1.4 1.2H6z" fill="currentColor"/></svg>Good</button>
+            <button class="btn bad" data-act="dismiss" aria-pressed="${verdict==="dismiss"}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="transform:scaleY(-1)"><path d="M5 7v7H2.5V7H5zm1 7V7l2.6-4.6c.3-.5 1-.6 1.4-.2.3.3.4.7.3 1.1L9.6 6.5h3.3c.7 0 1.2.6 1.1 1.3l-.8 5c-.1.7-.7 1.2-1.4 1.2H6z" fill="currentColor"/></svg>Nope</button>
             <button type="button" class="tip" aria-label="What a verdict does" data-tip="Your verdicts are the answer key the agent is tested against. Each is saved with a copy of the posting, so a later version of the agent can be scored on the same jobs.">i</button>
             <span class="savestate ${S.saved[m.id]?.state || ""}" id="save-${esc(m.id)}" role="status">${saveText(m.id)}</span>
+            ${moved ? `<span class="small muted">Moves to <button type="button" class="linkbtn" data-mview="${verdict === "accept" ? "good" : "nope"}">${verdict === "accept" ? "Good" : "Nope"}</button> when you switch views</span>` : ""}
            </div>
            <span class="foot small muted">First seen ${esc(seen(m))}</span>
           </div>
@@ -431,7 +444,9 @@ function renderMatches(){
   }).join("");
 }
 $("f-search").addEventListener("change", renderMatches);
-$("f-hide").addEventListener("change", renderMatches);
+S.mview = (() => { try { return localStorage.getItem("matches-view") || "review"; } catch(e){ return "review"; } })();
+S.sticky = new Set();
+$("m-views").addEventListener("click", e => { const b = e.target.closest("[data-mview]"); if (!b) return; S.mview = b.dataset.mview; S.sticky.clear(); try { localStorage.setItem("matches-view", S.mview); } catch(e){} renderMatches(); });
 // Per card: "Saving…" while a write is in flight, then "Saved" for a few seconds.
 S.saved = {};
 const saveText = id => ({saving:`<span class="spin" aria-hidden="true"></span>Saving…`, ok:"✓ Saved", err:"Could not save"})[S.saved[id]?.state] || "";
@@ -457,7 +472,9 @@ $("matches").addEventListener("click", e => {
   const v = e.target.closest("button[data-act]");
   const busy = el => { art.querySelectorAll(".judge button").forEach(b => b.disabled = true); el.setAttribute("aria-busy","true"); el.classList.add("busy"); };
   const done = () => art.querySelectorAll(".judge button").forEach(b => { b.disabled = false; b.removeAttribute("aria-busy"); b.classList.remove("busy"); });
-  if (v){ busy(v); return saveJudgment(id, cur.verdict===v.dataset.act ? {verdict:null, main_dimension:null, reason:""} : {verdict:v.dataset.act}, v).finally(done); }
+  const go = e.target.closest("[data-mview]");
+  if (go){ S.mview = go.dataset.mview; S.sticky.clear(); try { localStorage.setItem("matches-view", S.mview); } catch(e){} renderMatches(); window.scrollTo({top:0}); return; }
+  if (v){ S.sticky.add(id); busy(v); return saveJudgment(id, cur.verdict===v.dataset.act ? {verdict:null, main_dimension:null, reason:""} : {verdict:v.dataset.act}, v).finally(done); }
   const c = e.target.closest("button[data-dim]");
   if (c){ busy(c); return saveJudgment(id, {main_dimension: cur.main_dimension===c.dataset.dim ? null : c.dataset.dim}, c).finally(done); }
 });
