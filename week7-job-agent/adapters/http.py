@@ -8,6 +8,7 @@ In test mode it replays saved responses instead of touching the network.
 """
 
 import json
+import time
 import os
 import ssl
 import urllib.parse
@@ -57,13 +58,23 @@ class Http:
             data = json.dumps(body).encode()
             h["Content-Type"] = "application/json"
         req = urllib.request.Request(url, data=data, headers=h, method=method)
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout, context=self.ctx) as r:
-                entry["status"] = r.status
-                return r.read().decode(r.headers.get_content_charset() or "utf-8", "replace")
-        except urllib.error.HTTPError as e:
-            entry["status"] = e.code
-            raise
+        for attempt in range(3):
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout, context=self.ctx) as r:
+                    entry["status"] = r.status
+                    return r.read().decode(r.headers.get_content_charset() or "utf-8", "replace")
+            except urllib.error.HTTPError as e:
+                entry["status"] = e.code
+                # 429 Too Many Requests and 503 mean "slow down": wait as asked (at most 15 s), then try again, twice.
+                if e.code in (429, 503) and attempt < 2:
+                    try:
+                        wait = min(float(e.headers.get("Retry-After") or 0), 15) or 5 * (attempt + 1)
+                    except ValueError:
+                        wait = 5 * (attempt + 1)
+                    entry.setdefault("retries", []).append({"status": e.code, "waited": wait})
+                    time.sleep(wait)
+                    continue
+                raise
 
     def get(self, url, params=None, headers=None):
         return self._send("GET", self._url(url, params), headers=headers)

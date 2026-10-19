@@ -52,7 +52,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .btn.good:hover{background:var(--accent-soft)}.btn.bad:hover{background:var(--warn-soft)}
 .btn.good[aria-pressed="true"]{background:color-mix(in srgb,var(--s-hi) 30%,var(--surface));border-color:var(--s-hi);color:var(--accent)}
 .btn.bad[aria-pressed="true"]{background:color-mix(in srgb,var(--s-mid) 35%,var(--surface));border-color:var(--s-mid);color:var(--warn)}
-.match.moved{opacity:.6}.match.moved:hover{opacity:1}
+.match.moved,.match.noped{opacity:.6}.match.moved:hover,.match.noped:hover{opacity:1}
 .btn:disabled{opacity:.5;cursor:default}
 .pill{display:inline-block;font:500 12px var(--font-ui);padding:2px 8px;border-radius:999px;background:var(--sunk);color:var(--muted)}
 .pill.ok{background:var(--accent-soft);color:var(--accent)}
@@ -148,8 +148,8 @@ td.num{font-family:var(--font-data);font-variant-numeric:tabular-nums}
 .step .k{font-weight:600}
 .src{display:grid;gap:8px}
 .src h3{font-size:14px;word-break:break-all}
-.strip{display:inline-flex;gap:2px;margin-right:4px}
-.strip i{width:7px;height:16px;border-radius:1px;background:var(--line)}
+.strip{display:inline-flex;align-items:center;gap:2px;margin-right:4px;align-self:center;cursor:help}
+.strip i{flex:none;width:7px;height:16px;padding:0;margin:0;border:0;border-radius:1px;background:var(--line)}
 .strip i.ok{background:var(--accent)}.strip i.empty{background:var(--warn)}.strip i.failed{background:var(--bad)}
 .err-line{background:var(--bad-soft);color:var(--bad);border-radius:6px;padding:6px 10px;word-break:break-word}
 .proposal{border:1px solid var(--accent);background:var(--accent-soft);border-radius:6px;padding:10px 12px}
@@ -433,7 +433,7 @@ function renderMatches(){
     const link = m.url ? `<a class="ext" href="${esc(m.url)}" target="_blank" rel="noopener">View posting ↗</a>` : `<span class="ext none" title="Postings in the frozen corpus are fictional">Example posting, no live page</span>`;
     const verdict = j?.verdict;
     const moved = S.sticky.has(m.id) && !view[2](m);
-    return `<article class="card match${moved ? " moved" : ""}" data-id="${esc(m.id)}">
+    return `<article class="card match${moved ? " moved" : ""}${verdict === "dismiss" && !moved ? " noped" : ""}" data-id="${esc(m.id)}">
       <div class="score ${m.total >= 80 ? "hi" : m.total >= 60 ? "mid" : "lo"}">${m.total}<small>of 100</small>${isNew(m) ? `<span class="newtag">New</span>` : ""}</div>
       <div class="body">
         <div class="mtop">
@@ -466,9 +466,9 @@ function renderMatches(){
   }).join("");
 }
 $("f-search").addEventListener("change", renderMatches);
-S.mview = (() => { try { return localStorage.getItem("matches-view") || "review"; } catch(e){ return "review"; } })();
+S.mview = "review";      // every visit starts with what needs judging
 S.sticky = new Set();
-$("m-views").addEventListener("click", e => { const b = e.target.closest("[data-mview]"); if (!b) return; S.mview = b.dataset.mview; S.sticky.clear(); try { localStorage.setItem("matches-view", S.mview); } catch(e){} renderMatches(); });
+$("m-views").addEventListener("click", e => { const b = e.target.closest("[data-mview]"); if (!b) return; S.mview = b.dataset.mview; S.sticky.clear(); renderMatches(); });
 // Per card: "Saving…" while a write is in flight, then "Saved" for a few seconds.
 S.saved = {};
 const saveText = id => ({saving:`<span class="spin" aria-hidden="true"></span>Saving…`, ok:"✓ Saved", err:"Could not save"})[S.saved[id]?.state] || "";
@@ -495,7 +495,7 @@ $("matches").addEventListener("click", e => {
   const busy = el => { art.querySelectorAll(".judge button").forEach(b => b.disabled = true); el.setAttribute("aria-busy","true"); el.classList.add("busy"); };
   const done = () => art.querySelectorAll(".judge button").forEach(b => { b.disabled = false; b.removeAttribute("aria-busy"); b.classList.remove("busy"); });
   const go = e.target.closest("[data-mview]");
-  if (go){ S.mview = go.dataset.mview; S.sticky.clear(); try { localStorage.setItem("matches-view", S.mview); } catch(e){} renderMatches(); window.scrollTo({top:0}); return; }
+  if (go){ S.mview = go.dataset.mview; S.sticky.clear(); renderMatches(); window.scrollTo({top:0}); return; }
   if (v){ S.sticky.add(id); busy(v); return saveJudgment(id, cur.verdict===v.dataset.act ? {verdict:null, main_dimension:null, reason:""} : {verdict:v.dataset.act}, v).finally(done); }
   const c = e.target.closest("button[data-dim]");
   if (c){ busy(c); return saveJudgment(id, {main_dimension: cur.main_dimension===c.dataset.dim ? null : c.dataset.dim}, c).finally(done); }
@@ -882,7 +882,9 @@ function sourceCard(s){
   const h = s.enabled ? srcHealth(s.id) : {status:"off", history:[]};
   const st = s.adapter==="manual" ? PILL.manual : (PILL[h.status] || PILL.new);
   const prop = S.proposals[s.id];
-  const strip = h.history?.length ? `<span class="strip" aria-label="Last ${h.history.length} runs">${h.history.map(x=>`<i class="${x.h.status}" title="${esc(when(x.at))}: ${esc(x.h.status)}${x.h.kept!=null?", "+x.h.kept+" kept":""}"></i>`).join("")}</span>` : "";
+  const tally = (h.history || []).reduce((t, x) => (t[x.h.status] = (t[x.h.status] || 0) + 1, t), {});
+  const stripTip = h.history?.length ? `Last ${h.history.length} run${h.history.length === 1 ? "" : "s"}, newest on the right: ${[tally.ok && `${tally.ok} worked`, tally.empty && `${tally.empty} returned nothing`, tally.failed && `${tally.failed} failed`].filter(Boolean).join(", ")}` : "";
+  const strip = h.history?.length ? `<span class="strip" title="${esc(stripTip)}" aria-label="${esc(stripTip)}">${h.history.map(x=>`<i class="${x.h.status}" title="${esc(when(x.at))}: ${esc(x.h.status)}${x.h.kept!=null?", "+x.h.kept+" kept":""}"></i>`).join("")}</span>` : "";
   return `<article class="card src" data-sid="${esc(s.id)}">
     <div class="row between">
       <div class="stack" style="gap:2px;min-width:0">

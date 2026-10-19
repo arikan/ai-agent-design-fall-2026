@@ -256,13 +256,20 @@
   },
   {
    "id": "greenhouse:thinkingmachines",
-   "adapter": "greenhouse",
+   "adapter": "html_scraper",
    "enabled": true,
    "category": "ai",
-   "note": "",
+   "note": "Greenhouse's API answers 404 for this board, so its board page is read directly",
    "config": {
-    "board_token": "thinkingmachines",
-    "company_name": "Thinking Machines Lab"
+    "url": "https://job-boards.greenhouse.io/thinkingmachines",
+    "company_name": "Thinking Machines Lab",
+    "selectors": {
+     "job_card": "tr.job-post",
+     "title": "p.body--medium",
+     "location": "p.body__secondary",
+     "link": "a"
+    },
+    "detail_text": ".job__description"
    }
   },
   {
