@@ -255,21 +255,14 @@
    }
   },
   {
-   "id": "greenhouse:thinkingmachines",
-   "adapter": "html_scraper",
+   "id": "ashby:thinkingmachines",
+   "adapter": "ashby",
    "enabled": true,
    "category": "ai",
-   "note": "Greenhouse's API answers 404 for this board, so its board page is read directly",
+   "note": "",
    "config": {
-    "url": "https://job-boards.greenhouse.io/thinkingmachines",
-    "company_name": "Thinking Machines Lab",
-    "selectors": {
-     "job_card": "tr.job-post",
-     "title": "p.body--medium",
-     "location": "p.body__secondary",
-     "link": "a"
-    },
-    "detail_text": ".job__description"
+    "company": "thinkingmachines",
+    "company_name": "Thinking Machines Lab"
    }
   },
   {
