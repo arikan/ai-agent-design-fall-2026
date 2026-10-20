@@ -79,7 +79,8 @@ def export():
         p.write_text(json.dumps(m))
         w = {"op": "set", "collection": "matches", "doc_id": m["id"], "file_path": str(p.resolve())}
         if m.get("rescored"):
-            w["if_version"] = 1      # replaces the earlier match, which runs write once and never update
+            if (WORK / "db" / "matches" / f"{m['id']}.json").exists():
+                w["if_version"] = 1      # replaces the earlier match, which runs write once and never update
             writes.append({"op": "delete", "collection": "rescore", "doc_id": m["id"], "if_version": 1})
         writes.append(w)
     snap = snapshot(r["run"], out)
@@ -211,6 +212,18 @@ def seed():
         localdb.write("meta/setup_check", {"status": "ok", "finished_at": now, "local": True})
         made.append("local runner")
     print("seed: " + (", ".join(made) if made else "nothing to do, work/db already has an agent and a search"))
+
+
+def add_source(src, note):
+    """Append a source to agent/current in the local database, as a new agent version (what the page does)."""
+    from . import localdb
+    cur = localdb.read("agent/current")
+    agent = dict(cur["data"]) if cur else {}
+    sources = [x for x in agent.get("sources", []) if x["id"] != src["id"]] + [src]
+    nxt = {**agent, "version": int(agent.get("version", 0)) + 1, "sources": sources, "updated": datetime.now(timezone.utc).isoformat()}
+    localdb.write(f"agent/current/versions/v{nxt['version']}", {**nxt, "note": note})
+    localdb.write("agent/current", nxt)
+    return nxt["version"]
 
 
 def apply():

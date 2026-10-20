@@ -34,7 +34,7 @@ Everything the agent reads is yours to change. Each change is saved as a new ver
 
 1. **Update your profile.** Profile tab: target roles, industries, pay, background keywords, CV. The preview at the bottom shows which posts the next run would score.
 2. **Tune the scoring.** Profile tab, Dimensions: rewrite a rubric in your own words, change a weight, or add a dimension of your own.
-3. **Add sources.** Sources tab: paste a company's job board address (Greenhouse, Lever, Ashby or Workable), or type the company's name, and press **Add source**. The board is tested right away. Turn off boards that don't fit.
+3. **Add sources.** Sources tab: paste a careers page address, or type the company's name, and press **Add source**. The agent works out how to read the page and tests it. Turn off boards that don't fit.
 4. **Apply suggestions.** Agent tab, Feedback: press **Suggest changes**, then apply or dismiss each one.
 5. **Edit the model's instructions.** Agent tab, Settings: change the scoring instructions or how many posts are scored per run.
 6. **Change the code.** Fork the repository and point your daily run at your fork. See [Make it yours](README.md#make-it-yours).

@@ -719,8 +719,9 @@ function renderPreview(s){
   const shown = passed.slice(0, S.posts.showAll ? 25 : n);
   const label = {role:"role", keywords:"keywords", industry:"industry", cv:"CV"};
   const scored = passed.filter(x => x.score * 100 >= floor).slice(0, n).length;
-  const rows = shown.map((x, i) => { const below = x.score * 100 < floor; return `<li class="prow ${i < n && !below ? "in" : ""}"><span class="mono num">${Math.round(x.score * 100)}</span><span class="pbar"><i style="width:${Math.round(x.score * 100)}%"></i></span>
-      <span class="ptitle">${x.p.url ? `<a href="${esc(x.p.url)}" target="_blank" rel="noopener">${esc(x.p.title)}</a>` : esc(x.p.title)} <span class="muted">· ${esc(x.p.company)} · ${esc(money(x.p.pay_min, x.p.pay_max))}</span></span>
+  const sid = s?.id || "", queued = id => !!S.rescore[`${sid}__${id}`];
+  const rows = shown.map((x, i) => { const below = x.score * 100 < floor, inRun = i < n && !below; return `<li class="prow ${inRun ? "in" : ""}"><span class="mono num">${Math.round(x.score * 100)}</span><span class="pbar"><i style="width:${Math.round(x.score * 100)}%"></i></span>
+      <span class="ptitle">${x.p.url ? `<a href="${esc(x.p.url)}" target="_blank" rel="noopener">${esc(x.p.title)}</a>` : esc(x.p.title)} <span class="muted">· ${esc(x.p.company)} · ${esc(money(x.p.pay_min, x.p.pay_max))}</span>${sid && !inRun ? (queued(x.p.id) ? ` <span class="small muted">· Queued for the next run · <button type="button" class="linkbtn small" data-unqueue="${esc(x.p.id)}">Cancel</button></span>` : ` <button type="button" class="linkbtn small" data-queue="${esc(x.p.id)}" title="Have the model score this post in the next run, whatever its rank">Score next run</button>`) : ""}</span>
       <span class="pwhy small muted">${x.parts.map(q => `<span class="${q.v > 0 ? "hit" : ""}">${q.key === "role" && q.v ? `role ✓ ${esc(RANK.roleHit(f.target_roles, x.p))}` : `${label[q.key]}${q.key === "role" || q.key === "industry" ? (q.v ? " ✓" : " ✗") : ` ${Math.round(q.v * 100)}%`}`}</span>`).join("")}</span></li>`; }).join("");
   box.innerHTML = head + `
     <ol class="funnel mini" id="pcounts">
@@ -736,6 +737,16 @@ function renderPreview(s){
   wireToggle();
   const more = $("preview-more"); if (more) more.onclick = () => { S.posts.showAll = !S.posts.showAll; renderPreview(s); };
 }
+// Any ranked post can be sent to the model in the next run, like Rescore on a match: the request is a
+// `rescore` document, which the run forces into the batch whatever the post's rank.
+$("search-editor").addEventListener("click", e => {
+  const q = e.target.closest("[data-queue]"), u = e.target.closest("[data-unqueue]"); if (!(q || u) || !S.db) return;
+  const s = S.searches.find(x => x.id === S.editing); if (!s) return;
+  const pid = q ? q.dataset.queue : u.dataset.unqueue, id = `${s.id}__${pid}`;
+  if (u){ S.db.doc("rescore/" + id).delete().catch(() => {}); return; }
+  const p = (S.posts.items || []).find(x => x.id === pid) || {};
+  S.db.doc("rescore/" + id).set({search_id:s.id, posting_id:pid, title:p.title || "", company:p.company || "", requested_at:new Date().toISOString()}).catch(() => {});
+});
 
 /* ---------- searches ---------- */
 function renderSearchList(){
@@ -1148,7 +1159,13 @@ function renderSources(){
   if ($("pick-runner")) $("pick-runner").onclick = pickRunner;
   $("add-source").onclick = () => { $("src-new").innerHTML = sourceEditor({id:"", adapter:"greenhouse", enabled:true, category:"", cap:COURSE_CAPS.max_postings_per_source, config:{}}, true); wireEditor($("src-new").firstElementChild); };
   $("quickadd").onsubmit = e => { e.preventDefault(); quickAdd($("qa-text").value.trim()); };
-  $("qa-out").onclick = e => { const b = e.target.closest("[data-qa-add]"); if (b){ const [adapter, slug] = b.dataset.qaAdd.split("|"); addBoard(adapter, slug); } };
+  $("qa-out").onclick = async e => {
+    const b = e.target.closest("[data-qa-add]"); if (b){ const [adapter, slug] = b.dataset.qaAdd.split("|"); addBoard(adapter, slug); return; }
+    const m = e.target.closest("[data-qa-manual]"); if (m){ const url = m.dataset.qaManual, host = new URL(url).hostname, id = `manual:${host}`;
+      if (S.agent.sources.some(x => x.id === id)) return qaSay(`<p class="small muted" style="margin:0">${esc(id)} is already in your sources.</p>`);
+      try { const v = await saveSources([...S.agent.sources, {id, adapter:"manual", enabled:true, category:"", cap:0, note:"Couldn't be read automatically; open it yourself now and then.", config:{url}}], `Added ${id}`); S.flash = {id, msg:`Added as a reminder. Saved as agent version ${v}.`}; S.qa = null; renderSources(); }
+      catch(err){ qaSay(`<p class="status err">Could not save: ${esc(err.message || err.code)}</p>`); } }
+  };
   if (S.qa){ $("qa-text").value = S.qa.text || ""; $("qa-out").innerHTML = S.qa.html || ""; }
   $("copy-doms").onclick = async e => { try { await navigator.clipboard.writeText(doms.join("\n")); e.target.textContent = "Copied"; } catch(err){ const r=document.createRange(); r.selectNodeContents($("domlist")); getSelection().removeAllRanges(); getSelection().addRange(r); } };
 }
@@ -1172,10 +1189,8 @@ async function quickAdd(text){
       const host = u.hostname.toLowerCase(), hit = BOARD_HOSTS.find(([re]) => re.test(host));
       if (hit && slugOf(u)) return await addBoard(hit[1], slugOf(u));
       if (hit) return qaSay(`<p class="small muted" style="margin:0">That is the board's home. Paste a company's own board, such as <span class="mono">${esc(u.origin)}/company</span>.</p>`);
-      // Not a board type the agent knows by address: open the full form with the address filled in.
-      const adapter = /jobs\./.test(host) ? "getro" : "html_scraper", cfg = adapter === "getro" ? {domain: host} : {url: u.href};
-      $("src-new").innerHTML = sourceEditor({id:`${adapter}:${host}`, adapter, enabled:true, category:"", cap:COURSE_CAPS.max_postings_per_source, config:cfg}, true); wireEditor($("src-new").firstElementChild);
-      return qaSay(`<p class="small muted" style="margin:0">Not a Greenhouse, Lever, Ashby or Workable board. Below, choose <b>Getro portfolio board</b> for a venture firm's jobs page, or <b>Web page</b> for a careers page, then <b>Test</b> it.</p>`);
+      // Any other address: the agent opens the page and works out how to read it.
+      return await figureOut(u.href);
     }
     // A company name. On this computer the server can look; in the cloud the person checks the links.
     if (S.local){
@@ -1188,6 +1203,26 @@ async function quickAdd(text){
     }
     return qaSay(`<p class="small muted" style="margin:0">Open the one that shows ${esc(text)}'s jobs, then paste its address here: ${boardLinks(text)}. If none does, paste the company's careers page.</p>`);
   } finally { go.disabled = false; }
+}
+// The agent works out a source from a careers page: code first (an embedded board, a feed), then the
+// model proposes selectors and each proposal is tested. Locally `jobagent figure` does it; in the cloud,
+// the daily run's task does (RUN.md, "Figure out a source"). Progress arrives in meta/figure.
+async function figureOut(url){
+  if (!S.runner?.trigger_id){ S.setup.open = true; renderSetup(); return qaSay(`<p class="small muted" style="margin:0">Finish the setup above first; the agent needs its run to look at the page.</p>`); }
+  qaSay(`<p class="small muted" style="margin:0"><span class="spin" aria-hidden="true"></span>Looking at ${esc(url)} to work out how to read it. ${S.local ? "Usually under a minute." : "A cloud run does this; a few minutes."}</p>`, "");
+  S.figuring = url;
+  try { await startTask("figure", {url}, "FIGURE_SOURCE " + url); }
+  catch(e){ S.figuring = null; qaSay(`<p class="status err">Could not start: ${esc(mcpMessage(e))}</p>`); }
+}
+function renderFigure(){
+  const f = S.figure; if (!f || !S.figuring || f.url !== S.figuring || f.status !== "done") return;
+  S.figuring = null;
+  if (f.source){
+    S.flash = {id:f.source.id, msg:`Added from ${f.url}: ${esc(f.how || "")}.`}; renderSources();
+    document.querySelector(`[data-sid="${CSS.escape(f.source.id)}"]`)?.scrollIntoView({behavior:"smooth", block:"center"});
+    return qaSay("", "");
+  }
+  qaSay(`<p class="small muted" style="margin:0"><b>Couldn't read ${esc(f.url)}.</b> ${esc(f.how || "")} You can still keep it as a reminder to check by hand: <button type="button" class="linkbtn small" data-qa-manual="${esc(f.url)}">Add as check by hand</button></p>`);
 }
 async function addBoard(adapter, slug, displayName){
   const A = ADAPTERS[adapter], id = `${adapter}:${slug}`;
@@ -1849,10 +1884,11 @@ function localDb(){
   S.rescore = {};
   db.collection("agent/current/versions").onSnapshot(q => { S.versions = q.docs.map(d => d.data()); renderAgent(); }, fail);
   db.collection("suggestions").onSnapshot(q => { S.suggestions = q.docs.map(d => ({id:d.id, ...d.data()})); renderAgent(); }, fail);
-  db.collection("rescore").onSnapshot(q => { S.rescore = Object.fromEntries(q.docs.map(d => [d.id, d.data()])); renderMatches(); }, fail);
+  db.collection("rescore").onSnapshot(q => { S.rescore = Object.fromEntries(q.docs.map(d => [d.id, d.data()])); renderMatches(); if ($("preview") && S.editing && S.editing !== "new") renderPreview(S.searches.find(x => x.id === S.editing)); }, fail);
   db.doc("meta/postings").onSnapshot(d => { const was = S.posts.index?.run_id; S.posts.index = d.exists ? d.data() : null; if (S.posts.index?.run_id !== was){ S.posts.items = null; S.posts.showAll = false; loadPosts(); } }, fail);
   db.doc("meta/progress").onSnapshot(d => { S.progress = d.exists ? d.data() : null; renderMatches(); renderRuns(); }, fail);
   db.doc("meta/request").onSnapshot(d => { S.request = d.exists ? d.data() : null; renderAll(); }, fail);
+  db.doc("meta/figure").onSnapshot(d => { S.figure = d.exists ? d.data() : null; renderFigure(); }, fail);
   db.doc("meta/app").onSnapshot(d => { S.app = d.exists ? d.data() : null; renderSetup(); }, fail);
   db.doc("meta/console").onSnapshot(d => { const m = d.exists ? d.data() : null;
     $("build").textContent = m ? `Updated ${when(m.published_at)} · ${m.commit}` : ""; }, fail);

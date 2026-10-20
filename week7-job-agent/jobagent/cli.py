@@ -6,6 +6,7 @@ On your computer
   suggest [--model <id>]            suggest Profile changes from your verdicts
 
 Parts, to run one step at a time
+  figure <url> [--model <id>]       work out a source from a careers page address
   judge [--model <id>]              score work/batch.json -> work/judgments.json
   sources test                      every adapter against its saved responses, offline
   sources try <source.json> [out]   one source, live, with a sample
@@ -51,6 +52,9 @@ def main(argv=None):
     elif cmd == "judge":
         from . import judge
         judge.main(rest)
+    elif cmd == "figure":
+        from . import figure
+        figure.main(rest)
     elif cmd == "sources":
         from . import sources
         call(sources, "sources", rest)

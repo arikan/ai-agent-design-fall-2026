@@ -21,8 +21,9 @@ A run should take few turns: do independent tool calls in the same turn, and nev
    - `kind: "check"`: follow "Check setup" below instead of these steps.
    - `kind: "test"`: follow "Test one source" below for its `source_id`.
    - `kind: "suggest"`: follow "Suggest changes" below.
+   - `kind: "figure"`: follow "Figure out a source" below for its `source_id`, which holds the page's address.
    - `kind: "run"`: the user asked for a run now; continue.
-   Set its `status` to `"started"` (pass the version you read). Otherwise this is the daily run; continue. An extra message `TEST_SOURCE <id>` or `CHECK_SETUP` means the same as a request of that kind.
+   Set its `status` to `"started"` (pass the version you read). Otherwise this is the daily run; continue. An extra message `TEST_SOURCE <id>`, `FIGURE_SOURCE <url>` or `CHECK_SETUP` means the same as a request of that kind.
 2. **Get the engine.** In one command: shallow clone the course repo, `cd` into `week7-job-agent`, and run `pip install -q uv` if `uv` is missing.
 3. **Read the database**, all in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `runs` (list), `matches` (list), `judgments` (list), `rescore` (list; postings the user asked to score again), `meta` / `progress`, `meta` / `console` and `meta` / `postings` (get; any may not exist).
 4. **Collect, filter and rank:** `uv run jobagent prepare`, or `uv run jobagent prepare manual` when step 1 found a `run` request (the user pressed Run now; those runs are capped at a few a day, the morning run is not). It prints how long each stage took.
@@ -53,6 +54,21 @@ When step 1 finds a pending `suggest` request, the user asked for suggestions. D
 
 A suggestion request never collects or scores posts, and does not count toward the runs started by hand.
 
+## Figure out a source
+
+When step 1 finds a pending `figure` request, the user pasted a careers page address the agent doesn't know. Work out how to read it, then stop:
+
+1. Get the engine as in step 2. Read `agent` / `current` and `meta` / `figure` with ArtifactData, for their versions.
+2. Set `meta` / `figure` to `{"url": <the address>, "status": "working", "started_at": now}`.
+3. Run `uv run jobagent figure <url> --model none`. It opens the page, and either finds a board it knows (an embedded Greenhouse, Lever, Ashby or Workable board, or an RSS feed) and tests it, or writes the page's HTML, without scripts, to `work/figure-page.html` for you. Read `work/figure-result.json`.
+4. If it found a source, go to step 7. If it says the page can't be read (empty without JavaScript, or it couldn't open it), go to step 8.
+5. You are the model now. Read `work/figure-page.html` and write one source to `work/figure-source.json`: `{"id": "html:<host>", "adapter": "html_scraper", "enabled": true, "category": "", "cap": 1000, "note": "<what the page is, one line>", "config": {"url": <the address>, "selectors": {"job_card": <css>, "title": <css>, "location": <css or omit>, "company": <css or omit>, "link": <css, default a>}, "detail_text": <css on a job's own page for its description, or omit>, "company_name": "<name>"}}`. The selectors are CSS for BeautifulSoup; `job_card` matches one element per job and the others are searched inside it. If the HTML holds no job listings (they load with JavaScript, or the page is a search form), say so and go to step 8.
+6. Test it: `uv run jobagent sources try work/figure-source.json work/figure-test.json`. If it kept no postings, read the error and the page again and fix the selectors, up to three times in all. If the page's HTML or its network responses show a JSON API that lists the jobs, a `json_api` source for that API is better than selectors.
+7. Add the source: write `agent` / `current` with the source appended to `sources` and `version` raised by one (pass the version from step 1), and `agent/current/versions` / `v<new version>` with the same document plus `note` "Added <source id> from <url>". Write `source_tests` / `<source id with characters other than letters, digits, dot, dash and underscore replaced by _>` from `work/figure-test.json` (or a `{"health": {"status": "ok", "kept": N}}` for a source found by code) plus `source_id`, `status: "done"`, `finished_at`.
+8. Set `meta` / `figure` to `{"url", "status": "done", "source": <the source, or null>, "how": "<one plain sentence: what was found and how, or why the page can't be read and where its jobs come from>", "finished_at"}`, with the version from step 2. Set `meta` / `request` `status` to `"done"` and report in one line.
+
+This is the one case where a run changes the agent's sources: the user asked for exactly that address.
+
 ## Test one source
 
 When step 0 finds a pending `test` request, the user pressed Test on that source. Do only this, then stop:
@@ -79,7 +95,7 @@ When step 0 finds a pending `check` request, the user pressed Check setup. Do on
 
 ## What the session must not do
 
-- Change searches, preferences, agent settings or judgments. Those belong to the user; suggestions are written for the user to apply or not.
+- Change searches, preferences, agent settings or judgments. Those belong to the user; suggestions are written for the user to apply or not. The one exception is "Figure out a source", which adds the source the user asked for.
 - Change the repository. Code changes go through pull requests, never from a run.
 - Raise any limit. Caps live in `caps.json` and the engine applies them.
 - Fetch any site outside the sources' own domains.
