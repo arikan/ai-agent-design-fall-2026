@@ -933,7 +933,7 @@ function agentPipeline(run){
     {key:"rank", who:"code", name:"Rank", n: f ? num(f.ranked) : "–", what:"ranked", from: fil ? `${num(fil.ranked_above ?? (fil.passed - (fil.below_min_rank || 0)))} at ${set.min_rank_score ?? 0} or more` : "",
      how:"Word matching, 0 to 100: role in the title 45%, keywords 30%, CV overlap 15%, industry 10%. It decides which posts the model reads.", go:["searches","Profile"]},
     {key:"score", who:"model", name:"Score", n: f ? num(f.scored) : "–", what:"scored", from: run?.model ? modelName(run.model) : "",
-     how:`The model reads the top ${set.max_judged_per_search ?? 5} posts and rates each dimension 1 to 5, or unknown, with a reason and a quote.`, go:["a-sample","What the model sees"]},
+     how:`The model reads the top ${set.max_judged_per_search ?? 10} posts and rates each dimension 1 to 5, or unknown, with a reason and a quote.`, go:["a-sample","What the model sees"]},
     {key:"check", who:"code", name:"Check", n: judge ? num(judge.accepted) : "–", what:"accepted", from: judge ? `${judge.rejected} rejected` : "",
      how:"Rejects any score whose quote isn't in the post word for word, then computes the weighted total.", go:["runs","Runs"]},
     {key:"you", who:"you", name:"Judge", n: num(judged), what:"judged", from: "",
