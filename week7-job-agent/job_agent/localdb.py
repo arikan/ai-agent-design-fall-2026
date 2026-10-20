@@ -14,7 +14,7 @@ import re
 import threading
 from pathlib import Path
 
-DB = Path(__file__).parent / "work" / "db"
+DB = Path(__file__).resolve().parents[1] / "work" / "db"
 SAFE = re.compile(r"^[A-Za-z0-9_\-.~:@+]{1,200}$")
 _lock = threading.Lock()
 _rev = [0]

@@ -3,8 +3,8 @@
 The engine is the deterministic shell around the agent. It never calls a model.
 Claude (the scheduled session) does the judging between the two commands:
 
-  uv run engine.py prepare  config.json   -> work/batch.json   (what Claude must judge)
-  uv run engine.py finish   config.json   -> work/results.json (matches, run record, trace)
+  uv run job-agent engine prepare  config.json   -> work/batch.json   (what Claude must judge)
+  uv run job-agent engine finish   config.json   -> work/results.json (matches, run record, trace)
 
 Everything the engine decides is written to the trace, so a run can be read step by step.
 """
@@ -17,9 +17,9 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from adapters.text import pay_match
+from .adapters.text import pay_match
 
-HERE = Path(__file__).parent
+HERE = Path(__file__).resolve().parents[1]     # the project folder: work/, defaults/, caps.json
 WORK = HERE / "work"
 CAPS = json.loads((HERE / "caps.json").read_text())
 
@@ -531,7 +531,7 @@ def finish(config):
     print(f"{batch['run_id']}: {len(matches)} matches scored, {len(rejected)} judgments rejected. Wrote work/results.json")
 
 
-if __name__ == "__main__":
+def main():
     if len(sys.argv) == 2 and sys.argv[1] == "rank-fixture":
         rank_fixture()
         sys.exit(0)
@@ -539,3 +539,7 @@ if __name__ == "__main__":
         sys.exit(__doc__)
     cfg = json.loads(Path(sys.argv[2]).read_text())
     {"prepare": prepare, "finish": finish}[sys.argv[1]](cfg)
+
+
+if __name__ == "__main__":
+    main()

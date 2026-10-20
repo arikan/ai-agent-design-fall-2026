@@ -1,6 +1,6 @@
 // The page ranks the day's postings in the browser with a JavaScript port of engine.py's
 // prefilter. This checks the port against the engine on the corpus postings:
-//   uv run engine.py rank-fixture && node tests/rank_test.js
+//   uv run job-agent engine rank-fixture && node tests/rank_test.js
 const fs = require("fs"), path = require("path");
 const here = path.join(__dirname, "..");
 const html = fs.readFileSync(path.join(here, "console.html"), "utf8");

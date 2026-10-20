@@ -1,6 +1,6 @@
 """Score a prepared batch with a model, on this computer.
 
-  uv run judge.py [--model <id>]     work/batch.json -> work/judgments.json
+  uv run job-agent judge [--model <id>]     work/batch.json -> work/judgments.json
 
 This is the one step that needs a model. In the cloud, the Claude session does it by reading
 work/batch.json itself. Here, the same text goes to whichever model `model.py` picks (default:
@@ -13,9 +13,9 @@ import json
 import sys
 from pathlib import Path
 
-import model as llm
+from . import model as llm
 
-WORK = Path(__file__).parent / "work"
+WORK = Path(__file__).resolve().parents[1] / "work"
 PER_CALL = 4     # posts per model call: small enough for a local model, few enough calls for an API
 
 

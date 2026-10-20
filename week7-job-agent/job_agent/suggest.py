@@ -3,8 +3,8 @@
 Code gathers the evidence and checks the answer; the model only proposes. Nothing here
 changes a search: the page shows each suggestion, and the user applies it or not.
 
-  uv run suggest.py prepare            work/db/ -> work/suggest.json (evidence, instructions, answer format)
-  uv run suggest.py finish [--model <id>]
+  uv run job-agent suggest prepare            work/db/ -> work/suggest.json (evidence, instructions, answer format)
+  uv run job-agent suggest finish [--model <id>]
                                        work/suggestions.json -> checked -> work/out/suggestion.json,
                                        to write to the `suggestions` collection under the id it prints
 """
@@ -14,9 +14,9 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-import engine
+from . import engine
 
-HERE = Path(__file__).parent
+HERE = Path(__file__).resolve().parents[1]     # the project folder: work/, defaults/, caps.json
 WORK = HERE / "work"
 MAX_PER_SEARCH = 3
 MAX_POSTS = 40
@@ -212,7 +212,7 @@ def finish(model=None):
     print(f"suggest: {len(items)} suggestion(s), {len(rejected)} rejected. Write work/out/suggestion.json to suggestions/{doc_id}")
 
 
-if __name__ == "__main__":
+def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "prepare":
         prepare()
@@ -221,3 +221,7 @@ if __name__ == "__main__":
         finish(a[a.index("--model") + 1] if "--model" in a and len(a) > a.index("--model") + 1 else None)
     else:
         sys.exit(__doc__)
+
+
+if __name__ == "__main__":
+    main()

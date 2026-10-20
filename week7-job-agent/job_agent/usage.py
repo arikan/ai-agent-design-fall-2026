@@ -4,7 +4,7 @@ Claude Code writes every model call to ~/.claude/projects/<project>/<session>.js
 token counts. The newest transcript is the running session's. One call can appear on several
 lines (one per content block), so calls are counted once by message id.
 
-  uv run usage.py      print this session's usage so far
+  uv run job-agent usage      print this session's usage so far
 """
 
 import json
@@ -38,5 +38,9 @@ def session_usage():
             "note": "the session's model calls up to the end of scoring; the final writes back to the page are not included"}
 
 
-if __name__ == "__main__":
+def main():
     print(json.dumps(session_usage(), indent=1))
+
+
+if __name__ == "__main__":
+    main()

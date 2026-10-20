@@ -1,6 +1,6 @@
 """The Job Agent page on this computer.
 
-  uv run serve.py [--port 8765] [--no-open]
+  uv run job-agent serve [--port 8765] [--no-open]
 
 Serves console.html at http://localhost:8765 and gives it the local database, work/db, through a
 small JSON API. The page works as it does in the cloud; Run now and Suggest changes start
@@ -23,10 +23,10 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-import dbio
-import localdb
+from . import dbio
+from . import localdb
 
-HERE = Path(__file__).parent
+HERE = Path(__file__).resolve().parents[1]     # the project folder: work/, defaults/, caps.json
 PAGE = HERE / "console.html"
 JOB = {"proc": None, "kind": None, "log": [], "started": None}
 
@@ -34,7 +34,7 @@ JOB = {"proc": None, "kind": None, "log": [], "started": None}
 def start_job(kind):
     if JOB["proc"] and JOB["proc"].poll() is None:
         return False
-    cmd = [sys.executable, "-u", str(HERE / "run.py")] + (["local", "manual"] if kind == "run" else ["suggest"])
+    cmd = [sys.executable, "-u", "-m", "job_agent"] + (["run", "manual"] if kind == "run" else ["suggest"])
     JOB.update(proc=subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1),
                kind=kind, log=[], started=dbio.datetime.now(dbio.timezone.utc).isoformat())
     threading.Thread(target=pump, daemon=True).start()

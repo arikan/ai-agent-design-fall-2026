@@ -3,16 +3,16 @@
 The engine cannot reach the database; the Claude session can. The session saves
 database reads as JSON files under work/db/ (ArtifactData with out_dir), then:
 
-  uv run dbio.py config   -> work/config.json from work/db/
-  uv run dbio.py export   -> work/out/*.json plus work/out/writes.json, a ready batch
+  uv run job-agent db config   -> work/config.json from work/db/
+  uv run job-agent db export   -> work/out/*.json plus work/out/writes.json, a ready batch
                               for the session to write back with ArtifactData
-  uv run dbio.py progress <stage>
+  uv run job-agent db progress <stage>
                           -> work/out/progress.json, the live status the page shows while a
                               run works (stages: fetching, filtering, judging, saving, done, stopped)
-  uv run dbio.py config [manual]
+  uv run job-agent db config [manual]
                           -> the run is one the user started by hand (counted against its cap)
-  uv run dbio.py seed     -> first local run: work/db gets the starting agent and search from defaults/
-  uv run dbio.py apply    -> write work/out/writes.json (and the postings index) into work/db, the local database
+  uv run job-agent db seed     -> first local run: work/db gets the starting agent and search from defaults/
+  uv run job-agent db apply    -> write work/out/writes.json (and the postings index) into work/db, the local database
 """
 
 import json
@@ -20,7 +20,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-HERE = Path(__file__).parent
+HERE = Path(__file__).resolve().parents[1]     # the project folder: work/, defaults/, caps.json
 WORK = HERE / "work"
 
 
@@ -187,14 +187,14 @@ def progress(stage):
         doc["note"] = results["run"].get("cap_hit")
     (out / "progress.json").write_text(json.dumps(doc, indent=1))
     if (WORK / "db").exists():          # the local database, when runs happen on this computer
-        import localdb
+        from . import localdb
         localdb.write("meta/progress", doc)
     print(f"progress: {stage}, {len(sources)} source(s), {counts}")
 
 
 def seed():
     """A local database with the starting agent and search from defaults/, when there is none yet."""
-    import localdb
+    from . import localdb
     now = datetime.now(timezone.utc).isoformat()
     made = []
     if not localdb.read("agent/current"):
@@ -207,7 +207,7 @@ def seed():
         localdb.write("searches/my-first-search", {**s, "updated": now})
         made.append("search my-first-search")
     if not localdb.read("meta/agent"):
-        localdb.write("meta/agent", {"trigger_id": "local", "name": "uv run run.py local", "connected_at": now, "local": True})
+        localdb.write("meta/agent", {"trigger_id": "local", "name": "uv run job-agent run", "connected_at": now, "local": True})
         localdb.write("meta/setup_check", {"status": "ok", "finished_at": now, "local": True})
         made.append("local runner")
     print("seed: " + (", ".join(made) if made else "nothing to do, work/db already has an agent and a search"))
@@ -215,7 +215,7 @@ def seed():
 
 def apply():
     """Write a finished run into the local database: what the cloud session does with ArtifactData."""
-    import localdb
+    from . import localdb
     out = WORK / "out"
     writes = read(out / "writes.json", [])
     n = 0
@@ -244,7 +244,7 @@ def apply():
     print(f"apply: {n} write(s) into work/db")
 
 
-if __name__ == "__main__":
+def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "seed":
         seed()
@@ -258,3 +258,7 @@ if __name__ == "__main__":
         export()
     else:
         sys.exit(__doc__)
+
+
+if __name__ == "__main__":
+    main()

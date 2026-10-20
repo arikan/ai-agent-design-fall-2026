@@ -29,7 +29,7 @@ One command runs everything:
 
 ```bash
 cd week7-job-agent
-uv run serve.py
+uv run job-agent serve
 ```
 
 It opens http://localhost:8765, your Job Agent, with the course's 41 job boards and a starting profile.
@@ -52,7 +52,7 @@ Everything is saved in `work/db` in this folder, as plain JSON files. Nothing le
 
 ```bash
 rm -rf work
-uv run serve.py
+uv run job-agent serve
 ```
 
 To keep your profile and verdicts but clear the runs, delete only `work/db/matches`, `work/db/runs` and `work/db/postings`. The seed never overwrites what is already there.
@@ -73,16 +73,16 @@ Any model name the provider accepts works. Small local models fail the quote che
 **Every morning.** A cron line runs the agent while you sleep, and the page shows the results next time you open it:
 
 ```
-47 7 * * * cd /path/to/week7-job-agent && uv run run.py local
+47 7 * * * cd /path/to/week7-job-agent && uv run job-agent run
 ```
 
-**Step by step**, to watch the parts work or change them: `uv run dbio.py config` writes `work/config.json` from `work/db`; then `uv run sources.py fetch work/config.json`, `uv run engine.py prepare work/config.json`, `uv run judge.py`, `uv run engine.py finish work/config.json`, and `uv run dbio.py export` followed by `uv run dbio.py apply` to put the results back. `uv run sources.py try examples/source.greenhouse.json` tries one job board; `uv run sources.py test` runs every adapter offline.
+**Step by step**, to watch the parts work or change them: `uv run job-agent db config` writes `work/config.json` from `work/db`; then `uv run job-agent sources fetch work/config.json`, `uv run job-agent engine prepare work/config.json`, `uv run job-agent judge`, `uv run job-agent engine finish work/config.json`, and `uv run job-agent db export` followed by `uv run job-agent db apply` to put the results back. `uv run job-agent sources try examples/source.greenhouse.json` tries one job board; `uv run job-agent sources test` runs every adapter offline.
 
 ## How it works
 
 ```
  job boards ──► adapters ──► engine: collect, dedupe, filter ──► Claude: score ──► engine: rank ──► Job Agent page
- (Greenhouse,    (sources.py)  (engine.py prepare)                  (judgments)      (engine.py finish)  (matches, runs)
+ (Greenhouse,    (sources)     (engine prepare)                     (judgments)      (engine finish)     (matches, runs)
   Lever, Ashby…)
 ```
 
@@ -90,9 +90,9 @@ Any model name the provider accepts works. Small local models fail the quote che
 |---|---|
 | **Adapters** (`adapters/`) | One per kind of job board. Each knows how to fetch postings from that kind of board and turn them into one common shape. |
 | **Sources** | Your list of boards: which adapter, plus its settings, like a company's board token. Adding a board is a new source, not new code. |
-| **Engine** (`engine.py`) | Deterministic code, never a model. Collects postings, removes duplicates, skips postings already seen, applies your filters and the limits, prepares the batch for judging, checks every judgment, and computes the weighted totals. |
+| **Engine** (`job_agent/engine.py`) | Deterministic code, never a model. Collects postings, removes duplicates, skips postings already seen, applies your filters and the limits, prepares the batch for judging, checks every judgment, and computes the weighted totals. |
 | **Claude** | The only step that needs judgment: scores each posting on each of your dimensions, 1 to 5 or unknown, with a reason and a quote from the posting as evidence. |
-| **Suggestions** (`suggest.py`) | On request, or after every run if turned on: code gathers your Good and Nope verdicts and which dimensions disagree with them, the model proposes up to three Profile changes, and code checks them (a weight change must raise agreement on your judged posts). You apply them or not on the Agent tab. |
+| **Suggestions** (`job_agent/suggest.py`) | On request, or after every run if turned on: code gathers your Good and Nope verdicts and which dimensions disagree with them, the model proposes up to three Profile changes, and code checks them (a weight change must raise agreement on your judged posts). You apply them or not on the Agent tab. |
 | **Job Agent artifact** | Where you set up searches (your CV and preferences), manage sources, judge matches, and read what every run did. |
 
 Everything the engine decides is written to a trace, so any match can be traced back to the postings, settings and versions that produced it.
@@ -114,7 +114,7 @@ Most changes need no code: your profile, rubrics, weights, boards and scoring in
 To change the code:
 
 1. Fork this repository on GitHub. A public fork is simplest.
-2. Change your fork: add an adapter, change the ranking in `engine.py`, or edit the steps in `RUN.md`. Run `uv run sources.py test` and the rank test below before you push.
+2. Change your fork: add an adapter, change the ranking in `job_agent/engine.py`, or edit the steps in `RUN.md`. Run `uv run job-agent sources test` and the rank test below before you push.
 3. Point your daily run at your fork. In a Claude Code session, ask: *Change my "Job agent daily run" scheduled task to clone https://github.com/YOUR-NAME/ai-agent-design-fall-2026 instead.*
 
 From then on, your runs use your code and your artifact updates from your fork's `console.html`. Course updates no longer reach you on their own; use **Sync fork** on GitHub to pull them in.
@@ -123,20 +123,21 @@ From then on, your runs use your code and your artifact updates from your fork's
 
 | Command | What it does |
 |---|---|
-| `uv run engine.py rank-fixture` then `node tests/rank_test.js` | Check that the artifact's in-browser ranking matches the engine's |
-| `uv run usage.py` | Token usage of the Claude session running it, from its transcript (each run records this) |
-| `uv run serve.py` | The Job Agent page on your computer |
-| `uv run run.py local` | One whole run here: collect, rank, score with `judge.py`, write to `work/db` |
-| `uv run run.py suggest` | Suggest Profile changes from your verdicts, here |
-| `uv run judge.py [--model …]` | Score `work/batch.json` with the model from `.env` |
-| `uv run run.py prepare` / `finish` | The cloud run's two halves: everything before Claude scores, and everything after |
-| `uv run sources.py test` | Run every adapter against its saved responses, offline |
-| `uv run sources.py try <source.json> [out.json]` | Run one source live and show a sample |
-| `uv run sources.py fetch <config.json>` | Fetch every enabled source into `work/fetched/` |
-| `uv run sources.py domains <config.json>` | List the domains the enabled sources need |
-| `uv run engine.py prepare <config.json>` | Collect, filter and prepare `work/batch.json` |
-| `uv run engine.py finish <config.json>` | Check judgments, rank, write `work/results.json` |
-| `uv run dbio.py config` / `export` / `apply` / `seed` | Convert between the database (`work/db`) and the run's files |
+| `uv run job-agent engine rank-fixture` then `node tests/rank_test.js` | Check that the artifact's in-browser ranking matches the engine's |
+| `uv run job-agent usage` | Token usage of the Claude session running it, from its transcript (each run records this) |
+| `uv run job-agent` | Lists every command |
+| `uv run job-agent serve` | The Job Agent page on your computer |
+| `uv run job-agent run` | One whole run here: collect, rank, score with the model, write to `work/db` |
+| `uv run job-agent suggest` | Suggest Profile changes from your verdicts, here |
+| `uv run job-agent judge [--model …]` | Score `work/batch.json` with the model from `.env` |
+| `uv run job-agent prepare` / `finish` | The cloud run's two halves: everything before Claude scores, and everything after |
+| `uv run job-agent sources test` | Run every adapter against its saved responses, offline |
+| `uv run job-agent sources try <source.json> [out.json]` | Run one source live and show a sample |
+| `uv run job-agent sources fetch <config.json>` | Fetch every enabled source into `work/fetched/` |
+| `uv run job-agent sources domains <config.json>` | List the domains the enabled sources need |
+| `uv run job-agent engine prepare <config.json>` | Collect, filter and prepare `work/batch.json` |
+| `uv run job-agent engine finish <config.json>` | Check judgments, rank, write `work/results.json` |
+| `uv run job-agent db config` / `export` / `apply` / `seed` | Convert between the database (`work/db`) and the run's files |
 
 ## Sources and adapters
 
@@ -146,7 +147,7 @@ Built in adapters: Greenhouse, Lever, Ashby, Workable, Getro (venture firm portf
 
 **When a source breaks**, the fix is usually in its settings, not code: new selectors for a web page, new field paths for a JSON API, a corrected board token. The artifact flags sources that fail or suddenly return nothing, and the daily run proposes fixes it has tested. You apply or discard them.
 
-**To add an adapter type**, add a file in `adapters/` with a class that subclasses `BaseSource` and implements `fetch()` and `normalize()`, register it in `adapters/__init__.py`, and add a fixture in `adapters/fixtures/` so `sources.py test` covers it. The existing adapters are short and make good templates. In the artifact, a custom adapter can also be written as code for a single source.
+**To add an adapter type**, add a file in `job_agent/adapters/` with a class that subclasses `BaseSource` and implements `fetch()` and `normalize()`, register it in `job_agent/adapters/__init__.py`, and add a fixture in `job_agent/adapters/fixtures/` so `uv run job-agent sources test` covers it. The existing adapters are short and make good templates. In the artifact, a custom adapter can also be written as code for a single source.
 
 **Requests go only to a source's own domains.** The code checks this. In the cloud, the environment's network setting is the real limit.
 
@@ -169,21 +170,23 @@ Course limits live in `caps.json` and are enforced in code: the morning run alwa
 
 ```
 week7-job-agent/
-├── README.md            this file
-├── serve.py             the Job Agent page on your computer, with work/db as its database
-├── run.py               one run, on your computer (local) or in the cloud (prepare, finish)
-├── judge.py, model.py   scoring with the model you choose
-├── RUN.md               what the cloud run follows, step by step
-├── SETUP.md             what Claude follows to set up a Job Agent page and daily run
-├── GUIDE.md             the guide: daily use, changing the agent, an exercise
-├── console.html         the Job Agent page
-├── engine.py            collect, filter, prepare, check, rank
-├── sources.py           run sources through adapters
-├── dbio.py              page database <-> local files
-├── adapters/            one file per adapter type, plus fixtures/
-├── corpus/postings.jsonl  20 fictional postings for repeatable tests
-├── examples/            a sample config and a sample source
-├── defaults/            starting agent settings and first search for a new page
-├── caps.json            course limits
+├── README.md, GUIDE.md      this file, and the guide: daily use, changing the agent, an exercise
+├── RUN.md, SETUP.md         what the cloud run follows, and what Claude follows to set it up
+├── console.html             the Job Agent page, the same file locally and as the artifact
+├── job_agent/               the Python package; `uv run job-agent` runs its command line (cli.py)
+│   ├── serve.py             the page on your computer, with work/db as its database
+│   ├── run.py               one run: on your computer, or the cloud's two halves
+│   ├── sources.py           run sources through adapters
+│   ├── engine.py            filter, rank, prepare the batch, check scores, total them
+│   ├── judge.py, model.py   scoring with the model you choose
+│   ├── suggest.py           suggested Profile changes from your verdicts
+│   ├── dbio.py, localdb.py  the database <-> the run's files
+│   ├── usage.py             a Claude session's token use
+│   └── adapters/            one file per kind of job board, plus fixtures/
+├── defaults/                starting agent settings and first search
+├── corpus/postings.jsonl    20 fictional postings for repeatable tests
+├── examples/                a sample config and a sample source
+├── tests/                   the page's ranking checked against the engine's
+├── caps.json                course limits
 └── pyproject.toml, uv.lock
 ```

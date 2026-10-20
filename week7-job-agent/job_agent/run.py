@@ -1,14 +1,14 @@
 """One command per half of a run, so the cloud session spends its turns only where Claude is needed.
 
-  uv run run.py prepare [manual]   work/db/ -> config, fetch, filter, rank -> work/batch.json, progress "judging"
+  uv run job-agent prepare [manual]   work/db/ -> config, fetch, filter, rank -> work/batch.json, progress "judging"
                                    (`manual` marks a run the user started by hand; those are capped)
-  uv run run.py finish [--model <id>]
+  uv run job-agent finish [--model <id>]
                                    work/judgments.json -> check, rank -> work/out/writes.json, progress "done"
                                    (`--model` records which model did the scoring, on the run and its matches)
-  uv run run.py local [manual] [--model <id>]
+  uv run job-agent run [manual] [--model <id>]
                                    the whole run on this computer: prepare, score with judge.py, finish, and
                                    write the results into work/db, the local database serve.py shows
-  uv run run.py suggest [--model <id>]
+  uv run job-agent suggest [--model <id>]
                                    suggest Profile changes from the verdicts in work/db, on this computer
 
 Each prints one line per stage with how long it took, and the run record keeps those times.
@@ -19,10 +19,10 @@ import sys
 import time
 from datetime import datetime, timezone
 
-import dbio
-import engine
-import sources
-import usage
+from . import dbio
+from . import engine
+from . import sources
+from . import usage
 
 CAPS = json.loads((engine.HERE / "caps.json").read_text())
 TIMINGS = dbio.WORK / "timings.json"
@@ -89,8 +89,8 @@ def finish(model=None):
 
 def local(trigger, model=None):
     """Everything the cloud run does, here: the database is work/db and the model is judge.py's."""
-    import judge
-    import model as llm
+    from . import judge
+    from . import model as llm
     dbio.LOCAL = True
     dbio.seed()
     for stale in ("judgments.json", "judge_usage.json"):
@@ -116,9 +116,9 @@ def local(trigger, model=None):
 
 
 def suggest_local(model=None):
-    import suggest
+    from . import suggest
     dbio.LOCAL = True
-    import model as llm
+    from . import model as llm
     suggest.prepare()
     if not (dbio.WORK / "suggest.json").exists():
         return
@@ -131,7 +131,7 @@ def suggest_local(model=None):
     text, u = llm.complete(system, user, model)
     (dbio.WORK / "suggestions.json").write_text(json.dumps(llm.json_block(text)))
     suggest.finish(u.get("model") or llm.chosen(model))
-    import localdb
+    from . import localdb
     doc = json.loads((dbio.WORK / "out" / "suggestion.json").read_text())
     localdb.write("suggestions/" + doc["id"], doc)
     print(f"suggest: written to work/db as suggestions/{doc['id']}")
@@ -141,7 +141,7 @@ def flag(args, name):
     return args[args.index(name) + 1] if name in args and len(args) > args.index(name) + 1 else None
 
 
-if __name__ == "__main__":
+def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "local":
         local("manual" if "manual" in sys.argv[2:] else "scheduled", flag(sys.argv[2:], "--model"))
@@ -154,3 +154,7 @@ if __name__ == "__main__":
         finish(args[args.index("--model") + 1] if "--model" in args and len(args) > args.index("--model") + 1 else None)
     else:
         sys.exit(__doc__)
+
+
+if __name__ == "__main__":
+    main()

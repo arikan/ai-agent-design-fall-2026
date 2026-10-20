@@ -616,8 +616,8 @@ $("matches").addEventListener("change", e => { const n = e.target.closest("[data
 // While a note has focus, a re-render would take the cursor away; catch up when it is left.
 $("matches").addEventListener("focusout", e => { if (e.target.closest("[data-note]") && S.matchesStale){ S.matchesStale = false; setTimeout(renderMatches, 0); } });
 
-/* rank:begin  A port of engine.py's deal_breaker and prefilter_score. Keep the two identical:
-   `uv run engine.py rank-fixture && node tests/rank_test.js` checks them against each other. */
+/* rank:begin  A port of job_agent/engine.py's deal_breaker and prefilter_score. Keep the two identical:
+   `uv run job-agent engine rank-fixture && node tests/rank_test.js` checks them against each other. */
 const RANK = (() => {
   const esc = k => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const PHRASES = [["vice president", "vp"], ["chief product officer", "cpo"], ["entrepreneur in residence", "eir"], ["senior", "sr"]];
@@ -652,7 +652,7 @@ const RANK = (() => {
     return out;
   };
   const score = (search, p) => { const ps = parts(search, p), total = ps.reduce((a, x) => a + x.w, 0); return total ? Math.round(ps.reduce((a, x) => a + x.w * x.v, 0) / total * 1000) / 1000 : 0; };
-  const PAY_SLACK = 0.25;      // as engine.py: only pay more than 25% below the target is dropped
+  const PAY_SLACK = 0.25;      // as job_agent/engine.py: only pay more than 25% below the target is dropped
   const dealBreaker = (p, db) => {
     const text = `${p.title} ${p.text}`.toLowerCase();
     if (db.remote_only && !p.remote) return "not remote";
@@ -1429,7 +1429,7 @@ function renderSetup(){
     const cw = $("conn-wrap"); cw.disabled = false; $("conn-chev").hidden = false;
     const open = S.setup.open === true; cw.setAttribute("aria-expanded", String(open)); box.hidden = !open;
     if (open) box.innerHTML = `<div class="card stack"><div class="row between"><h2>On this computer</h2><button type="button" class="linkbtn" data-setup="close">Close</button></div>
-      <p class="small muted" style="margin:0">This page is served by <span class="mono">serve.py</span>, and everything it shows lives in <span class="mono">work/db</span> in the project folder. <b>Run now</b> starts <span class="mono">run.py local</span> here, scoring with the model set in <span class="mono">.env</span> (Claude Code's command line unless you choose another). The morning run is a cron line, or the cloud setup in the README. Nothing leaves your computer except requests to job boards and to the model.</p></div>`;
+      <p class="small muted" style="margin:0">This page is served by <span class="mono">uv run job-agent serve</span>, and everything it shows lives in <span class="mono">work/db</span> in the project folder. <b>Run now</b> starts <span class="mono">run.py local</span> here, scoring with the model set in <span class="mono">.env</span> (Claude Code's command line unless you choose another). The morning run is a cron line, or the cloud setup in the README. Nothing leaves your computer except requests to job boards and to the model.</p></div>`;
     return;
   }
   const done = setupDone();
@@ -1589,7 +1589,7 @@ function stopLink(since){
   findRunSession(since);
   const own = S.progress && new Date(S.progress.started_at) >= new Date(since) - 30 * 60000 ? S.progress.session_url : null;
   if (own) S.live.url = own;
-  if (S.local) return `<span class="small muted">Running here; the terminal where serve.py runs shows the log.</span>`;
+  if (S.local) return `<span class="small muted">Running here; the terminal where job-agent serve runs shows the log.</span>`;
   const href = S.live.url || taskUrl();
   return href ? `<a class="ext" href="${esc(href)}" target="_blank" rel="noopener" title="Opens the run in Claude Code, where the stop button ends it">${S.live.url ? "Open the run to stop it ↗" : "Open your daily run ↗"}</a>` : "";
 }
@@ -1738,7 +1738,7 @@ function renderRuns(){
 }
 
 /* ---------- data ---------- */
-// On this computer (serve.py), the database is work/db behind a small JSON API, with the same
+// On this computer (job-agent serve), the database is work/db behind a small JSON API, with the same
 // shape as the artifact's: collections and documents, snapshots that refresh when anything changes.
 function localDb(){
   const subs = [], J = async (url, opt) => { const r = await fetch(url, opt); if (!r.ok && r.status !== 404) throw new Error((await r.json()).error || r.status); return r.status === 404 ? null : r.json(); };
