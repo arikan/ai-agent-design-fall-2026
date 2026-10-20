@@ -6,7 +6,7 @@ Your Job Agent reads job boards every morning, keeps the posts that fit your pro
 
 Follow [Start here](README.md#start-here). You need a paid Claude plan.
 
-The step people miss: in the setup session, set **Network access** to **Full**. Without it, the agent can't reach job sites and the setup check stays red.
+The step people miss: set your cloud environment's **Network access** to **Full**. In Claude Code, on the new session screen, click the first button under the message box, hover over your environment (usually **Default**), click its settings icon, and change it there. Without it, the agent can't reach job sites and the setup check stays red.
 
 ## 2. Use it every day (5 minutes)
 

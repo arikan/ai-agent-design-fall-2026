@@ -59,7 +59,7 @@ Then write `meta` / `agent` to `ARTIFACT_URL`: `{"trigger_id": <the new task's i
 Reply briefly, in this order:
 
 1. The link to their Job Agent artifact.
-2. One setting to change, here in this session: click the arrow after this session's title at the top, choose **Edit cloud environment**, set **Network access** to **Full**, and save. Their daily run uses this same environment and needs it to reach job sites.
+2. One setting to change: this session's cloud environment needs **Network access** set to **Full**, because their daily run uses the same environment and must reach job sites. Here in this session: click the arrow after the session's title at the top, choose **Edit cloud environment**, set **Network access** to **Full**, and save. Name the environment (usually **Default**), and say it can also be changed later from the new session screen in Claude Code: the first button under the message box, then the settings icon on the environment's row.
 3. Then, in their artifact, press **I've changed it, check my setup**. When it turns green, **Start my agent** runs it right away.
 
 ## Do not
