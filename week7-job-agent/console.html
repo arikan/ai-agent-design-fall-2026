@@ -254,6 +254,10 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .runbar.plain{padding:4px 0 12px}
 .srchead{padding:4px 0 8px;gap:8px}
 .quickadd{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.quickadd input{flex:1 1 320px;min-width:0}
+.qanote{margin:0;padding:8px 12px;border-radius:8px;font-size:13px;background:var(--accent-soft);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent)}
+.qanote.warn{background:var(--warn-soft);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 30%,transparent)}
+.qanote.bad{background:var(--bad-soft);color:var(--bad);border-color:color-mix(in srgb,var(--bad) 30%,transparent)}
+.qanote a,.qanote .linkbtn{color:inherit;text-decoration:underline}.qanote .spin{margin-right:6px}
 .runnow{gap:12px;flex-wrap:nowrap}
 details.run[open] > summary .runcounts{display:none}
 .folds{display:grid;gap:2px;border-top:1px solid var(--line);padding-top:6px}
@@ -1162,9 +1166,9 @@ function renderSources(){
   $("qa-out").onclick = async e => {
     const b = e.target.closest("[data-qa-add]"); if (b){ const [adapter, slug] = b.dataset.qaAdd.split("|"); addBoard(adapter, slug); return; }
     const m = e.target.closest("[data-qa-manual]"); if (m){ const url = m.dataset.qaManual, host = new URL(url).hostname, id = `manual:${host}`;
-      if (S.agent.sources.some(x => x.id === id)) return qaSay(`<p class="small muted" style="margin:0">${esc(id)} is already in your sources.</p>`);
+      if (S.agent.sources.some(x => x.id === id)) return qaSay(`<p class="qanote warn">${esc(id)} is already in your sources.</p>`);
       try { const v = await saveSources([...S.agent.sources, {id, adapter:"manual", enabled:true, category:"", cap:0, note:"Couldn't be read automatically; open it yourself now and then.", config:{url}}], `Added ${id}`); S.flash = {id, msg:`Added as a reminder. Saved as agent version ${v}.`}; S.qa = null; renderSources(); }
-      catch(err){ qaSay(`<p class="status err">Could not save: ${esc(err.message || err.code)}</p>`); } }
+      catch(err){ qaSay(`<p class="qanote bad">Could not save: ${esc(err.message || err.code)}</p>`); } }
   };
   if (S.qa){ $("qa-text").value = S.qa.text || ""; $("qa-out").innerHTML = S.qa.html || ""; }
   $("copy-doms").onclick = async e => { try { await navigator.clipboard.writeText(doms.join("\n")); e.target.textContent = "Copied"; } catch(err){ const r=document.createRange(); r.selectNodeContents($("domlist")); getSelection().removeAllRanges(); getSelection().addRange(r); } };
@@ -1188,31 +1192,31 @@ async function quickAdd(text){
     if (u && u.protocol.startsWith("http")){
       const host = u.hostname.toLowerCase(), hit = BOARD_HOSTS.find(([re]) => re.test(host));
       if (hit && slugOf(u)) return await addBoard(hit[1], slugOf(u));
-      if (hit) return qaSay(`<p class="small muted" style="margin:0">That is the board's home. Paste a company's own board, such as <span class="mono">${esc(u.origin)}/company</span>.</p>`);
+      if (hit) return qaSay(`<p class="qanote warn">That is the board's home. Paste a company's own board, such as <span class="mono">${esc(u.origin)}/company</span>.</p>`);
       // Any other address: the agent opens the page and works out how to read it.
       return await figureOut(u.href);
     }
     // A company name. On this computer the server can look; in the cloud the person checks the links.
     if (S.local){
-      qaSay(`<p class="small muted" style="margin:0"><span class="spin" aria-hidden="true"></span>Looking for ${esc(text)}'s job board…</p>`);
+      qaSay(`<p class="qanote"><span class="spin" aria-hidden="true"></span>Looking for ${esc(text)}'s job board…</p>`);
       const r = await (await fetch("/probe", {method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({name:text})})).json();
       const found = r.found || [];
       if (found.length === 1) return await addBoard(found[0].adapter, found[0].slug, text);
-      if (found.length) return qaSay(`<p class="small muted" style="margin:0">Found more than one. Add the right one:</p><div class="row" style="gap:8px;flex-wrap:wrap">${found.map(f => `<button type="button" class="btn small" data-qa-add="${esc(f.adapter)}|${esc(f.slug)}">${esc(ADAPTERS[f.adapter].label)}, ${f.jobs} jobs</button>`).join("")}</div>`);
-      return qaSay(`<p class="small muted" style="margin:0">No board found under that name. Open the company's careers page and paste its address here. Common places: ${boardLinks(text)}.</p>`);
+      if (found.length) return qaSay(`<p class="qanote">Found more than one. Add the right one:</p><div class="row" style="gap:8px;flex-wrap:wrap">${found.map(f => `<button type="button" class="btn small" data-qa-add="${esc(f.adapter)}|${esc(f.slug)}">${esc(ADAPTERS[f.adapter].label)}, ${f.jobs} jobs</button>`).join("")}</div>`);
+      return qaSay(`<p class="qanote warn">No board found under that name. Open the company's careers page and paste its address here. Common places: ${boardLinks(text)}.</p>`);
     }
-    return qaSay(`<p class="small muted" style="margin:0">Open the one that shows ${esc(text)}'s jobs, then paste its address here: ${boardLinks(text)}. If none does, paste the company's careers page.</p>`);
+    return qaSay(`<p class="qanote">Open the one that shows ${esc(text)}'s jobs, then paste its address here: ${boardLinks(text)}. If none does, paste the company's careers page.</p>`);
   } finally { go.disabled = false; }
 }
 // The agent works out a source from a careers page: code first (an embedded board, a feed), then the
 // model proposes selectors and each proposal is tested. Locally `jobagent figure` does it; in the cloud,
 // the daily run's task does (RUN.md, "Figure out a source"). Progress arrives in meta/figure.
 async function figureOut(url){
-  if (!S.runner?.trigger_id){ S.setup.open = true; renderSetup(); return qaSay(`<p class="small muted" style="margin:0">Finish the setup above first; the agent needs its run to look at the page.</p>`); }
-  qaSay(`<p class="small muted" style="margin:0"><span class="spin" aria-hidden="true"></span>Looking at ${esc(url)} to work out how to read it. ${S.local ? "Usually under a minute." : "A cloud run does this; a few minutes."}</p>`, "");
+  if (!S.runner?.trigger_id){ S.setup.open = true; renderSetup(); return qaSay(`<p class="qanote warn">Finish the setup above first; the agent needs its run to look at the page.</p>`); }
+  qaSay(`<p class="qanote"><span class="spin" aria-hidden="true"></span>Looking at ${esc(url)} to work out how to read it. ${S.local ? "Usually under a minute." : "A cloud run does this; a few minutes."}</p>`, "");
   S.figuring = url;
   try { await startTask("figure", {url}, "FIGURE_SOURCE " + url); }
-  catch(e){ S.figuring = null; qaSay(`<p class="status err">Could not start: ${esc(mcpMessage(e))}</p>`); }
+  catch(e){ S.figuring = null; qaSay(`<p class="qanote bad">Could not start: ${esc(mcpMessage(e))}</p>`); }
 }
 function renderFigure(){
   const f = S.figure; if (!f || !S.figuring || f.url !== S.figuring || f.status !== "done") return;
@@ -1222,11 +1226,11 @@ function renderFigure(){
     document.querySelector(`[data-sid="${CSS.escape(f.source.id)}"]`)?.scrollIntoView({behavior:"smooth", block:"center"});
     return qaSay("", "");
   }
-  qaSay(`<p class="small muted" style="margin:0"><b>Couldn't read ${esc(f.url)}.</b> ${esc(f.how || "")} You can still keep it as a reminder to check by hand: <button type="button" class="linkbtn small" data-qa-manual="${esc(f.url)}">Add as check by hand</button></p>`);
+  qaSay(`<p class="qanote warn"><b>Couldn't read ${esc(f.url)}.</b> ${esc(f.how || "")} You can still keep it as a reminder to check by hand: <button type="button" class="linkbtn small" data-qa-manual="${esc(f.url)}">Add as check by hand</button></p>`);
 }
 async function addBoard(adapter, slug, displayName){
   const A = ADAPTERS[adapter], id = `${adapter}:${slug}`;
-  if (S.agent.sources.some(x => x.id === id)) return qaSay(`<p class="small muted" style="margin:0">${esc(id)} is already in your sources.</p>`);
+  if (S.agent.sources.some(x => x.id === id)) return qaSay(`<p class="qanote warn">${esc(id)} is already in your sources.</p>`);
   const src = {id, adapter, enabled:true, category:"", cap:COURSE_CAPS.max_postings_per_source, note:"", config:{[A.key]: slug, company_name: displayName || nameFromSlug(slug)}};
   try {
     const v = await saveSources([...S.agent.sources, src], `Added ${id}`);
@@ -1234,7 +1238,7 @@ async function addBoard(adapter, slug, displayName){
     renderSources();
     testSource(id);
     document.querySelector(`[data-sid="${CSS.escape(id)}"]`)?.scrollIntoView({behavior:"smooth", block:"center"});
-  } catch(err){ qaSay(`<p class="status err">Could not save: ${esc(err.message || err.code)}</p>`); }
+  } catch(err){ qaSay(`<p class="qanote bad">Could not save: ${esc(err.message || err.code)}</p>`); }
 }
 
 // The board as a person would open it, for a sanity check against what the agent collected.
