@@ -1265,7 +1265,7 @@ const MCP_HELP = {
   capability_disabled: "Starting runs isn't available in this view of the artifact."
 };
 const mcpMessage = e => MCP_HELP[e?.code] || (e?.code === "tool_error" ? "The scheduled task refused: " + (e.message || "") : "Could not reach your scheduled task right now (" + (e?.code || "error") + "). Try again in a minute.");
-let MCP = null; (async () => { MCP = await window.claude?.use?.("mcp"); })();
+let MCP = null; (async () => { if (!window.JOB_AGENT_LOCAL) MCP = await window.claude?.use?.("mcp"); })();
 const findSession = v => (JSON.stringify(v || "").match(/https:\/\/claude\.ai\/code\/session_[A-Za-z0-9_]+/) || [])[0] || null;
 
 function runnerBlock(){
@@ -1400,6 +1400,13 @@ function checkPhase(){
 }
 function renderSetup(){
   const box = $("setup"); if (!box || !S.db) return;
+  if (S.local){
+    const cw = $("conn-wrap"); cw.disabled = false; $("conn-chev").hidden = false;
+    const open = S.setup.open === true; cw.setAttribute("aria-expanded", String(open)); box.hidden = !open;
+    if (open) box.innerHTML = `<div class="card stack"><div class="row between"><h2>On this computer</h2><button type="button" class="linkbtn" data-setup="close">Close</button></div>
+      <p class="small muted" style="margin:0">This page is served by <span class="mono">serve.py</span>, and everything it shows lives in <span class="mono">work/db</span> in the project folder. <b>Run now</b> starts <span class="mono">run.py local</span> here, scoring with the model set in <span class="mono">.env</span> (Claude Code's command line unless you choose another). The morning run is a cron line, or the cloud setup in the README. Nothing leaves your computer except requests to job boards and to the model.</p></div>`;
+    return;
+  }
   const done = setupDone();
   const open = S.setup.open === null ? !done : S.setup.open;
   const cw = $("conn-wrap"); cw.disabled = false; $("conn-chev").hidden = false;
@@ -1514,6 +1521,7 @@ const taskUrl = () => S.runner?.trigger_id ? `https://claude.ai/code/routines/${
 // The run reads that before anything else, so it never depends on the order messages arrive in.
 async function startTask(kind, extra, text){
   await S.db.doc("meta/request").set({kind, status:"pending", requested_at:new Date().toISOString(), ...extra});
+  if (S.local){ const r = await fetch("/run", {method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({kind})}); const j = await r.json(); if (!j.started) throw {code:"busy", message: j.error}; return j; }
   return MCP.callTool(RUNNER, "fire_trigger", {trigger_id:S.runner.trigger_id, ...(text ? {text} : {})});
 }
 S.runNow = {at:null, error:""};
@@ -1539,7 +1547,7 @@ function manualRuns(){
 S.live = {since:null, url:null, busy:false};
 async function findRunSession(since){
   if (S.live.since !== since) S.live = {since, url:null, busy:false};
-  if (S.live.url || S.live.busy || !MCP || !S.runner?.trigger_id) return;
+  if (S.local || S.live.url || S.live.busy || !MCP || !S.runner?.trigger_id) return;
   S.live.busy = true;
   try {
     const res = await MCP.callTool(RUNNER, "list_triggers", {limit:50});
@@ -1556,6 +1564,7 @@ function stopLink(since){
   findRunSession(since);
   const own = S.progress && new Date(S.progress.started_at) >= new Date(since) - 30 * 60000 ? S.progress.session_url : null;
   if (own) S.live.url = own;
+  if (S.local) return `<span class="small muted">Running here; the terminal where serve.py runs shows the log.</span>`;
   const href = S.live.url || taskUrl();
   return href ? `<a class="ext" href="${esc(href)}" target="_blank" rel="noopener" title="Opens the run in Claude Code, where the stop button ends it">${S.live.url ? "Open the run to stop it ↗" : "Open your daily run ↗"}</a>` : "";
 }
@@ -1704,11 +1713,37 @@ function renderRuns(){
 }
 
 /* ---------- data ---------- */
+// On this computer (serve.py), the database is work/db behind a small JSON API, with the same
+// shape as the artifact's: collections and documents, snapshots that refresh when anything changes.
+function localDb(){
+  const subs = [], J = async (url, opt) => { const r = await fetch(url, opt); if (!r.ok && r.status !== 404) throw new Error((await r.json()).error || r.status); return r.status === 404 ? null : r.json(); };
+  const snap = (id, d) => ({id, exists: !!d, data: () => d ? d.data : undefined, version: d?.version});
+  const query = (path, f = [], ord = null, lim = 0) => ({
+    where: (k, op, v) => query(path, [...f, [k, op, v]], ord, lim), orderBy: (k, dir) => query(path, f, [k, dir || "asc"], lim), limit: n => query(path, f, ord, n),
+    async get(){ let rows = (await J("/db/" + path) || []).map(d => snap(d.id, d));
+      rows = rows.filter(r => f.every(([k, op, v]) => op === "==" ? r.data()[k] === v : op === "!=" ? r.data()[k] !== v : true));
+      if (ord) rows.sort((a, b) => (a.data()[ord[0]] > b.data()[ord[0]] ? 1 : a.data()[ord[0]] < b.data()[ord[0]] ? -1 : 0) * (ord[1] === "desc" ? -1 : 1));
+      return {docs: lim ? rows.slice(0, lim) : rows}; },
+    onSnapshot(cb, err){ const s = {run: async () => cb(await this.get())}; subs.push(s); s.run().catch(err); return () => subs.splice(subs.indexOf(s), 1); }
+  });
+  const doc = path => ({
+    async get(){ return snap(path.split("/").pop(), await J("/db/" + path)); },
+    set: data => J("/db/" + path, {method:"PUT", headers:{"content-type":"application/json"}, body: JSON.stringify({data})}),
+    update: async patch => { const cur = await J("/db/" + path); return J("/db/" + path, {method:"PUT", headers:{"content-type":"application/json"}, body: JSON.stringify({data: {...(cur?.data || {}), ...patch}})}); },
+    delete: () => J("/db/" + path, {method:"DELETE"}),
+    onSnapshot(cb, err){ const s = {run: async () => cb(await this.get())}; subs.push(s); s.run().catch(err); return () => subs.splice(subs.indexOf(s), 1); }
+  });
+  let rev = -1;
+  (async function poll(){ try { const r = await J("/db/rev"); if (r.rev !== rev){ rev = r.rev; for (const s of subs) s.run().catch(() => {}); } } catch(e){} setTimeout(poll, 1500); })();
+  return {collection: query, doc, local: true};
+}
 (async () => {
-  const db = await window.claude?.use?.("db");
+  S.local = !!window.JOB_AGENT_LOCAL;
+  const db = S.local ? localDb() : await window.claude?.use?.("db");
   const setConn = (state, text) => { $("conn-wrap").dataset.state = state; $("conn").textContent = text; };
   if (!db){ setConn("off", "Unavailable here. Open the page signed in to Claude."); return; }
-  S.db = db; setConn("on", "Connected");
+  S.db = db; setConn("on", S.local ? "On this computer" : "Connected");
+  if (S.local){ MCP = {callTool: async (server, name, args) => name === "list_triggers" ? {payload:{data:[]}} : {payload:{}}}; S.setup.open = false; }
   const fail = e => { setConn("off", "Connection lost. Reload the page."); };
   db.collection("searches").onSnapshot(q => { S.searches = q.docs.map(d => ({id:d.id, ...structuredClone(d.data())})); renderSearchList(); if (S.editing && S.editing!=="new" && !document.activeElement?.closest?.("#sform")) renderSearchEditor(); renderMatches(); }, fail);
   db.doc("agent/current").onSnapshot(d => { S.agent = d.exists ? structuredClone(d.data()) : null; if (!document.activeElement?.closest?.("#aform")) renderAgent(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);

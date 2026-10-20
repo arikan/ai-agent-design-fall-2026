@@ -11,6 +11,8 @@ database reads as JSON files under work/db/ (ArtifactData with out_dir), then:
                               run works (stages: fetching, filtering, judging, saving, done, stopped)
   uv run dbio.py config [manual]
                           -> the run is one the user started by hand (counted against its cap)
+  uv run dbio.py seed     -> first local run: work/db gets the starting agent and search from defaults/
+  uv run dbio.py apply    -> write work/out/writes.json (and the postings index) into work/db, the local database
 """
 
 import json
@@ -130,9 +132,14 @@ def read(path, default=None):
     return json.loads(path.read_text()) if path.exists() else default
 
 
+LOCAL = False     # set by run.py local: no session page to link, whatever the environment says
+
+
 def session_url():
     """This Claude Code session's page, where the run can be watched or stopped (cse_X is claude.ai/code/session_X)."""
     import os
+    if LOCAL:
+        return None
     sid = os.environ.get("CLAUDE_CODE_REMOTE_SESSION_ID", "")
     return "https://claude.ai/code/" + sid.replace("cse_", "session_", 1) if sid else None
 
@@ -179,12 +186,79 @@ def progress(stage):
     if stage == "stopped" and results:
         doc["note"] = results["run"].get("cap_hit")
     (out / "progress.json").write_text(json.dumps(doc, indent=1))
+    if (WORK / "db").exists():          # the local database, when runs happen on this computer
+        import localdb
+        localdb.write("meta/progress", doc)
     print(f"progress: {stage}, {len(sources)} source(s), {counts}")
+
+
+def seed():
+    """A local database with the starting agent and search, when there is none yet.
+    A work/config.json from a local run with the engine counts too: its agent and searches are kept."""
+    import localdb
+    now = datetime.now(timezone.utc).isoformat()
+    made = []
+    if not localdb.read("agent/current"):
+        cfg = read(WORK / "config.json", {})
+        agent = cfg.get("agent") or json.loads((HERE / "defaults" / "agent.json").read_text())
+        agent = {**agent, "updated": now}
+        localdb.write("agent/current", agent)
+        localdb.write(f"agent/current/versions/v{agent['version']}", {"version": agent["version"], "note": "Starting settings", "updated": now})
+        made.append("agent")
+    if not localdb.list_docs("searches"):
+        cfg = read(WORK / "config.json", {})
+        for s in cfg.get("searches") or []:
+            localdb.write("searches/" + s["id"], {k: v for k, v in s.items() if k != "id"} | {"updated": now})
+            made.append("search " + s["id"])
+        if not cfg.get("searches"):
+            s = json.loads((HERE / "defaults" / "search.json").read_text())
+            localdb.write("searches/my-first-search", {**s, "updated": now})
+            made.append("search my-first-search")
+    if not localdb.read("meta/agent"):
+        localdb.write("meta/agent", {"trigger_id": "local", "name": "uv run run.py local", "connected_at": now, "local": True})
+        localdb.write("meta/setup_check", {"status": "ok", "finished_at": now, "local": True})
+        made.append("local runner")
+    print("seed: " + (", ".join(made) if made else "nothing to do, work/db already has an agent and a search"))
+
+
+def apply():
+    """Write a finished run into the local database: what the cloud session does with ArtifactData."""
+    import localdb
+    out = WORK / "out"
+    writes = read(out / "writes.json", [])
+    n = 0
+    for w in writes:
+        if w["op"] == "delete":
+            localdb.delete(f"{w['collection']}/{w['doc_id']}")
+        else:
+            data = json.loads(Path(w["file_path"]).read_text()) if "file_path" in w else w.get("data", {})
+            if w["op"] == "update":
+                localdb.update(f"{w['collection']}/{w['doc_id']}", data)
+            else:
+                localdb.write(f"{w['collection']}/{w['doc_id']}", data)
+        n += 1
+    idx = read(out / "postings-index.json")
+    if idx:
+        old = localdb.read("meta/postings")
+        for cid in (old or {}).get("data", {}).get("chunks", []):      # yesterday's chunks
+            if cid not in idx["chunks"]:
+                localdb.delete("postings/" + cid)
+        localdb.write("meta/postings", idx)
+    prog = read(out / "progress.json")
+    if prog:
+        localdb.write("meta/progress", prog)
+    if writes:
+        (out / "writes.json").rename(out / "writes.applied.json")
+    print(f"apply: {n} write(s) into work/db")
 
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
-    if cmd == "progress" and len(sys.argv) == 3:
+    if cmd == "seed":
+        seed()
+    elif cmd == "apply":
+        apply()
+    elif cmd == "progress" and len(sys.argv) == 3:
         progress(sys.argv[2])
     elif cmd == "config":
         config("manual" if "manual" in sys.argv[2:] else "scheduled")

@@ -4,9 +4,9 @@ Your Job Agent reads job boards every morning, keeps the posts that fit your pro
 
 ## 1. Set it up (15 minutes, once)
 
-Follow [Start here](README.md#start-here). You need a paid Claude plan.
+Two ways, same page: on your computer with `uv run serve.py` ([Start on your computer](README.md#start-on-your-computer)), or in Claude's cloud so it runs every morning on its own ([Start in the cloud](README.md#start-in-the-cloud), paid plan needed).
 
-The step people miss: your agent runs in a cloud computer that for safety can reach only a few sites. Before you send the setup message, set that computer's **Network access** to **Full** from the new session screen (the first small button under the message box). Claude checks it first thing and tells you if it isn't done.
+For the cloud, the step people miss: your agent runs in a cloud computer that for safety can reach only a few sites. Before you send the setup message, set that computer's **Network access** to **Full** from the new session screen (the first small button under the message box). Claude checks it first thing and tells you if it isn't done.
 
 ## 2. Use it every day (5 minutes)
 

@@ -2,7 +2,36 @@
 
 An AI agent that finds jobs for you and improves itself with your guidance. It reads your CV and preferences, collects new postings from job boards every day, scores them, and shows the best matches. You mark matches Good or Nope, and it suggests changes to its own profile. You decide which ones to keep.
 
-## Start here
+## Start on your computer
+
+You need Python 3.10 or newer, [uv](https://docs.astral.sh/uv/getting-started/installation/), and [Claude Code](https://claude.com/claude-code) signed in to your account: it scores the posts, with no API key.
+
+```bash
+cd week7-job-agent
+uv run serve.py
+```
+
+That opens http://localhost:8765: your Job Agent, with the course's job boards and a starting profile.
+
+1. **Profile tab:** your roles, industries, pay target and CV. The preview at the bottom shows which posts the next run would score.
+2. **Run now.** The agent collects posts from every board, filters and ranks them, and the model scores the best few. The terminal where `serve.py` runs shows the log. Matches appear as it finishes.
+3. **Judge** them Good or Nope. Then **Agent → Suggest changes**, apply what you agree with, and run again.
+
+Everything is in `work/db` in this folder, as plain JSON files. Nothing leaves your computer except requests to job boards and to the model.
+
+**Another model.** Copy `.env.example` to `.env` and set `JOB_AGENT_MODEL`: `anthropic/claude-sonnet-4-5` with an `ANTHROPIC_API_KEY`, `openai/gpt-5-mini`, `gemini/…`, `openrouter/…`, or `ollama/gemma3` for a model on your own machine. The page records which model scored every post, so models can be compared by their agreement with you.
+
+**Every morning.** A cron line runs the agent while you sleep; the page shows the results next time you open it:
+
+```
+47 7 * * * cd /path/to/week7-job-agent && uv run run.py local
+```
+
+**Step by step.** To watch the parts work, or change them: `uv run dbio.py config` writes `work/config.json` from `work/db`; then `uv run sources.py fetch work/config.json`, `uv run engine.py prepare work/config.json`, `uv run judge.py`, `uv run engine.py finish work/config.json`, and `uv run dbio.py export` followed by `uv run dbio.py apply` to put the results back. `uv run sources.py try examples/source.greenhouse.json` tries one job board; `uv run sources.py test` runs every adapter offline.
+
+To run it in Claude's cloud instead, every morning with your laptop closed, see [Start in the cloud](#start-in-the-cloud).
+
+## Start in the cloud
 
 You need a paid Claude plan (Pro or higher). The daily run is a scheduled task on Claude's servers and uses your plan's usage.
 
@@ -16,7 +45,8 @@ You need a paid Claude plan (Pro or higher). The daily run is a scheduled task o
 
 Then read the [guide](GUIDE.md) for daily use, changing the agent, and an exercise.
 
-To run it on your own computer instead, see [Run it locally](#run-it-locally).
+It runs in Claude's cloud, so the Job Agent page is an artifact in your Claude account and the daily run is a scheduled task there. Changes you make on the page are saved there too.
+
 
 ## How it works
 
@@ -37,66 +67,9 @@ To run it on your own computer instead, see [Run it locally](#run-it-locally).
 
 Everything the engine decides is written to a trace, so any match can be traced back to the postings, settings and versions that produced it.
 
-## Run it locally
+## In the cloud, after setup
 
-### Requirements
-
-- Python 3.10 or newer
-- [uv](https://docs.astral.sh/uv/getting-started/installation/), which installs the one dependency (beautifulsoup4) for you
-- [Claude Code](https://claude.com/claude-code), for the scoring step
-
-### 1. Test the adapters offline
-
-```bash
-cd week7-job-agent
-uv run sources.py test
-```
-
-Each adapter runs against a saved response in `adapters/fixtures/`. All eight should print `ok`. The first `uv run` sets up the environment.
-
-### 2. Try one live source
-
-```bash
-uv run sources.py try examples/source.greenhouse.json
-```
-
-You should see how many postings were fetched and kept, and three samples. Change the board token in the file to try another company. This is also how you check a source after fixing it.
-
-### 3. Fetch every source and prepare a run
-
-`examples/config.example.json` holds one search and three sources. Copy it and edit the CV text, filters and dimensions to your own:
-
-```bash
-mkdir -p work
-cp examples/config.example.json work/config.json
-uv run sources.py fetch work/config.json
-uv run engine.py prepare work/config.json
-```
-
-`fetch` prints one line per source. `prepare` writes two files:
-
-- `work/batch.json`: the postings Claude will score, with your dimensions and rubrics
-- `work/state.json`: the trace so far, including what the filters dropped and why
-
-### 4. Score with Claude
-
-Open the folder in Claude Code and ask:
-
-> Judge work/batch.json following its matcher_instructions and answer_format, and write work/judgments.json. Evidence must be copied exactly from each posting.
-
-### 5. Rank
-
-```bash
-uv run engine.py finish work/config.json
-```
-
-`work/results.json` holds the ranked matches and the full run record. If any judgment was rejected, for example because its evidence isn't in the posting, the trace says why.
-
-Locally, nothing is written to the Job Agent artifact. That step needs a Claude session with access to your artifact, which the cloud run has.
-
-## Run it in Claude's cloud
-
-The daily run is a Claude Code scheduled task that clones this repository and follows [`RUN.md`](RUN.md). [Start here](#start-here) sets it up. After that:
+The daily run is a Claude Code scheduled task that clones this repository and follows [`RUN.md`](RUN.md). [Start in the cloud](#start-in-the-cloud) sets it up. After that:
 
 - The agent runs every morning, and new matches appear in your artifact.
 - **Run now** starts a run any time, up to the daily limit.
@@ -122,6 +95,10 @@ From then on, your runs use your code and your artifact updates from your fork's
 |---|---|
 | `uv run engine.py rank-fixture` then `node tests/rank_test.js` | Check that the artifact's in-browser ranking matches the engine's |
 | `uv run usage.py` | Token usage of the Claude session running it, from its transcript (each run records this) |
+| `uv run serve.py` | The Job Agent page on your computer |
+| `uv run run.py local` | One whole run here: collect, rank, score with `judge.py`, write to `work/db` |
+| `uv run run.py suggest` | Suggest Profile changes from your verdicts, here |
+| `uv run judge.py [--model …]` | Score `work/batch.json` with the model from `.env` |
 | `uv run run.py prepare` / `finish` | The cloud run's two halves: everything before Claude scores, and everything after |
 | `uv run sources.py test` | Run every adapter against its saved responses, offline |
 | `uv run sources.py try <source.json> [out.json]` | Run one source live and show a sample |
@@ -129,7 +106,7 @@ From then on, your runs use your code and your artifact updates from your fork's
 | `uv run sources.py domains <config.json>` | List the domains the enabled sources need |
 | `uv run engine.py prepare <config.json>` | Collect, filter and prepare `work/batch.json` |
 | `uv run engine.py finish <config.json>` | Check judgments, rank, write `work/results.json` |
-| `uv run dbio.py config` / `export` | Convert between the artifact's database and these files (used by the cloud run) |
+| `uv run dbio.py config` / `export` / `apply` / `seed` | Convert between the database (`work/db`) and the run's files |
 
 ## Sources and adapters
 
@@ -149,8 +126,8 @@ Course limits live in `caps.json` and are enforced in code: the morning run alwa
 
 ## Your data
 
-- Your CV file never leaves your computer. The artifact extracts its text in your browser, you edit what the agent may read, and only that text is saved.
-- Searches, matches, verdicts, run records and the latest day's collected postings live in the Job Agent artifact's database on Claude's servers, readable only by you. Nothing personal goes into this repository; `work/` is ignored by git.
+- Your CV file never leaves your computer. The page extracts its text in your browser, you edit what the agent may read, and only that text is saved.
+- On your computer, everything lives in `work/db`, which git ignores. In the cloud, searches, matches, verdicts, run records and the latest day's collected postings live in the Job Agent artifact's database on Claude's servers, readable only by you. Nothing personal goes into this repository.
 
 ## Known limits
 
@@ -163,6 +140,9 @@ Course limits live in `caps.json` and are enforced in code: the morning run alwa
 ```
 week7-job-agent/
 ├── README.md            this file
+├── serve.py             the Job Agent page on your computer, with work/db as its database
+├── run.py               one run, on your computer (local) or in the cloud (prepare, finish)
+├── judge.py, model.py   scoring with the model you choose
 ├── RUN.md               what the cloud run follows, step by step
 ├── SETUP.md             what Claude follows to set up a Job Agent page and daily run
 ├── GUIDE.md             the guide: daily use, changing the agent, an exercise
