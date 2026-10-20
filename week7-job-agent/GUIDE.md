@@ -6,7 +6,7 @@ Your Job Agent reads job boards every morning, keeps the posts that fit your pro
 
 Follow [Start here](README.md#start-here). You need a paid Claude plan.
 
-The step people miss: your cloud environment (usually **Default**) needs **Network access** set to **Full**, or the agent can't reach job sites and the setup check stays red. The setup panel in your artifact lists the clicks.
+The step people miss: your agent runs in a cloud computer that Claude Code gives your account, the **Default** environment, and for safety it can reach only a few sites. Set its **Network access** to **Full** so it can reach job boards. The setting is on the new session screen in Claude Code, under the message box, not in the task's form. The setup panel in your artifact lists the clicks.
 
 ## 2. Use it every day (5 minutes)
 
