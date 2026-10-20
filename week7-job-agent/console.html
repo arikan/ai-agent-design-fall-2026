@@ -1146,8 +1146,21 @@ function renderSources(){
   $("add-source").onclick = () => { $("src-new").innerHTML = sourceEditor({id:"", adapter:"greenhouse", enabled:true, category:"", cap:COURSE_CAPS.max_postings_per_source, config:{}}, true); wireEditor($("src-new").firstElementChild); };
   $("copy-doms").onclick = async e => { try { await navigator.clipboard.writeText(doms.join("\n")); e.target.textContent = "Copied"; } catch(err){ const r=document.createRange(); r.selectNodeContents($("domlist")); getSelection().removeAllRanges(); getSelection().addRange(r); } };
 }
+// The board as a person would open it, for a sanity check against what the agent collected.
+function boardUrl(s){
+  const c = s.config || {};
+  switch (s.adapter){
+    case "greenhouse": return c.board_token ? `https://job-boards.greenhouse.io/${encodeURIComponent(c.board_token)}` : "";
+    case "lever": return c.company ? `https://jobs.lever.co/${encodeURIComponent(c.company)}` : "";
+    case "ashby": return c.company ? `https://jobs.ashbyhq.com/${encodeURIComponent(c.company)}` : "";
+    case "workable": return c.account ? `https://apply.workable.com/${encodeURIComponent(c.account)}` : "";
+    case "getro": return c.domain ? `https://${c.domain.replace(/^https?:\/\//, "")}` : "";
+    default: return /^https?:\/\//.test(c.url || "") ? c.url : "";
+  }
+}
 function sourceCard(s){
   const h = s.enabled ? srcHealth(s.id) : {status:"off", history:[]};
+  const board = boardUrl(s);
   const st = s.adapter==="manual" ? PILL.manual : (PILL[h.status] || PILL.new);
   const prop = S.proposals[s.id];
   const tally = (h.history || []).reduce((t, x) => (t[x.h.status] = (t[x.h.status] || 0) + 1, t), {});
@@ -1156,7 +1169,7 @@ function sourceCard(s){
   return `<article class="card src" data-sid="${esc(s.id)}">
     <div class="row between">
       <div class="stack" style="gap:2px;min-width:0">
-        <div class="row"><h3 class="mono">${esc(s.id)}</h3><span class="pill ${st[0]}">${st[1]}</span>${h.repair?`<span class="pill bad">Needs repair</span>`:""}${h.blocked && s.enabled?`<span class="pill warn">Domain not allowed yet</span>`:""}</div>
+        <div class="row"><h3 class="mono">${esc(s.id)}</h3>${board ? `<a class="ext small" href="${esc(board)}" target="_blank" rel="noopener" title="Open the board in a new tab">Open board ↗</a>` : ""}<span class="pill ${st[0]}">${st[1]}</span>${h.repair?`<span class="pill bad">Needs repair</span>`:""}${h.blocked && s.enabled?`<span class="pill warn">Domain not allowed yet</span>`:""}</div>
         <div class="small muted">${esc(ADAPTERS[s.adapter]?.label || s.adapter)}${s.category?` · ${esc(s.category)}`:""}${s.adapter!=="corpus"&&s.adapter!=="manual"?` · up to ${s.cap||COURSE_CAPS.max_postings_per_source} postings`:""}${h.lastOk?` · last worked ${esc(when(h.lastOk))}`:""}</div>
       </div>
       <div class="row">${strip}${s.enabled && s.adapter!=="corpus" && s.adapter!=="manual" ? testButton(s) : ""}<label class="inline small" for="on-${esc(s.id)}"><input type="checkbox" id="on-${esc(s.id)}" data-toggle ${s.enabled?"checked":""}> On</label><button class="btn" data-edit>Edit</button></div>
