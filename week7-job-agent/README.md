@@ -6,13 +6,13 @@ An AI agent that finds jobs for you and improves itself with your guidance. It r
 
 You need a paid Claude plan (Pro or higher). The daily run is a scheduled task on Claude's servers and uses your plan's usage.
 
-1. Open [Claude Code](https://claude.ai/code), start a new session, and send:
+1. Open [Claude Code](https://claude.ai/code). You land on the new session screen. Before typing, let your cloud environment reach job boards (for safety it can reach only a few sites until you allow more): under the message box, click the first small button, which shows your environment's name, usually **Default**; hover over **Default** and click the settings icon on its right; set **Network access** to **Full** and save.
+2. In that same screen, send:
 
    > Set up my Job Agent by following https://github.com/arikan/ai-agent-design-fall-2026/blob/main/week7-job-agent/SETUP.md
 
-2. Tell Claude the roles, industries and location you're after. It creates your Job Agent artifact and daily run.
-3. Before leaving that session, do the one setting Claude asks for: the arrow after the session's title, **Edit cloud environment**, **Network access** to **Full**. Claude checks that it worked.
-4. Open your artifact, press **I've changed it, check my setup**, and when the light turns green, press **Start my agent**. Your first matches appear in a few minutes.
+3. Claude first checks that it can reach a job board; if not, it tells you what to change and asks you to start again. Then tell it the roles, industries and location you're after. It creates your Job Agent artifact and daily run.
+4. Open your artifact, press **Check my setup**, and when the light turns green, press **Start my agent**. Your first matches appear in a few minutes.
 
 Then read the [guide](GUIDE.md) for daily use, changing the agent, and an exercise.
 

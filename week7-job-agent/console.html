@@ -1428,13 +1428,13 @@ function renderSetup(){
               <div class="row small"><button type="button" class="linkbtn" data-setup="copy">Copy again</button></div>${msgDetails}` },
     2: { done: `<p class="small muted">Network access set to Full.</p>`,
          now: `${ph === "network_blocked" ? `<div class="testbox bad small" role="alert"><b>Your run couldn't reach a job site.</b> The network setting hasn't changed yet, or it was saved on a different environment than the one your task runs in.${S.check?.error ? `<div class="mono" style="margin-top:4px">${esc(S.check.error)}</div>` : ""}${S.check?.session_url ? `<div style="margin-top:4px"><a class="ext" href="${esc(S.check.session_url)}" target="_blank" rel="noopener">See what the check did ↗</a></div>` : ""}</div>` : ""}
-           <p><b>Why:</b> your agent runs in a cloud computer, and for safety it can reach only a few sites until you allow more. It uses the same cloud computer as the session where you set it up, so that is where the setting lives. Do this once:</p>
+           <p>Your agent runs in a cloud computer that for safety reaches only a few sites until you allow more. Setup checked this before creating your task, so it is usually already done. If the check below fails, fix it here:</p>
            <ol class="small">
-             <li>Open ${S.runner?.setup_session_url ? `<a class="ext" href="${esc(S.runner.setup_session_url)}" target="_blank" rel="noopener">your setup session ↗</a>` : `your setup session, the Claude Code session where you sent the setup message (under <b>Recents</b> in <a class="ext" href="https://claude.ai/code" target="_blank" rel="noopener">Claude Code ↗</a>)`}.</li>
-             <li>Click the arrow after the session's title at the top of the screen and choose <b>Edit cloud environment</b>.</li>
+             <li>Open <a class="ext" href="https://claude.ai/code" target="_blank" rel="noopener">Claude Code ↗</a>. You land on the new session screen. Don't type anything.</li>
+             <li>Under the message box, click the first small button. It shows your environment's name, usually <b>Default</b>.</li>
+             <li>Hover over <b>Default</b> in the list and click the settings icon that appears on its right.</li>
              <li>Set <b>Network access</b> to <b>Full</b>, then save.</li></ol>
-           <p class="small muted" style="margin:0">The setting isn't in the scheduled task's own form. If the session is gone, open <a class="ext" href="https://claude.ai/code" target="_blank" rel="noopener">Claude Code ↗</a>: on the new session screen, click the first small button under the message box, hover over the environment listed, and click its settings icon.</p>
-           <div class="row"><button type="button" class="btn primary" data-setup="netdone">I've changed it, check my setup</button></div>` },
+           <div class="row"><button type="button" class="btn primary" data-setup="netdone">Check my setup</button></div>` },
     3: { done: `<p class="small muted">Checked ${esc(when(S.check?.finished_at))}. Your agent can reach job sites and save its results here.</p>
            ${!S.matches.length ? `<div class="stack" style="gap:6px"><p><b>You're set.</b> Your agent runs every morning. To see matches now instead of tomorrow:</p><div>${runNowBlock("first")}</div></div>` : ""}`,
          now: ph === "starting" ? `<button class="btn busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Starting the check…</button>`

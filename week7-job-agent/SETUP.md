@@ -4,7 +4,20 @@ Instructions for a Claude Code session. Anyone can start it by sending:
 
 > Set up my Job Agent by following https://github.com/arikan/ai-agent-design-fall-2026/blob/main/week7-job-agent/SETUP.md
 
-At the end the user has their own Job Agent artifact, a daily scheduled task that runs their agent, and the two connected. Work in this session's cloud environment; the scheduled task uses the same one.
+At the end the user has their own Job Agent artifact, a daily scheduled task that runs their agent, and the two connected. The scheduled task runs in this session's cloud environment, so this session must be able to reach job boards before anything is created.
+
+## 0. Check the network first
+
+Run `curl -sS -o /dev/null -w "%{http_code}" https://boards-api.greenhouse.io/v1/boards/anthropic/jobs`.
+
+If it prints `200`, continue to step 1. Otherwise (a `403`, "Tunnel connection failed", or a connection error) this environment's network access is limited, and a task created from it would fail the same way. Create nothing. Reply with exactly this, and stop:
+
+> Before I set anything up, your cloud environment needs to be able to reach job boards. Right now it can't. Do this, then start a new session and send me the setup message again:
+> 1. Open https://claude.ai/code. You land on the new session screen. Don't type anything yet.
+> 2. Under the message box there is a row of small buttons. The first one shows your environment's name, usually **Default**. Click it.
+> 3. Hover over **Default** in the list and click the settings icon that appears on its right.
+> 4. Set **Network access** to **Full** and save.
+> Then start the new session from that same screen, so it uses the environment you just changed.
 
 ## 1. Ask one question
 
@@ -52,32 +65,17 @@ If this run includes a message or fire payload of the exact form "TEST_SOURCE <s
 Do not commit or push anything. If a step fails, stop, and report which step failed and the error, in two lines.
 ```
 
-Then write `meta` / `agent` to `ARTIFACT_URL`: `{"trigger_id": <the new task's id>, "name": "Job agent daily run", "setup_session_url": <this session's page>, "connected_at": ...}`. This session's page is `https://claude.ai/code/session_<X>`, where the environment variable `CLAUDE_CODE_REMOTE_SESSION_ID` is `cse_<X>`. This connects the artifact to the task, and lets it link back here.
+Then write `meta` / `agent` to `ARTIFACT_URL`: `{"trigger_id": <the new task's id>, "name": "Job agent daily run", "connected_at": ...}`. This connects the artifact to the task.
 
-## 6. Open the network, here, now
+## 6. Tell the user what's next
 
-The task runs in this session's cloud environment. That environment can reach only a few sites until its network access is opened, and the task's own settings have no place to change it, so it is done here, while the user is still in this session.
+Reply briefly:
 
-Reply with only this, and wait:
-
-> Your agent is set up. One thing before you go: your agent runs in this session's cloud environment, which for safety can reach only a few sites. Let it reach job boards:
-> 1. Click the arrow after this session's title at the top of the screen.
-> 2. Choose **Edit cloud environment**.
-> 3. Set **Network access** to **Full** and save.
-> Tell me when you've done it and I'll check.
-
-When the user says it's done, run `curl -sS -o /dev/null -w "%{http_code}" https://boards-api.greenhouse.io/v1/boards/anthropic/jobs`, up to three times half a minute apart, since the change takes up to a minute to reach this session. `200` means the network is open. Anything else (a `403` from the proxy, "Tunnel connection failed", a connection error) means it isn't: say so, repeat the three steps, and wait again.
-
-## 7. Tell the user what's next
-
-Once the curl returns `200`, reply briefly:
-
-1. The network is open, and their daily run will use it.
-2. The link to their Job Agent artifact.
-3. There, press **I've changed it, check my setup**. When it turns green, **Start my agent** runs it right away.
+1. The link to their Job Agent artifact.
+2. Their agent runs every morning. In the artifact, press **Check my setup**; when it turns green, **Start my agent** runs it right away.
 
 ## Do not
 
-- Run the agent, test sources, or fire the scheduled task. The user does that from their artifact. The curl in step 6 is the only request to a job site you make.
+- Run the agent, test sources, or fire the scheduled task. The user does that from their artifact. The curl in step 0 is the only request to a job site you make.
 - Change anything in the repository.
 - Put the user's answers anywhere except their own artifact's database.
