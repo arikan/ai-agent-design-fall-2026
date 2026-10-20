@@ -15,7 +15,7 @@ You need a paid Claude plan (Pro or higher). The daily run is a scheduled task o
    > Set up my Job Agent by following https://github.com/arikan/ai-agent-design-fall-2026/blob/main/week7-job-agent/SETUP.md
 
 3. Claude first checks that it can reach a job board; if not, it tells you what to change and asks you to start again. Then tell it the roles, industries and location you're after. It creates your Job Agent artifact and daily run.
-4. Open your artifact, press **Check my setup**, and when the light turns green, press **Start my agent**. Your first matches appear in a few minutes.
+4. Open your artifact and press **Start my agent**. Your first matches appear in a few minutes.
 
 Then read the [guide](GUIDE.md) for daily use, changing the agent, and an exercise.
 

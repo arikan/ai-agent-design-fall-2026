@@ -1597,7 +1597,7 @@ function renderSetup(){
              <li>Hover over <b>Default</b> in the list and click the settings icon that appears on its right.</li>
              <li>Set <b>Network access</b> to <b>Full</b>, then save.</li></ol>
            <div class="row"><button type="button" class="btn primary" data-setup="netdone">Check my setup</button></div>` },
-    3: { done: `<p class="small muted">Checked ${esc(when(S.check?.finished_at))}. Your agent can reach job sites and save its results here.</p>
+    3: { done: `<p class="small muted">${S.check?.via === "setup" ? "Checked during setup" : `Checked ${esc(when(S.check?.finished_at))}`}. Your agent can reach job sites and save its results here. If runs start failing, <button type="button" class="linkbtn" data-setup="check">check again</button>.</p>
            ${!S.matches.length ? `<div class="stack" style="gap:6px"><p><b>You're set.</b> Your agent runs every morning. To see matches now instead of tomorrow:</p><div>${runNowBlock("first")}</div></div>` : ""}`,
          now: ph === "starting" ? `<button class="btn busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Starting the check…</button>`
            : ph === "running" ? `<div class="testbox small stack" style="gap:6px" role="status"><div class="row between"><span class="row"><span class="spin" aria-hidden="true"></span><b>Checking</b></span><span class="mono" data-elapsed="${esc(S.check.requested_at)}">0:00</span></div><div class="bar"><i></i></div><span class="muted">A cloud run is starting, reaching a job site, and writing back here. This usually takes 2 to 5 minutes; you can leave this page.</span></div>`

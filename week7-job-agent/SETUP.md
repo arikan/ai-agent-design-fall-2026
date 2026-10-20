@@ -49,6 +49,7 @@ Write these with one ArtifactData batch to `ARTIFACT_URL`, using the current tim
 - `agent` / `current`: the contents of `defaults/agent.json`, plus `updated`
 - `agent/current/versions` / `v1`: `{"version": 1, "note": "Starting settings", "updated": ...}`
 - `searches` / `my-first-search`: the contents of `defaults/search.json`, with `target_roles`, `keywords` and `industries` replaced by the user's answers when given, plus `updated`
+- `meta` / `setup_check`: `{"status": "ok", "via": "setup", "requested_at": ..., "finished_at": ...}`. Step 0 already proved this environment reaches job boards, and the task runs in the same environment, so the artifact starts ready.
 
 ## 5. Create the daily run
 
@@ -72,7 +73,7 @@ Then write `meta` / `agent` to `ARTIFACT_URL`: `{"trigger_id": <the new task's i
 Reply briefly:
 
 1. The link to their Job Agent artifact.
-2. Their agent runs every morning. In the artifact, press **Check my setup**; when it turns green, **Start my agent** runs it right away.
+2. Their agent runs every morning. In the artifact, **Start my agent** runs it right away; first matches appear in a few minutes.
 
 ## Do not
 

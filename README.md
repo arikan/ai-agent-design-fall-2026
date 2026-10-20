@@ -24,7 +24,7 @@ The latest lab, Week 7, is a Job Agent: an AI agent that finds jobs for you and 
    > Set up my Job Agent by following https://github.com/arikan/ai-agent-design-fall-2026/blob/main/week7-job-agent/SETUP.md
 
 3. Claude first checks that it can reach a job board; if not, it tells you what to change. Then tell it the roles, industries and location you're after. It creates your Job Agent artifact and a daily run.
-4. Open your artifact, press **Check my setup**, and when the light turns green, press **Start my agent**. Your first matches appear in a few minutes.
+4. Open your artifact and press **Start my agent**. Your first matches appear in a few minutes.
 
 **On your computer.** With Python 3.10+, [uv](https://docs.astral.sh/uv/getting-started/installation/) and [Claude Code](https://claude.com/claude-code) signed in (or another model set in `.env`):
 
