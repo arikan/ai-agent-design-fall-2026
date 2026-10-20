@@ -2,6 +2,24 @@
 
 An AI agent that finds jobs for you and improves itself with your guidance. It reads your CV and preferences, collects new postings from job boards every day, scores them, and shows the best matches. You mark matches Good or Nope, and it suggests changes to its own profile. You decide which ones to keep.
 
+## Start in the cloud
+
+You need a paid Claude plan (Pro or higher). The daily run is a scheduled task on Claude's servers and uses your plan's usage.
+
+1. Open [Claude Code](https://claude.ai/code). You land on the new session screen. Before typing, let your cloud environment reach job boards (for safety it can reach only a few sites until you allow more): under the message box, click the first small button, which shows your environment's name, usually **Default**; hover over **Default** and click the settings icon on its right; set **Network access** to **Full** and save.
+2. In that same screen, send:
+
+   > Set up my Job Agent by following https://github.com/arikan/ai-agent-design-fall-2026/blob/main/week7-job-agent/SETUP.md
+
+3. Claude first checks that it can reach a job board; if not, it tells you what to change and asks you to start again. Then tell it the roles, industries and location you're after. It creates your Job Agent artifact and daily run.
+4. Open your artifact, press **Check my setup**, and when the light turns green, press **Start my agent**. Your first matches appear in a few minutes.
+
+Then read the [guide](GUIDE.md) for daily use, changing the agent, and an exercise.
+
+It runs in Claude's cloud, so the Job Agent page is an artifact in your Claude account and the daily run is a scheduled task there. Changes you make on the page are saved there too.
+
+To run it on your own computer instead, with any model, see [Start on your computer](#start-on-your-computer).
+
 ## Start on your computer
 
 One command runs everything:
@@ -47,25 +65,6 @@ Any model name the provider accepts works. Small local models fail the quote che
 ```
 
 **Step by step**, to watch the parts work or change them: `uv run dbio.py config` writes `work/config.json` from `work/db`; then `uv run sources.py fetch work/config.json`, `uv run engine.py prepare work/config.json`, `uv run judge.py`, `uv run engine.py finish work/config.json`, and `uv run dbio.py export` followed by `uv run dbio.py apply` to put the results back. `uv run sources.py try examples/source.greenhouse.json` tries one job board; `uv run sources.py test` runs every adapter offline.
-
-To run it in Claude's cloud instead, every morning with your laptop closed, see [Start in the cloud](#start-in-the-cloud).
-
-## Start in the cloud
-
-You need a paid Claude plan (Pro or higher). The daily run is a scheduled task on Claude's servers and uses your plan's usage.
-
-1. Open [Claude Code](https://claude.ai/code). You land on the new session screen. Before typing, let your cloud environment reach job boards (for safety it can reach only a few sites until you allow more): under the message box, click the first small button, which shows your environment's name, usually **Default**; hover over **Default** and click the settings icon on its right; set **Network access** to **Full** and save.
-2. In that same screen, send:
-
-   > Set up my Job Agent by following https://github.com/arikan/ai-agent-design-fall-2026/blob/main/week7-job-agent/SETUP.md
-
-3. Claude first checks that it can reach a job board; if not, it tells you what to change and asks you to start again. Then tell it the roles, industries and location you're after. It creates your Job Agent artifact and daily run.
-4. Open your artifact, press **Check my setup**, and when the light turns green, press **Start my agent**. Your first matches appear in a few minutes.
-
-Then read the [guide](GUIDE.md) for daily use, changing the agent, and an exercise.
-
-It runs in Claude's cloud, so the Job Agent page is an artifact in your Claude account and the daily run is a scheduled task there. Changes you make on the page are saved there too.
-
 
 ## How it works
 
