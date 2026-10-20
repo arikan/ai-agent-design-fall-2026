@@ -152,6 +152,7 @@ td.num{font-family:var(--font-data);font-variant-numeric:tabular-nums}
 .weight input{width:76px;accent-color:var(--accent)}
 .weight output{font:500 12.5px var(--font-data);font-variant-numeric:tabular-nums;width:36px;text-align:right}
 .wtotal{display:flex;align-items:center;gap:8px;white-space:nowrap;flex:none}
+.dimcard.shut #dimbody,.dimcard.shut #add-dim,.dimcard.shut>p{display:none}
 .dimhead{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px}.dimhead .btn{justify-self:end}
 .dimhead .wtotal{min-width:190px}
 .wtotal.warn{color:var(--warn)}.wtotal.ok{color:var(--muted)}
@@ -671,6 +672,7 @@ const RANK = (() => {
 /* ---------- the day's postings and the preview ---------- */
 // The morning run keeps what it collected (meta/postings points at chunks in `postings`), so the
 // Search tab can show how an edited search would rank them, before saving and without a run.
+const dimsOpen = () => { try { return !!localStorage.getItem("dims-open"); } catch(e){ return false; } };
 S.posts = {index:null, items:null, loading:false, showAll:false, collapsed:(() => { try { return !!localStorage.getItem("preview-collapsed"); } catch(e){ return false; } })()};
 async function loadPosts(){
   const idx = S.posts.index; if (!idx || S.posts.loading) return;
@@ -785,12 +787,14 @@ function renderSearchEditor(){
       </div>
     </div>
     <div class="card stack" id="preview"></div>
-    <div class="card stack">
-      <div class="dimhead"><h3>Dimensions</h3><div class="wtotal small" id="wtotal" role="status"></div><button type="button" class="btn" id="add-dim">Add dimension</button></div>
-      <p class="small muted" style="margin:0">Claude rates each post 1 to 5 on these. Weights set how much each counts.</p>
+    <div class="card stack dimcard${dimsOpen() ? "" : " shut"}" id="dimcard">
+      <div class="dimhead"><h3>Dimensions <span class="small muted" style="font-weight:400">Advanced</span></h3><div class="wtotal small" id="wtotal" role="status"></div><span class="row" style="gap:10px;justify-self:end"><button type="button" class="btn" id="add-dim">Add dimension</button><button type="button" class="xbtn pchev" id="dims-toggle" aria-expanded="${dimsOpen()}" aria-controls="dimbody" aria-label="Show or hide the dimensions" title="${dimsOpen() ? "Collapse" : "Expand"}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span></div>
+      <p class="small muted" style="margin:0">What the model rates each post on, 1 to 5, and how much each counts. The starting set works; change it when Feedback shows a dimension misleading the agent.</p>
+      <div class="stack" id="dimbody">
       <div id="dims" class="stack">${toPercent(s.preferences.dimensions).map((d,i)=>dimRow(d,i)).join("")}</div>
       <label for="s-unknown" style="max-width:320px">When a dimension is unknown
         <select id="s-unknown"><option value="neutral" ${s.preferences.unknown_policy!=="penalty"?"selected":""}>Count it as neutral (3 of 5)</option><option value="penalty" ${s.preferences.unknown_policy==="penalty"?"selected":""}>Count it as a miss (1 of 5)</option></select></label>
+      </div>
     </div>
     <div class="row"><button class="btn primary" type="submit">Save search</button><span class="status" id="s-status"></span></div>
   </form>`;
@@ -829,6 +833,11 @@ function wireSearchForm(s){
     const t = total(), el = $("wtotal");
     el.className = "wtotal small " + (t === 100 ? "ok" : "warn");
     el.innerHTML = `<span class="wbar"><i style="width:${Math.min(t,100)}%"></i></span><span>${t === 100 ? "100% assigned" : `${100 - t}% left to assign`}</span>`;
+  };
+  $("dims-toggle").onclick = () => {
+    const card = $("dimcard"), open = card.classList.toggle("shut") === false;
+    $("dims-toggle").setAttribute("aria-expanded", String(open)); $("dims-toggle").title = open ? "Collapse" : "Expand";
+    try { localStorage.setItem("dims-open", open ? "1" : ""); } catch(e){}
   };
   $("add-dim").onclick = () => { const i = Date.now(); $("dims").insertAdjacentHTML("beforeend", dimRow({key:"",name:"",weight:0,rubric:""}, i)); showTotal(); };
   $("dims").onclick = e => { const b = e.target.closest("[data-rm]"); if (b){ b.closest(".dimrow").remove(); showTotal(); } };
