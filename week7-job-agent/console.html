@@ -1415,7 +1415,7 @@ function renderSetup(){
   const msgDetails = `<details class="small"><summary>See the message</summary><pre class="mono promptbox" id="prompt-text">${esc(setupMessage())}</pre></details>`;
   const body = {
     1: { done: !S.setup.changing
-           ? `<p class="small muted">Daily run: <b>${esc(S.runner?.name || TASK_NAME)}</b>, a scheduled task in your Claude Code account. It runs in the cloud environment your setup session used, usually called <b>Default</b>. · <button type="button" class="linkbtn" data-setup="change">Change</button></p>`
+           ? `<p class="small muted">Created during setup: <a class="ext" href="${taskUrl()}" target="_blank" rel="noopener">${esc(S.runner?.name || TASK_NAME)} ↗</a>, a scheduled task in your Claude Code account. · <button type="button" class="linkbtn" data-setup="change">Change</button></p>`
            : S.setup.tasks === null && !S.setup.tasksError
              ? `<p class="small row"><span class="spin" aria-hidden="true"></span>Looking up your scheduled tasks…</p>`
              : `${S.setup.tasksError ? `<div class="status err">${esc(S.setup.tasksError)}</div>` : ""}
@@ -1428,12 +1428,12 @@ function renderSetup(){
               <div class="row small"><button type="button" class="linkbtn" data-setup="copy">Copy again</button></div>${msgDetails}` },
     2: { done: `<p class="small muted">Network access set to Full.</p>`,
          now: `${ph === "network_blocked" ? `<div class="testbox bad small" role="alert"><b>Your run couldn't reach a job site.</b> The network setting hasn't changed yet, or it was saved on a different environment.</div>` : ""}
-           <p>Your daily run needs permission to reach job sites. Do this once:</p>
+           <p>Your scheduled task runs in a cloud environment whose internet access is limited by default. It needs <b>Full</b> network access to reach job sites. Do this once:</p>
            <ol class="small">
-             <li>Open <a class="ext" href="https://claude.ai/code" target="_blank" rel="noopener">Claude Code ↗</a>. On the new session screen, click the first button in the row under the message box. It shows your cloud environment's name.</li>
-             <li>Under <b>Cloud</b>, hover over the environment your setup used, usually <b>Default</b>, and click the settings icon on its right.</li>
-             <li>Set <b>Network access</b> to <b>Full</b> and save. You don't need to send a message or start a session.</li></ol>
-           <p class="small muted" style="margin:0">Still in your setup session? There, click the arrow after the session's title at the top and choose <b>Edit cloud environment</b>.</p>
+             <li>Open your scheduled task: <a class="ext" href="${taskUrl()}" target="_blank" rel="noopener">${esc(S.runner?.name || TASK_NAME)} ↗</a>.</li>
+             <li>Open the menu next to the task's name and choose <b>Edit</b>.</li>
+             <li>Below the <b>Instructions</b> box, click the cloud icon showing the environment's name, usually <b>Default</b>. Hover over that environment in the list and click the settings icon on its right.</li>
+             <li>Set <b>Network access</b> to <b>Full</b>, then <b>Save changes</b>.</li></ol>
            <div class="row"><button type="button" class="btn primary" data-setup="netdone">I've changed it, check my setup</button></div>` },
     3: { done: `<p class="small muted">Checked ${esc(when(S.check?.finished_at))}. Your agent can reach job sites and save its results here.</p>
            ${!S.matches.length ? `<div class="stack" style="gap:6px"><p><b>You're set.</b> Your agent runs every morning. To see matches now instead of tomorrow:</p><div>${runNowBlock("first")}</div></div>` : ""}`,
@@ -1507,6 +1507,8 @@ document.addEventListener("click", async e => {
 });
 $("conn-wrap").addEventListener("click", () => { if (!S.db) return; const cur = S.setup.open === null ? !setupDone() : S.setup.open; S.setup.open = !cur; renderSetup(); if (S.setup.open) $("setup").scrollIntoView({block:"nearest"}); });
 
+// The scheduled task's own page in Claude Code, where it can be edited and its environment changed.
+const taskUrl = () => S.runner?.trigger_id ? `https://claude.ai/code/routines/${encodeURIComponent(S.runner.trigger_id)}` : "https://claude.ai/code/routines";
 /* ---------- requests and run now ---------- */
 // Every button that starts the daily run's task first records what it wants in meta/request.
 // The run reads that before anything else, so it never depends on the order messages arrive in.
@@ -1554,7 +1556,7 @@ function stopLink(since){
   findRunSession(since);
   const own = S.progress && new Date(S.progress.started_at) >= new Date(since) - 30 * 60000 ? S.progress.session_url : null;
   if (own) S.live.url = own;
-  const href = S.live.url || (S.runner?.trigger_id ? `https://claude.ai/code/routines/${encodeURIComponent(S.runner.trigger_id)}` : "");
+  const href = S.live.url || taskUrl();
   return href ? `<a class="ext" href="${esc(href)}" target="_blank" rel="noopener" title="Opens the run in Claude Code, where the stop button ends it">${S.live.url ? "Open the run to stop it ↗" : "Open your daily run ↗"}</a>` : "";
 }
 function progressBox(since, reqStatus){
