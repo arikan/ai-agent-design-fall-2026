@@ -6,7 +6,7 @@
 
 Code first: a page that embeds a Greenhouse, Lever, Ashby or Workable board, or offers an RSS feed,
 needs no model. Otherwise the model reads the page's HTML and proposes selectors for the web page
-adapter; each proposal is tested with the real adapter, and what went wrong is fed back, up to three
+adapter; each proposal is tested with the real adapter, and what went wrong is fed back, up to two
 times. The result says what it found and how, or that this page needs a person: JavaScript-only
 pages, logins, and some applicant-tracking systems can't be read from one address.
 """
@@ -60,10 +60,12 @@ def by_code(url, html):
     return None, None
 
 
-def trim_html(html, limit=60000):
-    """The page without scripts, styles and SVG, so the model sees the structure that selectors need."""
-    h = re.sub(r"(?is)<(script|style|svg|noscript)\b.*?</\1>", " ", html)
+def trim_html(html, limit=30000):
+    """The page without scripts, styles, SVG and most attributes, so the model sees the structure
+    that selectors need and little else. Smaller pages mean faster, cheaper answers."""
+    h = re.sub(r"(?is)<(script|style|svg|noscript|head)\b.*?</\1>", " ", html)
     h = re.sub(r"(?s)<!--.*?-->", " ", h)
+    h = re.sub(r"""(?is)\s(?!class=|id=|href=)[a-z:-]+=("[^"]*"|'[^']*'|[^\s>]+)""", "", h)   # keep class, id, href
     h = re.sub(r"[ \t]+", " ", h)
     h = re.sub(r"\n\s*\n+", "\n", h)
     if len(h) > limit:      # keep the middle too: job lists often sit after a long header
@@ -82,7 +84,7 @@ def by_model(url, html, model=None, log=print):
               "Selectors are CSS, for BeautifulSoup. job_card matches one element per job; title and the others are searched inside it.")
     page = trim_html(html)
     attempts, tried = [], []
-    for n in range(3):
+    for n in range(2):
         user = f"Page: {url}\n\n" + (f"Earlier attempts and what happened:\n{json.dumps(attempts, indent=1)}\n\n" if attempts else "") + f"HTML:\n{page}"
         log(f"figure: asking {llm.chosen(model)} for selectors, attempt {n + 1}")
         text, u = llm.complete(system, user, model)
