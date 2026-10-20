@@ -92,6 +92,10 @@ def by_model(url, html, model=None, log=print):
             attempts.append({"answer": text[:300], "result": "not JSON"})
             continue
         if ans.get("impossible"):
+            # The model often names the real job site inside its explanation: that is a lead, not a dead end.
+            m = re.search(r"https?://[^\s)\]\"']+", ans["impossible"])
+            if m and urlparse(m.group(0)).hostname != urlparse(url).hostname:
+                return None, {"follow": m.group(0).rstrip(".,"), "said": ans["impossible"]}, tried
             return None, ans["impossible"], tried
         if ans.get("follow"):
             return None, {"follow": urljoin(url, ans["follow"])}, tried
@@ -144,7 +148,7 @@ def figure(url, model=None, log=print, hops=0):
             inner["tried"] = result["tried"] + inner["tried"]
             inner["from"] = url
             return inner
-        how = "this page only links to the job list; paste the list's own address"
+        how = how.get("said") or "this page only links to the job list; paste the list's own address"
     result.update(source=src, how=how)
     return result
 
