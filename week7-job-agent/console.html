@@ -1432,8 +1432,9 @@ function renderSetup(){
            <ol class="small">
              <li>Open your scheduled task: <a class="ext" href="${taskUrl()}" target="_blank" rel="noopener">${esc(S.runner?.name || TASK_NAME)} ↗</a>.</li>
              <li>Open the menu next to the task's name and choose <b>Edit</b>.</li>
-             <li>Below the <b>Instructions</b> box, click the cloud icon showing the environment's name, usually <b>Default</b>. Hover over that environment in the list and click the settings icon on its right.</li>
+             <li>Open <b>Advanced settings</b> at the bottom of the form. Click the environment shown there, usually <b>Default</b>, then hover over it in the list and click the settings icon on its right.</li>
              <li>Set <b>Network access</b> to <b>Full</b>, then <b>Save changes</b>.</li></ol>
+           <p class="small muted" style="margin:0">No environment there? Open <a class="ext" href="https://claude.ai/code" target="_blank" rel="noopener">Claude Code ↗</a> and, on the new session screen, click the first button under the message box: it names the environment. Hover over <b>Default</b> and click its settings icon.</p>
            <div class="row"><button type="button" class="btn primary" data-setup="netdone">I've changed it, check my setup</button></div>` },
     3: { done: `<p class="small muted">Checked ${esc(when(S.check?.finished_at))}. Your agent can reach job sites and save its results here.</p>
            ${!S.matches.length ? `<div class="stack" style="gap:6px"><p><b>You're set.</b> Your agent runs every morning. To see matches now instead of tomorrow:</p><div>${runNowBlock("first")}</div></div>` : ""}`,
