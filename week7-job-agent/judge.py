@@ -20,7 +20,10 @@ PER_CALL = 4     # posts per model call: small enough for a local model, few eno
 
 
 def rubric_text(search):
-    return "\n".join(f"- {d['name']} (key `{d['key']}`): {d['rubric']}" for d in search["dimensions"])
+    # The rubric plus the user's own input for that dimension (target roles, industries, keywords, pay),
+    # as the cloud session reads them from batch.json. Without the inputs the model can't judge fit.
+    return "\n".join(f"- {d['name']} (key `{d['key']}`): {d['rubric']}" + (f" {d['inputs']}" if d.get("inputs") else "")
+                      for d in search["dimensions"])
 
 
 def judge(batch, model=None, log=print):
