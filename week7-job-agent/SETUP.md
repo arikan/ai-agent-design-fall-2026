@@ -52,18 +52,32 @@ If this run includes a message or fire payload of the exact form "TEST_SOURCE <s
 Do not commit or push anything. If a step fails, stop, and report which step failed and the error, in two lines.
 ```
 
-Then write `meta` / `agent` to `ARTIFACT_URL`: `{"trigger_id": <the new task's id>, "name": "Job agent daily run", "connected_at": ...}`. This connects the artifact to the task.
+Then write `meta` / `agent` to `ARTIFACT_URL`: `{"trigger_id": <the new task's id>, "name": "Job agent daily run", "setup_session_url": <this session's page>, "connected_at": ...}`. This session's page is `https://claude.ai/code/session_<X>`, where the environment variable `CLAUDE_CODE_REMOTE_SESSION_ID` is `cse_<X>`. This connects the artifact to the task, and lets it link back here.
 
-## 6. Tell the user what's next
+## 6. Open the network, here, now
 
-Reply briefly, in this order:
+The task runs in this session's cloud environment. That environment can reach only a few sites until its network access is opened, and the task's own settings have no place to change it, so it is done here, while the user is still in this session.
 
-1. The link to their Job Agent artifact.
-2. One setting to change: this session's cloud environment (name it; usually **Default**) needs **Network access** set to **Full**, because their scheduled task runs in the same environment and must reach job sites. Here in this session: click the arrow after the session's title at the top, choose **Edit cloud environment**, set **Network access** to **Full**, and save. Also say it can be changed later from the new session screen in Claude Code: the first button under the message box, then the settings icon on the environment's row. The task's own edit form has no environment setting.
-3. Then, in their artifact, press **I've changed it, check my setup**. When it turns green, **Start my agent** runs it right away.
+Reply with only this, and wait:
+
+> Your agent is set up. One thing before you go: your agent runs in this session's cloud environment, which for safety can reach only a few sites. Let it reach job boards:
+> 1. Click the arrow after this session's title at the top of the screen.
+> 2. Choose **Edit cloud environment**.
+> 3. Set **Network access** to **Full** and save.
+> Tell me when you've done it and I'll check.
+
+When the user says it's done, run `curl -sS -o /dev/null -w "%{http_code}" https://boards-api.greenhouse.io/v1/boards/anthropic/jobs`, up to three times half a minute apart, since the change takes up to a minute to reach this session. `200` means the network is open. Anything else (a `403` from the proxy, "Tunnel connection failed", a connection error) means it isn't: say so, repeat the three steps, and wait again.
+
+## 7. Tell the user what's next
+
+Once the curl returns `200`, reply briefly:
+
+1. The network is open, and their daily run will use it.
+2. The link to their Job Agent artifact.
+3. There, press **I've changed it, check my setup**. When it turns green, **Start my agent** runs it right away.
 
 ## Do not
 
-- Run the agent, test sources, or fire the scheduled task. The user does that from their artifact.
+- Run the agent, test sources, or fire the scheduled task. The user does that from their artifact. The curl in step 6 is the only request to a job site you make.
 - Change anything in the repository.
 - Put the user's answers anywhere except their own artifact's database.
