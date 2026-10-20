@@ -5,26 +5,44 @@
  "cv_version": 0,
  "prefs_version": 1,
  "target_roles": [
-  "Product Designer",
-  "UX Researcher",
-  "Service Designer",
-  "Design Strategist",
-  "Product Manager",
-  "Design Lead"
+  "Head of Product",
+  "Product Lead",
+  "Chief Product Officer",
+  "Director of Product",
+  "VP of Product",
+  "Entrepreneur in Residence",
+  "EIR"
+ ],
+ "industries": [
+  "ai",
+  "crypto",
+  "blockchain",
+  "fintech"
  ],
  "keywords": [
-  "design research",
+  "zero to one",
+  "platform design",
+  "product design",
   "service design",
-  "design strategy",
   "product strategy",
-  "prototyping"
+  "go-to-market",
+  "cross-functional",
+  "design research",
+  "prototyping with LLM tools"
  ],
  "preferences": {
   "deal_breakers": {
    "remote_only": false,
    "require_pay_listed": false,
-   "min_pay": null,
-   "locations_any": [],
+   "min_pay": 200000,
+   "locations_any": [
+    "New York",
+    "NYC",
+    "Remote",
+    "US Remote",
+    "Hybrid",
+    "Remote-friendly"
+   ],
    "exclude_industries": [],
    "exclude_keywords": []
   },
@@ -67,13 +85,5 @@
    }
   ],
   "unknown_policy": "neutral"
- },
- "industries": [
-  "AI",
-  "crypto",
-  "fintech",
-  "climate tech",
-  "health tech",
-  "civic tech"
- ]
+ }
 }

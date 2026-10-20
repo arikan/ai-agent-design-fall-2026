@@ -11,7 +11,7 @@ cd week7-job-agent
 uv run serve.py
 ```
 
-That opens http://localhost:8765: your Job Agent, with the course's job boards and a starting profile.
+That opens http://localhost:8765: your Job Agent, with the course's 41 job boards and a starting profile from `defaults/`. To start over, stop the server, delete `work/db`, and start it again.
 
 1. **Profile tab:** your roles, industries, pay target and CV. The preview at the bottom shows which posts the next run would score.
 2. **Run now.** The agent collects posts from every board, filters and ranks them, and the model scores the best few. The terminal where `serve.py` runs shows the log. Matches appear as it finishes.

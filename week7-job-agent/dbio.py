@@ -193,27 +193,19 @@ def progress(stage):
 
 
 def seed():
-    """A local database with the starting agent and search, when there is none yet.
-    A work/config.json from a local run with the engine counts too: its agent and searches are kept."""
+    """A local database with the starting agent and search from defaults/, when there is none yet."""
     import localdb
     now = datetime.now(timezone.utc).isoformat()
     made = []
     if not localdb.read("agent/current"):
-        cfg = read(WORK / "config.json", {})
-        agent = cfg.get("agent") or json.loads((HERE / "defaults" / "agent.json").read_text())
-        agent = {**agent, "updated": now}
+        agent = {**json.loads((HERE / "defaults" / "agent.json").read_text()), "updated": now}
         localdb.write("agent/current", agent)
         localdb.write(f"agent/current/versions/v{agent['version']}", {"version": agent["version"], "note": "Starting settings", "updated": now})
         made.append("agent")
     if not localdb.list_docs("searches"):
-        cfg = read(WORK / "config.json", {})
-        for s in cfg.get("searches") or []:
-            localdb.write("searches/" + s["id"], {k: v for k, v in s.items() if k != "id"} | {"updated": now})
-            made.append("search " + s["id"])
-        if not cfg.get("searches"):
-            s = json.loads((HERE / "defaults" / "search.json").read_text())
-            localdb.write("searches/my-first-search", {**s, "updated": now})
-            made.append("search my-first-search")
+        s = json.loads((HERE / "defaults" / "search.json").read_text())
+        localdb.write("searches/my-first-search", {**s, "updated": now})
+        made.append("search my-first-search")
     if not localdb.read("meta/agent"):
         localdb.write("meta/agent", {"trigger_id": "local", "name": "uv run run.py local", "connected_at": now, "local": True})
         localdb.write("meta/setup_check", {"status": "ok", "finished_at": now, "local": True})
