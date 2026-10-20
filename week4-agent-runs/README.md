@@ -10,7 +10,7 @@ An AI agent runs on a **harness**, a program you talk to that gives the **model*
 
 ## Setup (once)
 
-You need Python 3.9 or newer (`python3 --version`).
+You need Python 3.9 or newer (`python3 --version`), and a clone of the course repo: `git clone https://github.com/arikan/ai-agent-design-fall-2026.git`, then `cd ai-agent-design-fall-2026/week4-agent-runs`. New to the terminal or git? See [Terminal, VS Code and Git](../BASICS.md).
 
 #### 1. Claude Code
 

@@ -30,11 +30,11 @@ setups/<setup>/
 
 📖 **New to the terminal, VS Code or git?** Read **[Terminal, VS Code and Git](../BASICS.md)** first. It covers the commands this lab uses, and you can keep it open as a reference while you work.
 
-Do the [course setup](../README.md#setup-once) once first: Python 3.11 or newer, an API key, and Ollama if you use it.
+`python3 --version` must say 3.11 or newer. If it's older, install the latest Python from [python.org](https://www.python.org/downloads/). There is nothing else to install.
 
 ### 1. Get the folder
 
-If you don't have the course repo yet, clone it as the [course README](../README.md#getting-the-labs) shows. Then, in the repo:
+If you don't have the course repo yet, clone it once with `git clone https://github.com/arikan/ai-agent-design-fall-2026.git`. Then, in the repo:
 
 ```
 git pull
@@ -53,7 +53,7 @@ Make the `.env` file in this folder from the example that comes with the lab:
 cp .env.example .env
 ```
 
-Open `.env` in VS Code by clicking it in the Explorer, paste your key after its provider's name, and save. Where to get a key, and how to keep it safe, is in the [course setup](../README.md#api-key).
+Open `.env` in VS Code by clicking it in the Explorer, paste your key after its provider's name, and save. Where to get a key, and how to keep it safe, is in [week 5's setup](../week5-minimal-agent/README.md#2-add-your-api-key). If you set up week 5, copy its `.env` here instead.
 
 ### 3. Pick the model
 
@@ -71,7 +71,7 @@ The part before the `/` is the provider, and it must match the key you added. `o
 
 **OpenRouter for free**: use `openrouter/openrouter/free`, or any model on [openrouter.ai/models](https://openrouter.ai/models) whose name ends in `:free`. Each model call counts as one request.
 
-**Ollama**, free and on your computer: have Ollama running (see the [course setup](../README.md#ollama)), pull the model once with `ollama pull gemma3`, and switch to the `ollama/gemma3` line.
+**Ollama**, free and on your computer: have Ollama running (install and start it as in [week 4](../week4-agent-runs/README.md#2-ollama-and-the-gemma-model)), pull the model once with `ollama pull gemma3`, and switch to the `ollama/gemma3` line.
 
 The receipts are images, so pick a model that reads images.
 

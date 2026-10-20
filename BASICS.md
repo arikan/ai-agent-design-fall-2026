@@ -50,7 +50,7 @@ Git is a version control tool: it tracks every change to the files in a folder, 
 
 | Command | What it does |
 |---|---|
-| `git clone <url>` | Copies the repo to your computer, once. The [course README](README.md#getting-the-labs) has the URL. |
+| `git clone <url>` | Copies the repo to your computer, once: `git clone https://github.com/arikan/ai-agent-design-fall-2026.git` |
 | `git pull` | Brings in the latest changes, such as next week's folder. |
 | `git status` | Lists the files you've changed or added since the last pull. |
 
