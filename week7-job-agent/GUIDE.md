@@ -6,7 +6,7 @@ Your Job Agent reads job boards every morning, keeps the posts that fit your pro
 
 Follow [Start here](README.md#start-here). You need a paid Claude plan.
 
-The step people miss: your scheduled task's cloud environment needs **Network access** set to **Full**, or the agent can't reach job sites and the setup check stays red. The setup panel in your artifact links to the task and lists the clicks.
+The step people miss: your cloud environment (usually **Default**) needs **Network access** set to **Full**, or the agent can't reach job sites and the setup check stays red. The setup panel in your artifact lists the clicks.
 
 ## 2. Use it every day (5 minutes)
 
