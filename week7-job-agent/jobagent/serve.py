@@ -11,7 +11,8 @@ when the server starts, if a run left any behind (work/out/writes.json).
   GET  /db/<collection>             every document: [{"id", "data", "version"}]
   GET  /db/<collection>/<id>        one document
   PUT  /db/<collection>/<id>        set {"data": ...}; DELETE removes it
-  POST /run {"kind": "run"|"suggest"}   starts `run.py local manual` or `run.py suggest`
+  POST /run {"kind": "run"|"suggest"|"test", "source_id"?}   starts a run, suggestions, or one source's test
+  POST /probe {"name": "Cycles"}    which job boards a company name finds
   GET  /run                         the running job's state and its last log lines
 """
 
@@ -31,12 +32,23 @@ PAGE = HERE / "console.html"
 JOB = {"proc": None, "kind": None, "log": [], "started": None}
 
 
-def start_job(kind):
+def start_job(kind, source_id=None):
     if JOB["proc"] and JOB["proc"].poll() is None:
         return False
-    cmd = [sys.executable, "-u", "-m", "jobagent"] + (["run", "manual"] if kind == "run" else ["suggest"])
+    if kind == "test":          # one source, as RUN.md's "Test one source" does it in the cloud
+        agent = (localdb.read("agent/current") or {}).get("data", {})
+        src = next((x for x in agent.get("sources", []) if x["id"] == source_id), None)
+        doc = f"source_tests/{safe(source_id)}"
+        if not src:
+            localdb.write(doc, {"source_id": source_id, "status": "not_found", "finished_at": now()})
+            return True
+        (dbio.WORK).mkdir(exist_ok=True)
+        (dbio.WORK / "test-source.json").write_text(json.dumps(src))
+        cmd = [sys.executable, "-u", "-m", "jobagent", "sources", "try", "work/test-source.json", "work/test-result.json"]
+    else:
+        cmd = [sys.executable, "-u", "-m", "jobagent"] + (["run", "manual"] if kind == "run" else ["suggest"])
     JOB.update(proc=subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1),
-               kind=kind, log=[], started=dbio.datetime.now(dbio.timezone.utc).isoformat())
+               kind=kind, source_id=source_id, log=[], started=now())
     threading.Thread(target=pump, daemon=True).start()
     return True
 
@@ -50,8 +62,61 @@ def pump():
         del JOB["log"][:-200]
     p.wait()
     JOB["log"].append(f"[exit {p.returncode}]")
+    if JOB["kind"] == "test":
+        doc = f"source_tests/{safe(JOB['source_id'])}"
+        cur = (localdb.read(doc) or {}).get("data", {})
+        result = dbio.read(dbio.WORK / "test-result.json") or {"health": {"status": "failed", "error": "the test did not finish"}}
+        localdb.write(doc, {**result, "source_id": JOB["source_id"], "status": "done", "requested_at": cur.get("requested_at"), "finished_at": now()})
     localdb.update("meta/request", {"status": "done"})
     localdb.bump()
+
+
+def now():
+    return dbio.datetime.now(dbio.timezone.utc).isoformat()
+
+
+def safe(source_id):
+    return dbio.safe(source_id)
+
+
+BOARDS = {   # where a company's board lives, by its slug, and the public API that says whether it exists
+    "greenhouse": ("https://boards-api.greenhouse.io/v1/boards/{slug}/jobs", "jobs"),
+    "lever": ("https://api.lever.co/v0/postings/{slug}?mode=json", None),
+    "ashby": ("https://api.ashbyhq.com/posting-api/job-board/{slug}", "jobs"),
+    "workable": ("https://apply.workable.com/api/v1/widget/accounts/{slug}", "jobs"),
+}
+
+
+def probe(name):
+    """Which job boards a company name finds: tries each board type with the name as a slug."""
+    import re
+    import urllib.request
+    slugs = []
+    for s in (re.sub(r"[^a-z0-9]+", "", name.lower()), re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")):
+        if s and s not in slugs:
+            slugs.append(s)
+    found, lock = [], threading.Lock()
+
+    def check(adapter, slug):
+        url, key = BOARDS[adapter]
+        try:
+            req = urllib.request.Request(url.format(slug=slug), headers={"user-agent": "jobagent/0.2 (board check)"})
+            with urllib.request.urlopen(req, timeout=8) as r:
+                data = json.loads(r.read())
+            items = data.get(key) if key else data
+            n = len(items) if isinstance(items, list) else None
+            if n:
+                with lock:
+                    found.append({"adapter": adapter, "slug": slug, "jobs": n})
+        except Exception:
+            pass
+
+    threads = [threading.Thread(target=check, args=(a, s)) for a in BOARDS for s in slugs]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=10)
+    return sorted(found, key=lambda x: -x["jobs"])
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -115,12 +180,16 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         p = self.path.split("?")[0]
         if p == "/run":
-            kind = self.body().get("kind", "run")
-            if kind not in ("run", "suggest"):
-                return self.send(400, {"error": "kind must be run or suggest"})
-            localdb.write("meta/request", {"kind": kind, "status": "started", "requested_at": dbio.datetime.now(dbio.timezone.utc).isoformat()})
-            ok = start_job(kind)
+            b = self.body()
+            kind = b.get("kind", "run")
+            if kind not in ("run", "suggest", "test"):
+                return self.send(400, {"error": "kind must be run, suggest or test"})
+            localdb.write("meta/request", {"kind": kind, "status": "started", "requested_at": now(), **({"source_id": b["source_id"]} if b.get("source_id") else {})})
+            ok = start_job(kind, b.get("source_id"))
             return self.send(200 if ok else 409, {"started": ok, "error": None if ok else "a run is already going"})
+        if p == "/probe":
+            name = str(self.body().get("name", ""))[:80]
+            return self.send(200, {"found": probe(name) if name.strip() else []})
         self.send(404, {"error": "not found"})
 
 

@@ -143,6 +143,8 @@ From then on, your runs use your code and your artifact updates from your fork's
 
 Built in adapters: Greenhouse, Lever, Ashby, Workable, Getro (venture firm portfolio boards), JSON API, web page (CSS selectors), RSS. Two more types exist only as sources: the frozen corpus of 20 fictional postings for repeatable tests, and "check by hand" reminders for boards that block automated access.
 
+**Adding a board.** On the Sources tab, paste the board's address, such as `https://job-boards.greenhouse.io/cycles` or `https://jobs.lever.co/<company>`, or type the company's name, and press **Add source**. The source is created and tested at once. **Advanced** opens the full form for portfolio boards, careers pages, APIs and feeds.
+
 **Starting sources.** A new Job Agent artifact starts with the boards in `defaults/agent.json`: company boards in AI, crypto and fintech, venture firm portfolio boards, and a few check-by-hand reminders for sites without a public feed. Turn off the ones that don't fit your search on the Sources tab. To change what every new artifact starts with, edit that file.
 
 **When a source breaks**, the fix is usually in its settings, not code: new selectors for a web page, new field paths for a JSON API, a corrected board token. The artifact flags sources that fail or suddenly return nothing, and the daily run proposes fixes it has tested. You apply or discard them.
