@@ -52,6 +52,9 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .btn.bad{background:color-mix(in srgb,var(--warn-soft) 60%,var(--surface));border-color:color-mix(in srgb,var(--warn) 30%,var(--line));color:var(--warn)}
 .btn.good:hover{background:var(--accent-soft)}.btn.bad:hover{background:var(--warn-soft)}
 .btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 35%,var(--line))}.btn.danger:hover{background:var(--bad-soft)}
+.kebab{position:relative}.kebab>summary{list-style:none;cursor:pointer;padding:5px 10px;font-size:16px;line-height:1}.kebab>summary::-webkit-details-marker{display:none}
+.kebab .menu{position:absolute;right:0;top:calc(100% + 4px);z-index:5;min-width:160px;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:4px;display:grid}
+.kebab .menu button{appearance:none;border:0;background:none;font:inherit;color:var(--fg);text-align:left;padding:7px 10px;border-radius:6px;cursor:pointer}.kebab .menu button:hover{background:var(--sunk)}.kebab .menu button.danger{color:var(--bad)}
 .btn.good[aria-pressed="true"]{background:color-mix(in srgb,var(--s-hi) 30%,var(--surface));border-color:var(--s-hi);color:var(--accent)}
 .btn.bad[aria-pressed="true"]{background:color-mix(in srgb,var(--s-mid) 35%,var(--surface));border-color:var(--s-mid);color:var(--warn)}
 .vsum{gap:6px 12px;align-items:center}
@@ -1277,7 +1280,7 @@ function sourceCard(s){
         <div class="row"><h3 class="mono">${esc(s.id)}</h3>${board ? `<a class="ext small" href="${esc(board)}" target="_blank" rel="noopener" title="Open the board in a new tab">Open board ↗</a>` : ""}<span class="pill ${st[0]}">${st[1]}</span>${h.repair?`<span class="pill bad">Needs repair</span>`:""}${h.blocked && s.enabled?`<span class="pill warn">Domain not allowed yet</span>`:""}</div>
         <div class="small muted">${esc(ADAPTERS[s.adapter]?.label || s.adapter)}${s.category?` · ${esc(s.category)}`:""}${s.adapter!=="corpus"&&s.adapter!=="manual"?` · up to ${s.cap||COURSE_CAPS.max_postings_per_source} postings`:""}${h.lastOk?` · last worked ${esc(when(h.lastOk))}`:""}</div>
       </div>
-      <div class="row">${strip}${s.enabled && s.adapter!=="corpus" && s.adapter!=="manual" ? testButton(s) : ""}<label class="inline small" for="on-${esc(s.id)}"><input type="checkbox" id="on-${esc(s.id)}" data-toggle ${s.enabled?"checked":""}> On</label><button class="btn" data-edit>Edit</button></div>
+      <div class="row">${strip}${s.enabled && s.adapter!=="corpus" && s.adapter!=="manual" ? testButton(s) : ""}<label class="inline small" for="on-${esc(s.id)}"><input type="checkbox" id="on-${esc(s.id)}" data-toggle ${s.enabled?"checked":""}> On</label><details class="kebab"><summary class="btn" aria-label="More actions for ${esc(s.id)}" title="More">⋯</summary><div class="menu"><button type="button" data-edit>Edit</button><button type="button" class="danger" data-remove>Remove source</button></div></details></div>
     </div>
     ${h.error && s.enabled ? `<div class="err-line small"><b>${h.failures>1?`Failed ${h.failures} runs in a row: `:"Last run: "}</b><span class="mono">${esc(h.error)}</span></div>` : ""}
     ${s.note ? `<div class="small muted">${esc(s.note)}</div>` : ""}
@@ -1374,9 +1377,15 @@ $("sources").addEventListener("click", async e => {
   if (e.target.closest("[data-test]")){ testSource(id); return; }
   if (e.target.closest("[data-opensetup]")){ S.setup.open = true; renderSetup(); $("setup").scrollIntoView({block:"start"}); return; }
   if (e.target.closest("[data-edit]")){
+    card.querySelector(".kebab")?.removeAttribute("open");
     const slot = card.querySelector(".editor-slot");
     if (slot.firstElementChild){ slot.innerHTML = ""; return; }
     slot.innerHTML = sourceEditor(s, false); wireEditor(slot.firstElementChild);
+  } else if (e.target.closest("[data-remove]")){
+    card.querySelector(".kebab")?.removeAttribute("open");
+    if (!confirm(`Remove ${id} from your sources?`)) return;
+    try { const v = await saveSources(S.agent.sources.filter(x => x.id !== id), `Removed ${id}`); S.flash = {id:null, msg:`Removed ${id}. Saved as agent version ${v}.`}; renderSources(); }
+    catch(err){ S.flash = {id, msg:"Could not remove: " + (err.message || err.code)}; renderSources(); }
   } else if (e.target.closest("[data-approve]")){
     const p = S.proposals[id];
     card.querySelectorAll(".proposal button").forEach(b => b.disabled = true); e.target.closest("[data-approve]").innerHTML = `<span class="spin" aria-hidden="true"></span>Applying…`;
@@ -1387,6 +1396,7 @@ $("sources").addEventListener("click", async e => {
     await S.db.doc("proposals/"+safeId(id)).delete();
   }
 });
+document.addEventListener("click", e => { document.querySelectorAll(".kebab[open]").forEach(k => { if (!k.contains(e.target)) k.removeAttribute("open"); }); });
 $("sources").addEventListener("change", async e => {
   const t = e.target.closest("[data-toggle]"); if (!t) return;
   const id = t.closest("article").dataset.sid;
