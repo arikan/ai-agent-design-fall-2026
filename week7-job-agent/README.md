@@ -4,30 +4,49 @@ An AI agent that finds jobs for you and improves itself with your guidance. It r
 
 ## Start on your computer
 
-You need Python 3.10 or newer, [uv](https://docs.astral.sh/uv/getting-started/installation/), and [Claude Code](https://claude.com/claude-code) signed in to your account: it scores the posts, with no API key.
+One command runs everything:
 
 ```bash
 cd week7-job-agent
 uv run serve.py
 ```
 
-That opens http://localhost:8765: your Job Agent, with the course's 41 job boards and a starting profile from `defaults/`. To start over, stop the server, delete `work/db`, and start it again.
+It opens http://localhost:8765, your Job Agent, with the course's 41 job boards and a starting profile.
+
+**You need**
+
+- Python 3.10 or newer
+- [uv](https://docs.astral.sh/uv/getting-started/installation/), which installs the one dependency on first run
+- [Claude Code](https://claude.com/claude-code), installed and signed in. It scores the posts, using your Claude account, so no API key is needed.
+
+**Then**
 
 1. **Profile tab:** your roles, industries, pay target and CV. The preview at the bottom shows which posts the next run would score.
-2. **Run now.** The agent collects posts from every board, filters and ranks them, and the model scores the best few. The terminal where `serve.py` runs shows the log. Matches appear as it finishes.
+2. **Run now.** The agent collects posts from every board, filters and ranks them, and the model scores the best few. The terminal shows the log; matches appear when it finishes.
 3. **Judge** them Good or Nope. Then **Agent → Suggest changes**, apply what you agree with, and run again.
 
-Everything is in `work/db` in this folder, as plain JSON files. Nothing leaves your computer except requests to job boards and to the model.
+Everything is saved in `work/db` in this folder, as plain JSON files. Nothing leaves your computer except requests to job boards and to the model. To start over, stop the server, delete `work/db`, and start it again.
 
-**Another model.** Copy `.env.example` to `.env` and set `JOB_AGENT_MODEL`: `anthropic/claude-sonnet-4-5` with an `ANTHROPIC_API_KEY`, `openai/gpt-5-mini`, `gemini/…`, `openrouter/…`, or `ollama/gemma3` for a model on your own machine. The page records which model scored every post, so models can be compared by their agreement with you.
+**Other models.** Copy `.env.example` to `.env` and set `JOB_AGENT_MODEL`. The page records which model scored every post, so models can be compared by their agreement with you.
 
-**Every morning.** A cron line runs the agent while you sleep; the page shows the results next time you open it:
+| `JOB_AGENT_MODEL` | Runs on | Needs |
+|---|---|---|
+| `claude` (default) | Claude Code on your computer | the `claude` command, signed in |
+| `anthropic/claude-sonnet-4-5` | Anthropic API | `ANTHROPIC_API_KEY` |
+| `openai/gpt-5-mini` | OpenAI API | `OPENAI_API_KEY` |
+| `gemini/gemini-2.5-flash` | Google API | `GEMINI_API_KEY` |
+| `openrouter/<vendor>/<model>` | OpenRouter | `OPENROUTER_API_KEY` |
+| `ollama/gemma3` | [Ollama](https://ollama.com) on your computer | nothing; set `OLLAMA_HOST` if it isn't on port 11434 |
+
+Any model name the provider accepts works. Small local models fail the quote check more often; the Runs tab shows how many scores were rejected and why.
+
+**Every morning.** A cron line runs the agent while you sleep, and the page shows the results next time you open it:
 
 ```
 47 7 * * * cd /path/to/week7-job-agent && uv run run.py local
 ```
 
-**Step by step.** To watch the parts work, or change them: `uv run dbio.py config` writes `work/config.json` from `work/db`; then `uv run sources.py fetch work/config.json`, `uv run engine.py prepare work/config.json`, `uv run judge.py`, `uv run engine.py finish work/config.json`, and `uv run dbio.py export` followed by `uv run dbio.py apply` to put the results back. `uv run sources.py try examples/source.greenhouse.json` tries one job board; `uv run sources.py test` runs every adapter offline.
+**Step by step**, to watch the parts work or change them: `uv run dbio.py config` writes `work/config.json` from `work/db`; then `uv run sources.py fetch work/config.json`, `uv run engine.py prepare work/config.json`, `uv run judge.py`, `uv run engine.py finish work/config.json`, and `uv run dbio.py export` followed by `uv run dbio.py apply` to put the results back. `uv run sources.py try examples/source.greenhouse.json` tries one job board; `uv run sources.py test` runs every adapter offline.
 
 To run it in Claude's cloud instead, every morning with your laptop closed, see [Start in the cloud](#start-in-the-cloud).
 
