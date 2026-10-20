@@ -2,6 +2,8 @@
 
 An agent that finds jobs for your CV and preferences. Every day it collects new postings from the job boards you choose, drops the ones your filters rule out, scores the rest against what matters to you, and shows the results in your Job Agent artifact: a web page in your Claude account where you judge them.
 
+It is a self-improving agent, with you as the gate. Your Good and Nope verdicts measure how well it agrees with you, and from them it suggests changes to what it reads: your rubrics, weights, roles and keywords. Each suggestion you accept is saved as a new version and used from the next run, so you can see whether it helped. The model itself doesn't change; nothing changes until you accept it.
+
 It runs two ways:
 
 - **In Claude's cloud**, once a day, even when your laptop is closed. You set it up and use it from the Job Agent artifact; no terminal needed. See [Run it in Claude's cloud](#run-it-in-claudes-cloud).
