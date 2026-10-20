@@ -1,8 +1,10 @@
 # Job Agent
 
-An agent that finds jobs for your CV and preferences. Every day it collects new postings from the job boards you choose, drops the ones your filters rule out, scores the rest against what matters to you, and shows the results in your Job Agent artifact: a web page in your Claude account where you judge them.
+An agent that finds jobs for you, while improving itself with your feedback.
 
-It is a self-improving agent, with you as the gate. Your Good and Nope verdicts measure how well it agrees with you, and from them it suggests changes to what it reads: your rubrics, weights, roles and keywords. Each suggestion you accept is saved as a new version and used from the next run, so you can see whether it helped. The model itself doesn't change; nothing changes until you accept it.
+It takes your CV and preferences as a profile, and periodically collects new postings from job boards. It filters and scores them, and shows the best matches in your Job Agent artifact, a web page in your Claude account.
+
+It is a self-improving agent with your feedback. You mark the matching job posts as Good or Nope, and these verdicts measure how well it agrees with you. Then it suggests changes to what it reads: your rubrics, weights, roles and keywords. Each suggestion you accept is saved as a new version and used from the next run, so you can see whether it helped.
 
 It runs two ways:
 
