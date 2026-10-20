@@ -198,6 +198,11 @@ a.btn{text-decoration:none;display:inline-block}.step ol{margin:0;padding-left:1
 .stepmark.now{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
 .stepmark.later{color:var(--muted)}
 .stepmark.done{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+body.installing nav[role=tablist], body.installing .panel, body.installing #setup{display:none !important}
+.inst{max-width:620px;margin:8px auto 0}.inst h2{margin:0}.inst ol.ck{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.inst ol.ck li{display:flex;gap:10px;align-items:center}.inst ol.ck li.later{color:var(--muted)}
+.inst .how{display:grid;gap:10px;margin:0;padding:0;list-style:none}.inst .how li{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:start}
+.inst .how .who{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-left:6px}
 .promptbox{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border-radius:6px;padding:10px 12px;margin:0;flex:1;min-width:0;font-size:12px}
 .theme{appearance:none;border:0;background:none;color:var(--muted);padding:3px 5px;margin:-3px 0;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center}
 .theme:hover{background:var(--sunk);color:var(--fg)}
@@ -372,6 +377,7 @@ label > span{display:inline-flex;align-items:center;gap:2px}
   </header>
 
   <section id="setup" hidden></section>
+  <section id="installing" hidden></section>
 
   <nav role="tablist" aria-label="Sections">
     <button role="tab" id="tab-matches" aria-selected="true" data-view="matches">Matches<span class="count" id="c-matches"></span></button>
@@ -429,7 +435,7 @@ const DEFAULT_DIMS = [
   {key:"upside", name:"Upside potential", weight:5, rubric:"Strong: growing company, equity, room to rise. Weak: flat or shrinking."},
   {key:"growth", name:"Growth and learning", weight:20, rubric:"Strong: mentorship, new skills, stretch scope. Weak: repetitive work, no support."}
 ];
-const S = {db:null, searches:[], agent:null, runs:[], matches:[], judgments:{}, proposals:{}, tests:{}, runner:null, request:null, check:null, view:"matches", editing:null};
+const S = {db:null, searches:[], agent:null, runs:[], matches:[], judgments:{}, proposals:{}, tests:{}, runner:null, request:null, check:null, view:"matches", editing:null, boot:{}};
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money = (a,b) => a==null && b==null ? "Pay not listed" : "$" + [...new Set([a,b].filter(x=>x!=null).map(x=>Math.round(x/1000)+"k"))].join("–");
@@ -1760,6 +1766,37 @@ async function runNow(){
   renderAll();
 }
 function renderAll(){ renderMatches(); renderRuns(); renderSetup(); }
+// While the setup chat is still filling this artifact, show what is happening instead of a half-ready page.
+// Setup writes meta/agent (the daily run) last, so its arrival means setup is done.
+function isInstalling(){
+  if (S.local || !S.boot.agent || !S.boot.runner || S.runner?.trigger_id) return false;
+  const t = S.agent?.updated;
+  return !(t && Date.now() - new Date(t) > 20 * 60000);   // agent saved long ago without a run: not mid-setup, let the setup panel help
+}
+function renderInstalling(){
+  const on = isInstalling(), box = $("installing"), was = document.body.classList.contains("installing");
+  document.body.classList.toggle("installing", on); box.hidden = !on;
+  if (!on){ if (was){ box.innerHTML = ""; renderAll(); } return; }
+  const saved = !!(S.agent && S.searches.length), n = S.agent?.sources?.length;
+  const item = (done, now, text) => `<li class="${done ? "" : now ? "" : "later"}">${done ? `<span class="stepmark done" aria-hidden="true">✓</span>` : now ? `<span class="stepmark" style="border:0" aria-hidden="true"><span class="spin" style="margin:0"></span></span>` : `<span class="stepmark later" aria-hidden="true"></span>`}<span>${text}</span></li>`;
+  box.innerHTML = `<div class="card stack inst" role="status" aria-live="polite">
+    <h2>Claude is setting up your agent</h2>
+    <p class="muted" style="margin:0">Keep the chat open. This artifact fills in by itself when setup finishes, usually in a minute or two. Nothing to click yet.</p>
+    <ol class="ck">
+      ${item(true, false, "Artifact created")}
+      ${item(saved, true, saved ? `Profile and ${n ? n + " " : ""}job boards saved` : "Saving your profile and job boards")}
+      ${item(false, saved, "Creating your daily run")}
+    </ol>
+    <hr style="border:0;border-top:1px solid var(--line);margin:4px 0">
+    <h3 style="margin:0">While you wait: how your agent works</h3>
+    <ol class="how">
+      <li><span class="es-emoji" aria-hidden="true">📥</span><span><b>Collect</b><span class="who">code</span><br><span class="muted small">Every morning it reads new posts from your job boards.</span></span></li>
+      <li><span class="es-emoji" aria-hidden="true">🧹</span><span><b>Filter and rank</b><span class="who">code</span><br><span class="muted small">It drops posts that miss your roles, locations or pay, and ranks the rest.</span></span></li>
+      <li><span class="es-emoji" aria-hidden="true">🤖</span><span><b>Score</b><span class="who">model</span><br><span class="muted small">A model scores the top few on your dimensions, with a reason and a quote from the post.</span></span></li>
+      <li><span class="es-emoji" aria-hidden="true">👍</span><span><b>You judge</b><span class="who">you</span><br><span class="muted small">Mark matches Good or Nope. From your verdicts it suggests changes to its own profile, and you decide which to keep.</span></span></li>
+    </ol>
+  </div>`;
+}
 document.addEventListener("click", e => {
   if (e.target.closest("[data-runnow]")) runNow();
   if (e.target.closest("#matches [data-opensetup], #runs [data-opensetup]")){ S.setup.open = true; renderSetup(); $("setup").scrollIntoView({block:"start"}); }
@@ -1900,12 +1937,12 @@ function localDb(){
   S.db = db; setConn("on", S.local ? "On this computer" : "Connected");
   if (S.local){ MCP = {callTool: async (server, name, args) => name === "list_triggers" ? {payload:{data:[]}} : {payload:{}}}; S.setup.open = false; }
   const fail = e => { setConn("off", "Connection lost. Reload the page."); };
-  db.collection("searches").onSnapshot(q => { S.searches = q.docs.map(d => ({id:d.id, ...structuredClone(d.data())})); renderSearchList(); if (S.editing && S.editing!=="new" && !document.activeElement?.closest?.("#sform")) renderSearchEditor(); renderMatches(); }, fail);
-  db.doc("agent/current").onSnapshot(d => { S.agent = d.exists ? structuredClone(d.data()) : null; if (!document.activeElement?.closest?.("#aform")) renderAgent(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
+  db.collection("searches").onSnapshot(q => { S.searches = q.docs.map(d => ({id:d.id, ...structuredClone(d.data())})); renderInstalling(); renderSearchList(); if (S.editing && S.editing!=="new" && !document.activeElement?.closest?.("#sform")) renderSearchEditor(); renderMatches(); }, fail);
+  db.doc("agent/current").onSnapshot(d => { S.agent = d.exists ? structuredClone(d.data()) : null; S.boot.agent = true; renderInstalling(); if (!document.activeElement?.closest?.("#aform")) renderAgent(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
   db.collection("runs").orderBy("started","desc").limit(20).onSnapshot(q => { S.runs = q.docs.map(d => d.data()); renderRuns(); if (S.agent) renderAgent(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
   db.collection("matches").onSnapshot(q => { S.matches = q.docs.map(d => ({id:d.id, ...d.data()})); renderMatches(); }, fail);
   db.collection("source_tests").onSnapshot(q => { S.tests = Object.fromEntries(q.docs.map(d => [d.data().source_id, d.data()])); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
-  db.doc("meta/agent").onSnapshot(d => { S.runner = d.exists ? d.data() : null; renderSetup(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
+  db.doc("meta/agent").onSnapshot(d => { S.runner = d.exists ? d.data() : null; S.boot.runner = true; renderInstalling(); renderSetup(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
   db.doc("meta/setup_check").onSnapshot(d => { const was = S.check?.status; S.check = d.exists ? d.data() : null; if (was && was !== "ok" && S.check?.status === "ok") S.setup.open = true; renderSetup(); }, fail);
   S.rescore = {};
   db.collection("agent/current/versions").onSnapshot(q => { S.versions = q.docs.map(d => d.data()); renderAgent(); }, fail);
