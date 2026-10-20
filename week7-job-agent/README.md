@@ -6,7 +6,10 @@ An AI agent that finds jobs for you and improves itself with your guidance. It r
 
 You need a paid Claude plan (Pro or higher). The daily run is a scheduled task on Claude's servers and uses your plan's usage.
 
-1. Open [Claude Code](https://claude.ai/code). You land on the new session screen. Before typing, let your cloud environment reach job boards (for safety it can reach only a few sites until you allow more): under the message box, click the first small button, which shows your environment's name, usually **Default**; hover over **Default** and click the settings icon on its right; set **Network access** to **Full** and save.
+1. Open [Claude Code](https://claude.ai/code), not the regular Claude chat. You land on the new session screen. Before typing anything, let its cloud computer reach job boards (for safety it can reach only a few sites until you allow more):
+   - Under the message box, click the first small button. It shows your environment's name, usually **Default**.
+   - Hover over **Default** and click the settings icon on its right.
+   - Set **Network access** to **Full** and save.
 2. In that same screen, send:
 
    > Set up my Job Agent by following https://github.com/arikan/ai-agent-design-fall-2026/blob/main/week7-job-agent/SETUP.md
