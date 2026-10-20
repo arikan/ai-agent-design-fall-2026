@@ -1427,7 +1427,7 @@ function renderSetup(){
               <div class="row"><a class="btn" href="https://claude.ai/code" target="_blank" rel="noopener">Open Claude Code ↗</a><button type="button" class="btn primary" data-setup="find">I've created it</button><span class="status" id="find-status"></span></div>
               <div class="row small"><button type="button" class="linkbtn" data-setup="copy">Copy again</button></div>${msgDetails}` },
     2: { done: `<p class="small muted">Network access set to Full.</p>`,
-         now: `${ph === "network_blocked" ? `<div class="testbox bad small" role="alert"><b>Your run couldn't reach a job site.</b> The network setting hasn't changed yet, or it was saved on a different environment.</div>` : ""}
+         now: `${ph === "network_blocked" ? `<div class="testbox bad small" role="alert"><b>Your run couldn't reach a job site.</b> The network setting hasn't changed yet, or it was saved on a different environment than the one your task runs in.${S.check?.error ? `<div class="mono" style="margin-top:4px">${esc(S.check.error)}</div>` : ""}${S.check?.session_url ? `<div style="margin-top:4px"><a class="ext" href="${esc(S.check.session_url)}" target="_blank" rel="noopener">See what the check did ↗</a></div>` : ""}</div>` : ""}
            <p><b>Why:</b> your agent runs in a cloud computer that Claude Code gives your account, called the <b>Default</b> environment. For safety it can reach only a few sites, so job boards are blocked until you allow them. Do this once:</p>
            <ol class="small">
              <li>Open <a class="ext" href="https://claude.ai/code" target="_blank" rel="noopener">Claude Code ↗</a>. You land on the new session screen. Don't type anything.</li>
@@ -1441,7 +1441,7 @@ function renderSetup(){
          now: ph === "starting" ? `<button class="btn busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Starting the check…</button>`
            : ph === "running" ? `<div class="testbox small stack" style="gap:6px" role="status"><div class="row between"><span class="row"><span class="spin" aria-hidden="true"></span><b>Checking</b></span><span class="mono" data-elapsed="${esc(S.check.requested_at)}">0:00</span></div><div class="bar"><i></i></div><span class="muted">A cloud run is starting, reaching a job site, and writing back here. This usually takes 2 to 5 minutes; you can leave this page.</span></div>`
            : `${ph === "not_started" ? `<div class="testbox bad small" role="alert"><b>The check didn't start.</b> ${esc(S.setup.checkError)}</div>` : ""}
-              ${ph === "failed" ? `<div class="testbox bad small" role="alert"><b>The check failed.</b> <span class="mono">${esc(S.check.error || "")}</span></div>` : ""}
+              ${ph === "failed" ? `<div class="testbox bad small" role="alert"><b>The check failed.</b> <span class="mono">${esc(S.check.error || "")}</span>${S.check?.session_url ? ` <a class="ext" href="${esc(S.check.session_url)}" target="_blank" rel="noopener">See what the check did ↗</a>` : ""}</div>` : ""}
               ${ph === "stale" ? `<div class="testbox bad small" role="alert"><b>No answer after ${TEST_STALE_MIN} minutes.</b> Open your scheduled task's runs in Claude Code to see what happened.</div>` : ""}
               <div class="row"><button type="button" class="btn primary" data-setup="check">${ph === "idle" ? "Check setup" : "Check again"}</button></div>` }
   };

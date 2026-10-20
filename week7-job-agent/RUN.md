@@ -74,7 +74,7 @@ When step 0 finds a pending `check` request, the user pressed Check setup. Do on
 1. Get the engine as in step 2.
 2. Read `meta` / `setup_check` with ArtifactData to get its version. This read also proves the run can reach the artifact.
 3. Write `{"id": "check:greenhouse", "adapter": "greenhouse", "cap": 3, "config": {"board_token": "anthropic", "company_name": "Anthropic"}}` to `work/check.json` and run `uv run sources.py try work/check.json work/check-result.json`.
-4. Set `meta` / `setup_check` to `status` (`"ok"` if the check kept at least one posting, `"network_blocked"` if its health says `blocked_by_network`, otherwise `"failed"`), `error` (the health error, if any), `requested_at` (kept from the document you read), and `finished_at`, passing the version from step 2.
+4. Set `meta` / `setup_check` to `status` (`"ok"` if the check kept at least one posting, `"network_blocked"` if its health says `blocked_by_network`, otherwise `"failed"`), `error` (the health error, if any), `session_url` (this session's page: `https://claude.ai/code/session_<X>` where the environment variable `CLAUDE_CODE_REMOTE_SESSION_ID` is `cse_<X>`), `requested_at` (kept from the document you read), and `finished_at`, passing the version from step 2.
 5. Set `meta` / `request` `status` to `"done"` and report in one line: the status.
 
 ## What the session must not do
