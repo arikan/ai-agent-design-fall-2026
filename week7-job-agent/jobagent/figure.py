@@ -86,7 +86,7 @@ def by_model(url, html, model=None, log=print):
     attempts, tried = [], []
     for n in range(2):
         user = f"Page: {url}\n\n" + (f"Earlier attempts and what happened:\n{json.dumps(attempts, indent=1)}\n\n" if attempts else "") + f"HTML:\n{page}"
-        log(f"figure: asking {llm.chosen(model)} for selectors, attempt {n + 1}")
+        log(f"figure: asking {llm.chosen(model)} how to read the page, attempt {n + 1} of 2")
         text, u = llm.complete(system, user, model)
         try:
             ans = llm.json_block(text)
@@ -117,6 +117,7 @@ def by_model(url, html, model=None, log=print):
 
 def figure(url, model=None, log=print, hops=0):
     result = {"url": url, "source": None, "how": None, "tried": []}
+    log(f"figure: opening {url}")
     try:
         html = fetch_page(url)
     except Exception as e:

@@ -1213,10 +1213,17 @@ async function quickAdd(text){
 // the daily run's task does (RUN.md, "Figure out a source"). Progress arrives in meta/figure.
 async function figureOut(url){
   if (!S.runner?.trigger_id){ S.setup.open = true; renderSetup(); return qaSay(`<p class="qanote warn">Finish the setup above first; the agent needs its run to look at the page.</p>`); }
-  qaSay(`<p class="qanote"><span class="spin" aria-hidden="true"></span>Looking at ${esc(url)} to work out how to read it. ${S.local ? "Usually under a minute." : "A cloud run does this; a few minutes."}</p>`, "");
+  qaSay(`<p class="qanote"><span class="spin" aria-hidden="true"></span>Looking at ${esc(url)} to work out how to read it. ${S.local ? "One to three minutes: the model reads the page and each guess is tested." : "A cloud run does this; a few minutes."}<span class="small" id="qa-log"></span></p>`, "");
   S.figuring = url;
-  try { await startTask("figure", {url}, "FIGURE_SOURCE " + url); }
+  try { await startTask("figure", {url}, "FIGURE_SOURCE " + url); if (S.local) figureLog(url); }
   catch(e){ S.figuring = null; qaSay(`<p class="qanote bad">Could not start: ${esc(mcpMessage(e))}</p>`); }
+}
+// On this computer, the job's latest step shows under the note while it works.
+async function figureLog(url){
+  if (S.figuring !== url) return;
+  try { const r = await (await fetch("/run")).json(); const el = $("qa-log"); const line = (r.log || []).filter(l => l.startsWith("figure:")).pop();
+    if (el && line) el.textContent = " " + line.replace(/^figure:\s*/, "") + (r.running ? "" : " · finishing"); } catch(e){}
+  setTimeout(() => figureLog(url), 2000);
 }
 function renderFigure(){
   const f = S.figure; if (!f || !S.figuring || f.url !== S.figuring || f.status !== "done") return;
