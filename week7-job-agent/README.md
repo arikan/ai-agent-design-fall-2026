@@ -6,7 +6,7 @@ An AI agent that finds jobs for you and improves itself with your guidance. It r
 
 You need a paid Claude plan (Pro or higher). The daily run is a scheduled task on Claude's servers and uses your plan's usage.
 
-1. Open [Claude Code](https://claude.ai/code), not the regular Claude chat. You land on the new session screen. Before typing anything, let its cloud computer reach job boards (for safety it can reach only a few sites until you allow more):
+1. Open [Claude Code](https://claude.ai/code), not the regular Claude chat. On a new session, before typing anything, let its cloud environment reach job boards (for safety it can reach only a few sites until you allow more):
    - Under the message box, click the first small button. It shows your environment's name, usually **Default**.
    - Hover over **Default** and click the settings icon on its right.
    - Set **Network access** to **Full** and save.
