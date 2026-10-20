@@ -43,7 +43,7 @@ def judge(batch, model=None, log=print):
         profile = "\n\n".join(f"# Search `{sid}`\nDimensions:\n{rubric_text(s)}\n\nCV:\n{s.get('cv_text') or '(none)'}"
                               for sid, s in by_search.items())
         user = f"{profile}\n\n# Posts to score\n\n" + "\n".join(parts) + f"\n\n# Answer shape\n{shape}"
-        log(f"judge: posts {i + 1} to {i + len(chunk)} of {len(items)}")
+        log(f"judge: posts {i + 1} to {i + len(chunk)} of {len(items)}, {llm.chosen(model)}")
         text, u = llm.complete(system, user, model)
         usage["model"] = u.get("model") or usage["model"]
         for k in ("input_tokens", "output_tokens"):
@@ -56,8 +56,11 @@ def judge(batch, model=None, log=print):
         if isinstance(got, dict) and "scores" in got:
             got = [got]
         for a in got if isinstance(got, list) else []:
-            if isinstance(a, dict) and "posting_id" in a and "scores" in a:
+            if isinstance(a, dict) and "posting_id" in a and isinstance(a.get("scores"), dict):
                 a.setdefault("search_id", chunk[0]["search_id"])
+                for v in a["scores"].values():      # "4" -> 4; the check wants numbers or "unknown"
+                    if isinstance(v, dict) and isinstance(v.get("score"), str) and v["score"].strip().isdigit():
+                        v["score"] = int(v["score"].strip())
                 answers.append(a)
     return answers, usage
 

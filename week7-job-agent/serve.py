@@ -34,8 +34,8 @@ JOB = {"proc": None, "kind": None, "log": [], "started": None}
 def start_job(kind):
     if JOB["proc"] and JOB["proc"].poll() is None:
         return False
-    cmd = [sys.executable, str(HERE / "run.py")] + (["local", "manual"] if kind == "run" else ["suggest"])
-    JOB.update(proc=subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True),
+    cmd = [sys.executable, "-u", str(HERE / "run.py")] + (["local", "manual"] if kind == "run" else ["suggest"])
+    JOB.update(proc=subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1),
                kind=kind, log=[], started=dbio.datetime.now(dbio.timezone.utc).isoformat())
     threading.Thread(target=pump, daemon=True).start()
     return True

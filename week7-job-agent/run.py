@@ -107,6 +107,11 @@ def local(trigger, model=None):
         (dbio.WORK / "judgments.json").write_text("[]")
         print("judge: nothing to score this run")
     finish(llm.chosen(model) if not (dbio.WORK / "judge_usage.json").exists() else None)
+    r = json.loads((dbio.WORK / "results.json").read_text())
+    for t in r["run"].get("trace", []):
+        if t.get("step") == "judge":
+            for rej in t.get("rejections", [])[:8]:
+                print(f"rejected {rej['posting']}: {'; '.join(rej['errors'])[:160]}")
     dbio.apply()
 
 

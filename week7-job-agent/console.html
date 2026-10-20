@@ -1589,13 +1589,13 @@ function progressBox(since, reqStatus){
   const stage = p?.stage || (reqStatus === "started" ? "collecting" : "starting");
   const c = p?.counts || {}, order = ["starting","collecting","judging","done"];
   const at = order.indexOf(stage === "saving" ? "judging" : stage);
-  const steps = [["Start a cloud session",""], ["Collect and rank job posts", c.unique != null ? `${c.unique} unique posts, ${c.dropped || 0} dropped by filters${c.already_seen ? `, ${c.already_seen} already matched` : ""}` : ""],
+  const steps = [[S.local ? "Start" : "Start a cloud session",""], ["Collect and rank job posts", c.unique != null ? `${c.unique} unique posts, ${c.dropped || 0} dropped by filters${c.already_seen ? `, ${c.already_seen} already matched` : ""}` : ""],
     ["Score the best candidates", c.to_score != null ? `${c.to_score} posts` : ""], ["Save matches", ""]]
     .map(([label, note], i) => `<li class="${i < at ? "done" : i === at ? "active" : ""}"><span>${i < at ? "✓" : i === at ? `<span class="spin" aria-hidden="true"></span>` : ""}</span><b>${label}</b>${note ? `<span class="muted"> · ${esc(note)}</span>` : ""}</li>`).join("");
   const srcs = (p?.sources || []).map(x => `<span class="chip static ${x.status==="ok"?"":"warn"}" title="${esc(x.error||"")}">${esc(x.name)} ${x.status==="ok" ? x.kept : esc(x.status)}</span>`).join("");
   return `<div class="testbox small stack live" style="gap:8px" role="status"><div class="row between"><b>Your agent is running</b><span class="mono" data-elapsed="${esc(since)}">0:00</span></div>
     <ol class="psteps">${steps}</ol>${srcs ? `<div class="chips">${srcs}</div>` : ""}
-    <div class="row between"><span class="muted">Usually 5 to 10 minutes. Matches appear here when it finishes.</span>${stopLink(since)}</div></div>`;
+    <div class="row between"><span class="muted">${S.local ? "A few minutes" : "Usually 5 to 10 minutes"}. Matches appear here when it finishes.</span>${stopLink(since)}</div></div>`;
 }
 function runNowBlock(context){
   const ph = runNowPhase(), r = S.request;
