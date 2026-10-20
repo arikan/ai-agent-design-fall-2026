@@ -51,6 +51,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .btn.good{background:color-mix(in srgb,var(--accent-soft) 55%,var(--surface));border-color:color-mix(in srgb,var(--accent) 30%,var(--line));color:var(--accent)}
 .btn.bad{background:color-mix(in srgb,var(--warn-soft) 60%,var(--surface));border-color:color-mix(in srgb,var(--warn) 30%,var(--line));color:var(--warn)}
 .btn.good:hover{background:var(--accent-soft)}.btn.bad:hover{background:var(--warn-soft)}
+.btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 35%,var(--line))}.btn.danger:hover{background:var(--bad-soft)}
 .btn.good[aria-pressed="true"]{background:color-mix(in srgb,var(--s-hi) 30%,var(--surface));border-color:var(--s-hi);color:var(--accent)}
 .btn.bad[aria-pressed="true"]{background:color-mix(in srgb,var(--s-mid) 35%,var(--surface));border-color:var(--s-mid);color:var(--warn)}
 .vsum{gap:6px 12px;align-items:center}
@@ -1305,7 +1306,7 @@ function sourceEditor(s, isNew){
     <p class="small muted" style="margin:0">${esc(A.help)}</p>
     ${s.adapter==="custom"?`<label>Code<textarea data-code rows="12" class="mono" spellcheck="false" placeholder="class Adapter(BaseSource):\n    def fetch(self):\n        return self.http.get_json(&quot;https://careers.example.com/api/jobs&quot;)\n    def normalize(self, raw):\n        return self.posting(id=raw[&quot;id&quot;], title=raw[&quot;title&quot;], company=&quot;Example&quot;, location=raw[&quot;location&quot;], text=raw[&quot;description&quot;], url=raw[&quot;url&quot;])">${esc(c.code||"")}</textarea></label>`:""}
     <label>Note<input type="text" data-common="note" value="${esc(s.note||"")}" placeholder="Why it is off, what to watch for"></label>
-    <div class="row"><button class="btn primary" type="submit">Save source</button><button class="btn" type="button" data-cancel>Cancel</button>${isNew?"":`<button class="btn" type="button" data-delete>Remove source</button>`}<span class="status"></span></div>
+    <div class="row between"><span class="row"><button class="btn primary" type="submit">${isNew ? "Add source" : "Update"}</button><button class="btn" type="button" data-cancel>Cancel</button><span class="status"></span></span>${isNew?"":`<button class="btn danger" type="button" data-delete>Remove source</button>`}</div>
   </form>`;
 }
 function readEditor(f){
@@ -1362,7 +1363,7 @@ function wireEditor(f){
       S.flash = {id:src.id, msg:`Saved as agent version ${v}. The next run uses it.`};
       f.remove(); renderSources();
     }
-    catch(err){ st.className="status err"; st.textContent="Could not save: "+(err.message||err.code); sb.disabled = false; sb.textContent = "Save source"; }
+    catch(err){ st.className="status err"; st.textContent="Could not save: "+(err.message||err.code); sb.disabled = false; sb.textContent = old ? "Update" : "Add source"; }
   };
 }
 $("sources").addEventListener("click", async e => {
