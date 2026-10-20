@@ -1,30 +1,21 @@
 # Job Agent
 
-An AI agent that finds jobs for you and improves itself with your guidance.
-
-It takes your CV and preferences as a profile, and periodically collects new postings from job boards. It filters and scores them, and shows the best matches.
-
-It is a self-improving agent with your feedback. You mark the matching job posts as Good or Nope, and these verdicts measure how well it agrees with you. Then it suggests changes to what it reads: your rubrics, weights, roles and keywords. Each suggestion you accept is saved as a new version and used from the next run, so you can see whether it helped.
-
-It runs two ways:
-
-- **In Claude's cloud**, once a day, even when your laptop is closed. You set it up and use it from the Job Agent artifact.  [Run it in Claude's cloud](#run-it-in-claudes-cloud).
-- **On your own computer**, step by step, to see how it works or change it. [Run it locally](#run-it-locally).
+An AI agent that finds jobs for you and improves itself with your guidance. It reads your CV and preferences, collects new postings from job boards every day, scores them, and shows the best matches. You mark matches Good or Nope, and it suggests changes to its own profile. You decide which ones to keep.
 
 ## Start here
 
-> **You need a paid Claude plan (Pro or higher).** The daily run is a Claude Code scheduled task on Claude's servers, which the free plan doesn't include. Each run uses your plan's usage.
+You need a paid Claude plan (Pro or higher). The daily run is a scheduled task on Claude's servers and uses your plan's usage.
 
-1. Open [Claude Code](https://claude.ai/code) and start a new session.
-2. Send this prompt:
+1. Open [Claude Code](https://claude.ai/code), start a new session, and send:
 
    > Set up my Job Agent by following https://github.com/arikan/ai-agent-design-fall-2026/blob/main/week7-job-agent/SETUP.md
 
-3. Answer Claude's question about the roles, industries and location you're after. Claude creates your Job Agent artifact and its daily run, then links you to the artifact.
-4. In the artifact, follow the setup panel: allow the daily run to reach job sites (one network setting), then press **I've changed it, check my setup**.
-5. When the light turns green, press **Start my agent**. Your first matches appear in a few minutes.
+2. Tell Claude the roles, industries and location you're after. It creates your Job Agent artifact and daily run, and links you to the artifact.
+3. In the artifact, follow the setup panel: allow job sites in the network setting, press **I've changed it, check my setup**, and when the light turns green, press **Start my agent**. Your first matches appear in a few minutes.
 
-Then read the [guide](GUIDE.md): what to do each day, how to change the agent, and an exercise.
+Then read the [guide](GUIDE.md) for daily use, changing the agent, and an exercise.
+
+To run it on your own computer instead, see [Run it locally](#run-it-locally).
 
 ## How it works
 
