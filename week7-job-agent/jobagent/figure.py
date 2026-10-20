@@ -115,7 +115,7 @@ def by_model(url, html, model=None, log=print):
     return None, "no selectors found that read this page", tried
 
 
-def figure(url, model=None, log=print, hops=0):
+def figure(url, model=None, log=print):
     result = {"url": url, "source": None, "how": None, "tried": []}
     log(f"figure: opening {url}")
     try:
@@ -143,15 +143,9 @@ def figure(url, model=None, log=print, hops=0):
         result["how"] = f"the model step failed: {e}"[:300]
         return result
     result["tried"] += tried
-    if isinstance(how, dict) and how.get("follow"):       # a landing page that links to the list: go there, once
-        nxt = how["follow"]
-        if hops < 1 and nxt != url:
-            log(f"figure: {url} only links to the jobs; following {nxt}")
-            inner = figure(nxt, model, log, hops + 1)
-            inner["tried"] = result["tried"] + inner["tried"]
-            inner["from"] = url
-            return inner
-        how = how.get("said") or "this page only links to the job list; paste the list's own address"
+    if isinstance(how, dict) and how.get("follow"):       # a landing page: say where the jobs are, don't go there
+        result["follow"] = how["follow"]
+        how = f"this page only links to the job list. Paste that page instead: {how['follow']}"
     result.update(source=src, how=how)
     return result
 

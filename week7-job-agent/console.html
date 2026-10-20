@@ -1152,7 +1152,7 @@ function renderSources(){
   $("sources").innerHTML = `
     <div class="stack srchead">
       <p class="small muted" style="margin:0">The job boards your agent reads. Every change is saved as a new agent version.</p>
-      <form class="quickadd" id="quickadd"><input type="text" id="qa-text" placeholder="Paste a job board's address, or type a company name" aria-label="Job board address or company name" autocomplete="off"><button class="btn primary" type="submit" id="qa-go">Add source</button><button type="button" class="linkbtn small" id="add-source">Advanced</button></form>
+      <form class="quickadd" id="quickadd"><input type="text" id="qa-text" placeholder="Paste the address of a page that lists the jobs, or type a company name" aria-label="Job board address or company name" autocomplete="off"><button class="btn primary" type="submit" id="qa-go">Add source</button><button type="button" class="linkbtn small" id="add-source">Advanced</button></form>
       <div id="qa-out"></div>
       <details><summary>Domains to allow in your cloud environment (${doms.length})</summary>
         <p class="small muted">The daily run can only reach these. Paste them into your environment's network setting under Custom, allowed domains.</p>
@@ -1166,6 +1166,7 @@ function renderSources(){
   $("quickadd").onsubmit = e => { e.preventDefault(); quickAdd($("qa-text").value.trim()); };
   $("qa-out").onclick = async e => {
     const b = e.target.closest("[data-qa-add]"); if (b){ const [adapter, slug] = b.dataset.qaAdd.split("|"); addBoard(adapter, slug); return; }
+    const fo = e.target.closest("[data-qa-follow]"); if (fo){ $("qa-text").value = fo.dataset.qaFollow; quickAdd(fo.dataset.qaFollow); return; }
     const m = e.target.closest("[data-qa-manual]"); if (m){ const url = m.dataset.qaManual, host = new URL(url).hostname, id = `manual:${host}`;
       if (S.agent.sources.some(x => x.id === id)) return qaSay(`<p class="qanote warn">${esc(id)} is already in your sources.</p>`);
       try { const v = await saveSources([...S.agent.sources, {id, adapter:"manual", enabled:true, category:"", cap:0, note:"Couldn't be read automatically; open it yourself now and then.", config:{url}}], `Added ${id}`); S.flash = {id, msg:`Added as a reminder. Saved as agent version ${v}.`}; S.qa = null; renderSources(); }
@@ -1214,7 +1215,7 @@ async function quickAdd(text){
 // the daily run's task does (RUN.md, "Figure out a source"). Progress arrives in meta/figure.
 async function figureOut(url){
   if (!S.runner?.trigger_id){ S.setup.open = true; renderSetup(); return qaSay(`<p class="qanote warn">Finish the setup above first; the agent needs its run to look at the page.</p>`); }
-  qaSay(`<p class="qanote"><span class="spin" aria-hidden="true"></span>Looking at ${esc(url)} to work out how to read it. ${S.local ? "One to three minutes: the model reads the page and each guess is tested." : "A cloud run does this; a few minutes."}<span class="small" id="qa-log"></span></p>`, "");
+  qaSay(`<p class="qanote"><span class="spin" aria-hidden="true"></span>Looking at ${esc(url)} to work out how to read it. ${S.local ? "About a minute: the model reads the page and its guess is tested." : "A cloud run does this; a few minutes."}<span class="small" id="qa-log"></span></p>`, "");
   S.figuring = url;
   try { await startTask("figure", {url}, "FIGURE_SOURCE " + url); if (S.local) figureLog(url); }
   catch(e){ S.figuring = null; qaSay(`<p class="qanote bad">Could not start: ${esc(mcpMessage(e))}</p>`); }
@@ -1234,6 +1235,7 @@ function renderFigure(){
     document.querySelector(`[data-sid="${CSS.escape(f.source.id)}"]`)?.scrollIntoView({behavior:"smooth", block:"center"});
     return qaSay("", "");
   }
+  if (f.follow) return qaSay(`<p class="qanote warn"><b>${esc(f.url)} only links to the jobs.</b> The list is at ${esc(f.follow)}: <button type="button" class="linkbtn small" data-qa-follow="${esc(f.follow)}">add that page</button></p>`);
   qaSay(`<p class="qanote warn"><b>Couldn't read ${esc(f.url)}.</b> ${esc(f.how || "")} You can still keep it as a reminder to check by hand: <button type="button" class="linkbtn small" data-qa-manual="${esc(f.url)}">Add as check by hand</button></p>`);
 }
 async function addBoard(adapter, slug, displayName){
