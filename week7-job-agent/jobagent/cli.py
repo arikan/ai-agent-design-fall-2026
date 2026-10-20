@@ -1,4 +1,4 @@
-"""One command, `job-agent`, for everything. Run it with `uv run job-agent <command>`.
+"""One command, `jobagent`, for everything. Run it with `uv run jobagent <command>`.
 
 On your computer
   serve [--port 8765] [--no-open]   the Job Agent page at localhost, with work/db as its database

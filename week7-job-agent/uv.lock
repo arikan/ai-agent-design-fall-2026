@@ -21,7 +21,7 @@ wheels = [
 ]
 
 [[package]]
-name = "job-agent"
+name = "jobagent"
 version = "0.2.0"
 source = { editable = "." }
 dependencies = [

@@ -25,17 +25,17 @@ A run should take few turns: do independent tool calls in the same turn, and nev
    Set its `status` to `"started"` (pass the version you read). Otherwise this is the daily run; continue. An extra message `TEST_SOURCE <id>` or `CHECK_SETUP` means the same as a request of that kind.
 2. **Get the engine.** In one command: shallow clone the course repo, `cd` into `week7-job-agent`, and run `pip install -q uv` if `uv` is missing.
 3. **Read the database**, all in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `runs` (list), `matches` (list), `judgments` (list), `rescore` (list; postings the user asked to score again), `meta` / `progress`, `meta` / `console` and `meta` / `postings` (get; any may not exist).
-4. **Collect, filter and rank:** `uv run job-agent prepare`, or `uv run job-agent prepare manual` when step 1 found a `run` request (the user pressed Run now; those runs are capped at a few a day, the morning run is not). It prints how long each stage took.
+4. **Collect, filter and rank:** `uv run jobagent prepare`, or `uv run jobagent prepare manual` when step 1 found a `run` request (the user pressed Run now; those runs are capped at a few a day, the morning run is not). It prints how long each stage took.
    - If it says the run stopped on the course cap, go to step 7.
    - Otherwise set `meta` / `progress` from `work/out/progress.json` (`file_path`, with the version from step 3; keep the version the write returns).
 5. **Judge** `work/batch.json`: follow its `matcher_instructions` and each search's dimension rubrics. For every item and every dimension give a score from 1 to 5 or `"unknown"`, a one sentence reason, and evidence copied exactly from the posting's `text`. Keep reasons short. Write the list to `work/judgments.json` in the batch's `answer_format`, in one file write. The engine rejects any score whose evidence is not in the text.
-6. **Rank and package:** `uv run job-agent finish --model <id>`, where `<id>` is the model you are running as, exactly as your system prompt names it (for example `claude-sonnet-4-5`). It is recorded on the run and on every match, so a score can always be traced to the model that gave it. The command also reads this session's token usage from its transcript and records it on the run.
+6. **Rank and package:** `uv run jobagent finish --model <id>`, where `<id>` is the model you are running as, exactly as your system prompt names it (for example `claude-sonnet-4-5`). It is recorded on the run and on every match, so a score can always be traced to the model that gave it. The command also reads this session's token usage from its transcript and records it on the run.
 7. **Write back**, in one turn:
    - `work/out/writes.json` with ArtifactData `batch` (at most 50 writes per call; pass each entry as it is, with its `file_path` and, for a rescored match or a cleared rescore request, its `if_version`)
    - `meta` / `progress` from `work/out/progress.json` (with the version you kept)
    - `meta` / `postings` from `work/out/postings-index.json`, if that file exists (with the version from step 3): it points the artifact at the day's collected postings, which `writes.json` already carried
    - if this run came from a request, `meta` / `request` `status` `"done"`
-8. **Repair** (skip when every source in the fetch output is `ok`, or the failure is a network block, which you report instead): for a source that failed or returned nothing, look at its API or page with a web fetch, work out the smallest settings change that fixes it (board token, selectors, field paths; code only for a custom adapter), write it as JSON under `work/` (which git ignores, so the run leaves the repository clean) and test it with `uv run job-agent sources try <file>`. If it returns postings, write a proposal to the artifact's database with ArtifactData (not a file): collection `proposals`, document id `<source id with characters other than letters, digits, dot, dash and underscore replaced by _>`, with `source_id`, `source` (the full changed source), `reason` (one sentence), `before` and `after` (each `status` and `kept`), `sample` (up to three titles), `at`. Never change the agent settings yourself.
+8. **Repair** (skip when every source in the fetch output is `ok`, or the failure is a network block, which you report instead): for a source that failed or returned nothing, look at its API or page with a web fetch, work out the smallest settings change that fixes it (board token, selectors, field paths; code only for a custom adapter), write it as JSON under `work/` (which git ignores, so the run leaves the repository clean) and test it with `uv run jobagent sources try <file>`. If it returns postings, write a proposal to the artifact's database with ArtifactData (not a file): collection `proposals`, document id `<source id with characters other than letters, digits, dot, dash and underscore replaced by _>`, with `source_id`, `source` (the full changed source), `reason` (one sentence), `before` and `after` (each `status` and `kept`), `sample` (up to three titles), `at`. Never change the agent settings yourself.
 9. **Sync the artifact** (last, so matches appear first): if `sha256sum console.html` differs from the `sha256` in `meta` / `console` (read in step 3), republish `console.html` to `CONSOLE_URL` with the Artifact tool (pass `url`; omit `capabilities` and `icon`), then write `meta` / `console` with `sha256`, `commit` (`git log -1 --format=%h -- console.html`) and `published_at`. If the republish asks for approval or fails, skip it.
 10. **Suggest**, only if `agent` / `current` has `settings.suggest_after_run` set to true: do steps 3 to 5 of "Suggest changes" (the database is already read).
 11. **Report** in four lines: stage times from steps 4 and 6, new matches, judgments rejected, sources failing (and proposals written).
@@ -46,9 +46,9 @@ When step 1 finds a pending `suggest` request, the user asked for suggestions. D
 
 1. Get the engine as in step 2.
 2. Read, in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `matches` (list), `judgments` (list).
-3. `uv run job-agent suggest prepare`. If it says there is nothing to suggest, skip to step 6.
+3. `uv run jobagent suggest prepare`. If it says there is nothing to suggest, skip to step 6.
 4. Read `work/suggest.json` and follow its `instructions`: propose changes to the user's Profile that would make the agent's scores agree better with their Good and Nope verdicts. Write `work/suggestions.json` in its `answer_format`, in one file write. These are proposals only; never change a search yourself.
-5. `uv run job-agent suggest finish --model <id>` (your model, as in step 6 above). Write `work/out/suggestion.json` with ArtifactData `set` to collection `suggestions` under the document id it prints.
+5. `uv run jobagent suggest finish --model <id>` (your model, as in step 6 above). Write `work/out/suggestion.json` with ArtifactData `set` to collection `suggestions` under the document id it prints.
 6. Set `meta` / `request` `status` to `"done"` and report in one line: suggestions written and rejected.
 
 A suggestion request never collects or scores posts, and does not count toward the runs started by hand.
@@ -61,7 +61,7 @@ When step 0 finds a pending `test` request, the user pressed Test on that source
 2. Read `agent` / `current` with ArtifactData. Find the source whose `id` equals the request's `source_id`.
 3. Read `source_tests` / `<source id with characters other than letters, digits, dot, dash and underscore replaced by _>` to get its version.
 4. If the source is missing, set that document to `{source_id, status: "not_found", finished_at}` and stop.
-5. Write the source to `work/test-source.json` and run `uv run job-agent sources try work/test-source.json work/test-result.json`.
+5. Write the source to `work/test-source.json` and run `uv run jobagent sources try work/test-source.json work/test-result.json`.
 6. Set the document to the contents of `work/test-result.json` plus `status: "done"`, `requested_at` (kept from the document you read) and `finished_at`, passing the version from step 3.
 7. Set `meta` / `request` `status` to `"done"` and report in one line: source, status, postings kept.
 
@@ -73,7 +73,7 @@ When step 0 finds a pending `check` request, the user pressed Check setup. Do on
 
 1. Get the engine as in step 2.
 2. Read `meta` / `setup_check` with ArtifactData to get its version. This read also proves the run can reach the artifact.
-3. Write `{"id": "check:greenhouse", "adapter": "greenhouse", "cap": 3, "config": {"board_token": "anthropic", "company_name": "Anthropic"}}` to `work/check.json` and run `uv run job-agent sources try work/check.json work/check-result.json`.
+3. Write `{"id": "check:greenhouse", "adapter": "greenhouse", "cap": 3, "config": {"board_token": "anthropic", "company_name": "Anthropic"}}` to `work/check.json` and run `uv run jobagent sources try work/check.json work/check-result.json`.
 4. Set `meta` / `setup_check` to `status` (`"ok"` if the check kept at least one posting, `"network_blocked"` if its health says `blocked_by_network`, otherwise `"failed"`), `error` (the health error, if any), `session_url` (this session's page: `https://claude.ai/code/session_<X>` where the environment variable `CLAUDE_CODE_REMOTE_SESSION_ID` is `cse_<X>`), `requested_at` (kept from the document you read), and `finished_at`, passing the version from step 2.
 5. Set `meta` / `request` `status` to `"done"` and report in one line: the status.
 

@@ -3,8 +3,8 @@
 Code gathers the evidence and checks the answer; the model only proposes. Nothing here
 changes a search: the page shows each suggestion, and the user applies it or not.
 
-  uv run job-agent suggest prepare            work/db/ -> work/suggest.json (evidence, instructions, answer format)
-  uv run job-agent suggest finish [--model <id>]
+  uv run jobagent suggest prepare            work/db/ -> work/suggest.json (evidence, instructions, answer format)
+  uv run jobagent suggest finish [--model <id>]
                                        work/suggestions.json -> checked -> work/out/suggestion.json,
                                        to write to the `suggestions` collection under the id it prints
 """

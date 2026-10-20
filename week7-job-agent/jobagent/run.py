@@ -1,14 +1,14 @@
 """One command per half of a run, so the cloud session spends its turns only where Claude is needed.
 
-  uv run job-agent prepare [manual]   work/db/ -> config, fetch, filter, rank -> work/batch.json, progress "judging"
+  uv run jobagent prepare [manual]   work/db/ -> config, fetch, filter, rank -> work/batch.json, progress "judging"
                                    (`manual` marks a run the user started by hand; those are capped)
-  uv run job-agent finish [--model <id>]
+  uv run jobagent finish [--model <id>]
                                    work/judgments.json -> check, rank -> work/out/writes.json, progress "done"
                                    (`--model` records which model did the scoring, on the run and its matches)
-  uv run job-agent run [manual] [--model <id>]
+  uv run jobagent run [manual] [--model <id>]
                                    the whole run on this computer: prepare, score with judge.py, finish, and
                                    write the results into work/db, the local database serve.py shows
-  uv run job-agent suggest [--model <id>]
+  uv run jobagent suggest [--model <id>]
                                    suggest Profile changes from the verdicts in work/db, on this computer
 
 Each prints one line per stage with how long it took, and the run record keeps those times.

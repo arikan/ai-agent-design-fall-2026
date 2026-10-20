@@ -3,16 +3,16 @@
 The engine cannot reach the database; the Claude session can. The session saves
 database reads as JSON files under work/db/ (ArtifactData with out_dir), then:
 
-  uv run job-agent db config   -> work/config.json from work/db/
-  uv run job-agent db export   -> work/out/*.json plus work/out/writes.json, a ready batch
+  uv run jobagent db config   -> work/config.json from work/db/
+  uv run jobagent db export   -> work/out/*.json plus work/out/writes.json, a ready batch
                               for the session to write back with ArtifactData
-  uv run job-agent db progress <stage>
+  uv run jobagent db progress <stage>
                           -> work/out/progress.json, the live status the page shows while a
                               run works (stages: fetching, filtering, judging, saving, done, stopped)
-  uv run job-agent db config [manual]
+  uv run jobagent db config [manual]
                           -> the run is one the user started by hand (counted against its cap)
-  uv run job-agent db seed     -> first local run: work/db gets the starting agent and search from defaults/
-  uv run job-agent db apply    -> write work/out/writes.json (and the postings index) into work/db, the local database
+  uv run jobagent db seed     -> first local run: work/db gets the starting agent and search from defaults/
+  uv run jobagent db apply    -> write work/out/writes.json (and the postings index) into work/db, the local database
 """
 
 import json
@@ -207,7 +207,7 @@ def seed():
         localdb.write("searches/my-first-search", {**s, "updated": now})
         made.append("search my-first-search")
     if not localdb.read("meta/agent"):
-        localdb.write("meta/agent", {"trigger_id": "local", "name": "uv run job-agent run", "connected_at": now, "local": True})
+        localdb.write("meta/agent", {"trigger_id": "local", "name": "uv run jobagent run", "connected_at": now, "local": True})
         localdb.write("meta/setup_check", {"status": "ok", "finished_at": now, "local": True})
         made.append("local runner")
     print("seed: " + (", ".join(made) if made else "nothing to do, work/db already has an agent and a search"))

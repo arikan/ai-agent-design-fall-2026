@@ -1,6 +1,6 @@
 """Score a prepared batch with a model, on this computer.
 
-  uv run job-agent judge [--model <id>]     work/batch.json -> work/judgments.json
+  uv run jobagent judge [--model <id>]     work/batch.json -> work/judgments.json
 
 This is the one step that needs a model. In the cloud, the Claude session does it by reading
 work/batch.json itself. Here, the same text goes to whichever model `model.py` picks (default:

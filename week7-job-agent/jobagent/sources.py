@@ -1,9 +1,9 @@
 """Run job sources through their adapters.
 
-  uv run job-agent sources fetch   work/config.json   fetch every enabled source -> work/fetched/, work/fetch_health.json
-  uv run job-agent sources try     source.json [out]  run one source live and show a sample (for tests and repairs)
-  uv run job-agent sources test                       run every adapter against its saved responses, offline
-  uv run job-agent sources domains work/config.json   domains to allow in the cloud environment's network setting
+  uv run jobagent sources fetch   work/config.json   fetch every enabled source -> work/fetched/, work/fetch_health.json
+  uv run jobagent sources try     source.json [out]  run one source live and show a sample (for tests and repairs)
+  uv run jobagent sources test                       run every adapter against its saved responses, offline
+  uv run jobagent sources domains work/config.json   domains to allow in the cloud environment's network setting
 """
 
 import json

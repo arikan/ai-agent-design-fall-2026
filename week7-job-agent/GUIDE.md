@@ -4,7 +4,7 @@ Your Job Agent reads job boards every morning, keeps the posts that fit your pro
 
 ## 1. Set it up (15 minutes, once)
 
-Two ways, same page: on your computer with `uv run job-agent serve` ([Start on your computer](README.md#start-on-your-computer)), or in Claude's cloud so it runs every morning on its own ([Start in the cloud](README.md#start-in-the-cloud), paid plan needed).
+Two ways, same page: on your computer with `uv run jobagent serve` ([Start on your computer](README.md#start-on-your-computer)), or in Claude's cloud so it runs every morning on its own ([Start in the cloud](README.md#start-in-the-cloud), paid plan needed).
 
 For the cloud, the step people miss: your agent runs in a cloud computer that for safety can reach only a few sites. Before you send the setup message, set that computer's **Network access** to **Full** from the new session screen (the first small button under the message box). Claude checks it first thing and tells you if it isn't done.
 

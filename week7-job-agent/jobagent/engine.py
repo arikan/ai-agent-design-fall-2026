@@ -3,8 +3,8 @@
 The engine is the deterministic shell around the agent. It never calls a model.
 Claude (the scheduled session) does the judging between the two commands:
 
-  uv run job-agent engine prepare  config.json   -> work/batch.json   (what Claude must judge)
-  uv run job-agent engine finish   config.json   -> work/results.json (matches, run record, trace)
+  uv run jobagent engine prepare  config.json   -> work/batch.json   (what Claude must judge)
+  uv run jobagent engine finish   config.json   -> work/results.json (matches, run record, trace)
 
 Everything the engine decides is written to the trace, so a run can be read step by step.
 """
