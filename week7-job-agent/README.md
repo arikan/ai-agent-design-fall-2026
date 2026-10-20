@@ -1,10 +1,10 @@
 # Job Agent
 
-An agent that finds jobs for your CV and preferences. Every day it collects new postings from the job boards you choose, drops the ones your filters rule out, scores the rest against what matters to you, and shows the results on a web page where you judge them.
+An agent that finds jobs for your CV and preferences. Every day it collects new postings from the job boards you choose, drops the ones your filters rule out, scores the rest against what matters to you, and shows the results in your Job Agent artifact: a web page in your Claude account where you judge them.
 
 It runs two ways:
 
-- **In Claude's cloud**, once a day, even when your laptop is closed. You set it up and use it from the Job Agent page; no terminal needed. See [Run it in Claude's cloud](#run-it-in-claudes-cloud).
+- **In Claude's cloud**, once a day, even when your laptop is closed. You set it up and use it from the Job Agent artifact; no terminal needed. See [Run it in Claude's cloud](#run-it-in-claudes-cloud).
 - **On your own computer**, step by step, to see how it works or change it. See [Run it locally](#run-it-locally).
 
 ## Start here
@@ -16,8 +16,8 @@ It runs two ways:
 
    > Set up my Job Agent by following https://github.com/arikan/ai-agent-design-fall-2026/blob/main/week7-job-agent/SETUP.md
 
-3. Answer Claude's question about the roles, industries and location you're after. Claude creates your Job Agent page and its daily run, then links you to the page.
-4. On the page, follow the setup panel: allow the daily run to reach job sites (one network setting), then press **I've changed it, check my setup**.
+3. Answer Claude's question about the roles, industries and location you're after. Claude creates your Job Agent artifact and its daily run, then links you to the artifact.
+4. In the artifact, follow the setup panel: allow the daily run to reach job sites (one network setting), then press **I've changed it, check my setup**.
 5. When the light turns green, press **Start my agent**. Your first matches appear in a few minutes.
 
 Then read the [guide](GUIDE.md): what to do each day, how to change the agent, and an exercise.
@@ -37,7 +37,7 @@ Then read the [guide](GUIDE.md): what to do each day, how to change the agent, a
 | **Engine** (`engine.py`) | Deterministic code, never a model. Collects postings, removes duplicates, skips postings already seen, applies your filters and the limits, prepares the batch for judging, checks every judgment, and computes the weighted totals. |
 | **Claude** | The only step that needs judgment: scores each posting on each of your dimensions, 1 to 5 or unknown, with a reason and a quote from the posting as evidence. |
 | **Suggestions** (`suggest.py`) | On request, or after every run if turned on: code gathers your Good and Nope verdicts and which dimensions disagree with them, the model proposes up to three Profile changes, and code checks them (a weight change must raise agreement on your judged posts). You apply them or not on the Agent tab. |
-| **Job Agent page** | Where you set up searches (your CV and preferences), manage sources, judge matches, and read what every run did. |
+| **Job Agent artifact** | Where you set up searches (your CV and preferences), manage sources, judge matches, and read what every run did. |
 
 Everything the engine decides is written to a trace, so any match can be traced back to the postings, settings and versions that produced it.
 
@@ -96,21 +96,21 @@ uv run engine.py finish work/config.json
 
 `work/results.json` holds the ranked matches and the full run record. If any judgment was rejected, for example because its evidence isn't in the posting, the trace says why.
 
-Locally, nothing is written to the Job Agent page. That step needs a Claude session with access to your page, which the cloud run has.
+Locally, nothing is written to the Job Agent artifact. That step needs a Claude session with access to your artifact, which the cloud run has.
 
 ## Run it in Claude's cloud
 
 The daily run is a Claude Code scheduled task that clones this repository and follows [`RUN.md`](RUN.md). [Start here](#start-here) sets it up. After that:
 
-- The agent runs every morning, and new matches appear on the page.
+- The agent runs every morning, and new matches appear in your artifact.
 - **Run now** starts a run any time, up to the daily limit.
 - **Test** on a source runs just that source, so a new board can be checked before the next run.
-- Each run keeps the day's collected posts on the page. The Profile tab ranks them live as you edit, and shows which posts the next run would score. Ranking is code; only scoring needs the model.
+- Each run keeps the day's collected posts in the artifact. The Profile tab ranks them live as you edit, and shows which posts the next run would score. Ranking is code; only scoring needs the model.
 - Each run clones the repository fresh, so code changes reach the cloud on the next run.
 
 ## Make it yours
 
-Most changes need no code: your profile, rubrics, weights, boards and scoring instructions are all on the page, and each change is saved as a version.
+Most changes need no code: your profile, rubrics, weights, boards and scoring instructions are all in the artifact, and each change is saved as a version.
 
 To change the code:
 
@@ -118,13 +118,13 @@ To change the code:
 2. Change your fork: add an adapter, change the ranking in `engine.py`, or edit the steps in `RUN.md`. Run `uv run sources.py test` and the rank test below before you push.
 3. Point your daily run at your fork. In a Claude Code session, ask: *Change my "Job agent daily run" scheduled task to clone https://github.com/YOUR-NAME/ai-agent-design-fall-2026 instead.*
 
-From then on, your runs use your code and your page updates from your fork's `console.html`. Course updates no longer reach you on their own; use **Sync fork** on GitHub to pull them in.
+From then on, your runs use your code and your artifact updates from your fork's `console.html`. Course updates no longer reach you on their own; use **Sync fork** on GitHub to pull them in.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `uv run engine.py rank-fixture` then `node tests/rank_test.js` | Check that the page's in-browser ranking matches the engine's |
+| `uv run engine.py rank-fixture` then `node tests/rank_test.js` | Check that the artifact's in-browser ranking matches the engine's |
 | `uv run usage.py` | Token usage of the Claude session running it, from its transcript (each run records this) |
 | `uv run run.py prepare` / `finish` | The cloud run's two halves: everything before Claude scores, and everything after |
 | `uv run sources.py test` | Run every adapter against its saved responses, offline |
@@ -133,28 +133,28 @@ From then on, your runs use your code and your page updates from your fork's `co
 | `uv run sources.py domains <config.json>` | List the domains the enabled sources need |
 | `uv run engine.py prepare <config.json>` | Collect, filter and prepare `work/batch.json` |
 | `uv run engine.py finish <config.json>` | Check judgments, rank, write `work/results.json` |
-| `uv run dbio.py config` / `export` | Convert between the page's database and these files (used by the cloud run) |
+| `uv run dbio.py config` / `export` | Convert between the artifact's database and these files (used by the cloud run) |
 
 ## Sources and adapters
 
 Built in adapters: Greenhouse, Lever, Ashby, Workable, Getro (venture firm portfolio boards), JSON API, web page (CSS selectors), RSS. Two more types exist only as sources: the frozen corpus of 20 fictional postings for repeatable tests, and "check by hand" reminders for boards that block automated access.
 
-**Starting sources.** A new Job Agent page starts with the boards in `defaults/agent.json`: company boards in AI, crypto and fintech, venture firm portfolio boards, and a few check-by-hand reminders for sites without a public feed. Turn off the ones that don't fit your search on the Sources tab. To change what every new page starts with, edit that file.
+**Starting sources.** A new Job Agent artifact starts with the boards in `defaults/agent.json`: company boards in AI, crypto and fintech, venture firm portfolio boards, and a few check-by-hand reminders for sites without a public feed. Turn off the ones that don't fit your search on the Sources tab. To change what every new artifact starts with, edit that file.
 
-**When a source breaks**, the fix is usually in its settings, not code: new selectors for a web page, new field paths for a JSON API, a corrected board token. The page flags sources that fail or suddenly return nothing, and the daily run proposes fixes it has tested. You apply or discard them.
+**When a source breaks**, the fix is usually in its settings, not code: new selectors for a web page, new field paths for a JSON API, a corrected board token. The artifact flags sources that fail or suddenly return nothing, and the daily run proposes fixes it has tested. You apply or discard them.
 
-**To add an adapter type**, add a file in `adapters/` with a class that subclasses `BaseSource` and implements `fetch()` and `normalize()`, register it in `adapters/__init__.py`, and add a fixture in `adapters/fixtures/` so `sources.py test` covers it. The existing adapters are short and make good templates. On the page, a custom adapter can also be written as code for a single source.
+**To add an adapter type**, add a file in `adapters/` with a class that subclasses `BaseSource` and implements `fetch()` and `normalize()`, register it in `adapters/__init__.py`, and add a fixture in `adapters/fixtures/` so `sources.py test` covers it. The existing adapters are short and make good templates. In the artifact, a custom adapter can also be written as code for a single source.
 
 **Requests go only to a source's own domains.** The code checks this. In the cloud, the environment's network setting is the real limit.
 
 ## Limits
 
-Course limits live in `caps.json` and are enforced in code: the morning run always runs and you may start ten more a day by hand (a rolling 24 hours), three active searches, 1,000 postings read per source, 10,000 per run, 12 judged per search. Reading is cheap and done in code, so every fetched posting goes through your filters and the ranking; judging is what uses your plan, so that is the tight cap. The page can lower them, never raise them.
+Course limits live in `caps.json` and are enforced in code: the morning run always runs and you may start ten more a day by hand (a rolling 24 hours), three active searches, 1,000 postings read per source, 10,000 per run, 12 judged per search. Reading is cheap and done in code, so every fetched posting goes through your filters and the ranking; judging is what uses your plan, so that is the tight cap. The artifact can lower them, never raise them.
 
 ## Your data
 
-- Your CV file never leaves your computer. The page extracts its text in your browser, you edit what the agent may read, and only that text is saved.
-- Searches, matches, verdicts, run records and the latest day's collected postings live in the Job Agent page's database on Claude's servers, readable only by you. Nothing personal goes into this repository; `work/` is ignored by git.
+- Your CV file never leaves your computer. The artifact extracts its text in your browser, you edit what the agent may read, and only that text is saved.
+- Searches, matches, verdicts, run records and the latest day's collected postings live in the Job Agent artifact's database on Claude's servers, readable only by you. Nothing personal goes into this repository; `work/` is ignored by git.
 
 ## Known limits
 

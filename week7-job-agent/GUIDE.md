@@ -10,7 +10,7 @@ The step people miss: in the setup session, set **Network access** to **Full**. 
 
 ## 2. Use it every day (5 minutes)
 
-1. Open your Job Agent page. New posts are under **Matches**, **To review**.
+1. Open your Job Agent artifact. New posts are under **Matches**, **To review**.
 2. Mark each one **Good** or **Nope**, and pick the main reason.
 3. Read one post's score explanation (click its scores) and ask: would I have scored it that way?
 
@@ -50,6 +50,6 @@ Note what you applied, what you dismissed, agreement before and after, and one t
 
 ## Good to know
 
-- Your CV text and judgments are stored on your page, visible only to you.
+- Your CV text and judgments are stored in your artifact, visible only to you.
 - Each run uses your Claude plan. You can start up to 10 runs a day by hand; the morning run is extra.
 - Some boards give little to read. Posts from portfolio boards (Getro) have no description, so many scores come back "unknown".

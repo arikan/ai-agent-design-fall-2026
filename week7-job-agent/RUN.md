@@ -1,21 +1,21 @@
 # Job agent run
 
-The instructions a scheduled task follows on every run. Each run starts a fresh Claude session in the cloud with no memory of earlier runs. Everything it needs is in the user's console database and in this folder.
+The instructions a scheduled task follows on every run. Each run starts a fresh Claude session in the cloud with no memory of earlier runs. Everything it needs is in the user's Job Agent artifact's database and in this folder.
 
-Fill in before scheduling: `CONSOLE_URL` is the user's console link.
+Fill in before scheduling: `CONSOLE_URL` is the link to the user's Job Agent artifact.
 
-The repo is the source of truth for code and for the console page. The published page is a copy of `console.html`; step 9 keeps it current.
+The repo is the source of truth for code and for the Job Agent artifact. The published artifact is a copy of `console.html`; step 9 keeps it current.
 
 ## Setup, once
 
-Done once from the console's setup panel: it creates the scheduled task, asks for one network change, and checks the result.
+Done once from the artifact's setup panel: it creates the scheduled task, asks for one network change, and checks the result.
 
-1. The scheduled task's cloud environment needs **Network access** set to **Full**, so job sites are reachable without listing domains. For tighter containment, use **Custom** with the domains the console lists under Sources instead.
+1. The scheduled task's cloud environment needs **Network access** set to **Full**, so job sites are reachable without listing domains. For tighter containment, use **Custom** with the domains the artifact lists under Sources instead.
 2. Commands below run through `uv run`. If the environment has no `uv`, install it first with `pip install uv`; it installs the one dependency (beautifulsoup4) from `pyproject.toml`.
 
 ## Steps
 
-A run should take few turns: do independent tool calls in the same turn, and never read the files under `work/db` or `work/out` into the conversation; pass them by path. The page shows progress from `meta` / `progress`.
+A run should take few turns: do independent tool calls in the same turn, and never read the files under `work/db` or `work/out` into the conversation; pass them by path. The artifact shows progress from `meta` / `progress`.
 
 1. **Decide what this run is.** Read `meta` / `request` with ArtifactData. If it exists, its `status` is `"pending"`, and its `requested_at` is less than 30 minutes old:
    - `kind: "check"`: follow "Check setup" below instead of these steps.
@@ -33,10 +33,10 @@ A run should take few turns: do independent tool calls in the same turn, and nev
 7. **Write back**, in one turn:
    - `work/out/writes.json` with ArtifactData `batch` (at most 50 writes per call; pass each entry as it is, with its `file_path` and, for a rescored match or a cleared rescore request, its `if_version`)
    - `meta` / `progress` from `work/out/progress.json` (with the version you kept)
-   - `meta` / `postings` from `work/out/postings-index.json`, if that file exists (with the version from step 3): it points the page at the day's collected postings, which `writes.json` already carried
+   - `meta` / `postings` from `work/out/postings-index.json`, if that file exists (with the version from step 3): it points the artifact at the day's collected postings, which `writes.json` already carried
    - if this run came from a request, `meta` / `request` `status` `"done"`
-8. **Repair** (skip when every source in the fetch output is `ok`, or the failure is a network block, which you report instead): for a source that failed or returned nothing, look at its API or page with a web fetch, work out the smallest settings change that fixes it (board token, selectors, field paths; code only for a custom adapter), write it as JSON under `work/` (which git ignores, so the run leaves the repository clean) and test it with `uv run sources.py try <file>`. If it returns postings, write a proposal to the console database with ArtifactData (not a file): collection `proposals`, document id `<source id with characters other than letters, digits, dot, dash and underscore replaced by _>`, with `source_id`, `source` (the full changed source), `reason` (one sentence), `before` and `after` (each `status` and `kept`), `sample` (up to three titles), `at`. Never change the agent settings yourself.
-9. **Sync the page** (last, so matches appear first): if `sha256sum console.html` differs from the `sha256` in `meta` / `console` (read in step 3), republish `console.html` to `CONSOLE_URL` with the Artifact tool (pass `url`; omit `capabilities` and `icon`), then write `meta` / `console` with `sha256`, `commit` (`git log -1 --format=%h -- console.html`) and `published_at`. If the republish asks for approval or fails, skip it.
+8. **Repair** (skip when every source in the fetch output is `ok`, or the failure is a network block, which you report instead): for a source that failed or returned nothing, look at its API or page with a web fetch, work out the smallest settings change that fixes it (board token, selectors, field paths; code only for a custom adapter), write it as JSON under `work/` (which git ignores, so the run leaves the repository clean) and test it with `uv run sources.py try <file>`. If it returns postings, write a proposal to the artifact's database with ArtifactData (not a file): collection `proposals`, document id `<source id with characters other than letters, digits, dot, dash and underscore replaced by _>`, with `source_id`, `source` (the full changed source), `reason` (one sentence), `before` and `after` (each `status` and `kept`), `sample` (up to three titles), `at`. Never change the agent settings yourself.
+9. **Sync the artifact** (last, so matches appear first): if `sha256sum console.html` differs from the `sha256` in `meta` / `console` (read in step 3), republish `console.html` to `CONSOLE_URL` with the Artifact tool (pass `url`; omit `capabilities` and `icon`), then write `meta` / `console` with `sha256`, `commit` (`git log -1 --format=%h -- console.html`) and `published_at`. If the republish asks for approval or fails, skip it.
 10. **Suggest**, only if `agent` / `current` has `settings.suggest_after_run` set to true: do steps 3 to 5 of "Suggest changes" (the database is already read).
 11. **Report** in four lines: stage times from steps 4 and 6, new matches, judgments rejected, sources failing (and proposals written).
 
@@ -72,7 +72,7 @@ A test run never judges, never writes matches or runs, and does not count toward
 When step 0 finds a pending `check` request, the user pressed Check setup. Do only this, then stop:
 
 1. Get the engine as in step 2.
-2. Read `meta` / `setup_check` with ArtifactData to get its version. This read also proves the run can reach the console.
+2. Read `meta` / `setup_check` with ArtifactData to get its version. This read also proves the run can reach the artifact.
 3. Write `{"id": "check:greenhouse", "adapter": "greenhouse", "cap": 3, "config": {"board_token": "anthropic", "company_name": "Anthropic"}}` to `work/check.json` and run `uv run sources.py try work/check.json work/check-result.json`.
 4. Set `meta` / `setup_check` to `status` (`"ok"` if the check kept at least one posting, `"network_blocked"` if its health says `blocked_by_network`, otherwise `"failed"`), `error` (the health error, if any), `requested_at` (kept from the document you read), and `finished_at`, passing the version from step 2.
 5. Set `meta` / `request` `status` to `"done"` and report in one line: the status.

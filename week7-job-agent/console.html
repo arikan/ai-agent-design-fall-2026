@@ -1241,14 +1241,14 @@ const safeId = id => id.replace(/[^A-Za-z0-9_.-]+/g, "_");
 /* ---------- testing one source ---------- */
 const RUNNER = "Claude Code Remote";
 const MCP_HELP = {
-  server_not_connected: "Starting runs from this page needs Claude Code connected to your account. Open Claude Code on the web once, then reload this page.",
-  selection_required: "Choose which Claude Code connection this page should use when claude.ai asks, then try again.",
+  server_not_connected: "Starting runs from this artifact needs Claude Code connected to your account. Open Claude Code on the web once, then reload this page.",
+  selection_required: "Choose which Claude Code connection this artifact should use when claude.ai asks, then try again.",
   needs_reauth: "Your Claude Code connection needs signing in again. Open Claude Code on the web, then try again.",
-  approval_required: "This page needs your permission to start your scheduled task. Press the button again and choose Allow.",
-  not_in_manifest: "Starting runs is turned off for this page. Turn it back on in the page's Permissions menu.",
-  blocked_by_policy: "Your organization's settings don't allow this page to start scheduled tasks.",
-  not_granted: "Starting runs isn't available in this view of the page.",
-  capability_disabled: "Starting runs isn't available in this view of the page."
+  approval_required: "This artifact needs your permission to start your scheduled task. Press the button again and choose Allow.",
+  not_in_manifest: "Starting runs is turned off for this artifact. Turn it back on in the artifact's Permissions menu.",
+  blocked_by_policy: "Your organization's settings don't allow this artifact to start scheduled tasks.",
+  not_granted: "Starting runs isn't available in this view of the artifact.",
+  capability_disabled: "Starting runs isn't available in this view of the artifact."
 };
 const mcpMessage = e => MCP_HELP[e?.code] || (e?.code === "tool_error" ? "The scheduled task refused: " + (e.message || "") : "Could not reach your scheduled task right now (" + (e?.code || "error") + "). Try again in a minute.");
 let MCP = null; (async () => { MCP = await window.claude?.use?.("mcp"); })();
