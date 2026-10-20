@@ -87,7 +87,10 @@ def list_docs(path):
 
 
 def rev():
-    return _rev[0]
+    """Changes made by this process, plus the newest file time, so a run in another process
+    (cron, or `job-agent run` in a terminal) also shows up on an open page."""
+    newest = max((p.stat().st_mtime_ns for p in DB.rglob("*.json")), default=0) if DB.exists() else 0
+    return f"{_rev[0]}-{newest}-{sum(1 for _ in DB.rglob('*.json')) if DB.exists() else 0}"
 
 
 def bump():
