@@ -75,6 +75,8 @@ def by_model(url, html, model=None, log=print):
     system = ("You set up a job-board reader. Given a careers page's HTML, answer with JSON only: "
               '{"selectors": {"job_card": "<css>", "title": "<css>", "location": "<css or empty>", "company": "<css or empty>", "link": "<css, default a>"}, '
               '"detail_text": "<css on each job page for its description, or empty>", "company_name": "<name>", "note": "<one line: what the page is>"} '
+              "or, if this page only links to the real job list (a careers landing page), "
+              '{"follow": "<that link, as written in the HTML>"}; '
               "or, if the page shows no job listings in its HTML (they load with JavaScript, or it is a search form), "
               '{"impossible": "<one plain sentence why, and where the jobs really come from if you can tell>"}. '
               "Selectors are CSS, for BeautifulSoup. job_card matches one element per job; title and the others are searched inside it.")
@@ -91,6 +93,8 @@ def by_model(url, html, model=None, log=print):
             continue
         if ans.get("impossible"):
             return None, ans["impossible"], tried
+        if ans.get("follow"):
+            return None, {"follow": urljoin(url, ans["follow"])}, tried
         sel = ans.get("selectors") or {}
         src = {"id": f"html:{urlparse(url).hostname}", "adapter": "html_scraper", "enabled": True, "category": "", "cap": 1000,
                "note": (ans.get("note") or "")[:160],
@@ -105,7 +109,7 @@ def by_model(url, html, model=None, log=print):
     return None, "no selectors found that read this page", tried
 
 
-def figure(url, model=None, log=print):
+def figure(url, model=None, log=print, hops=0):
     result = {"url": url, "source": None, "how": None, "tried": []}
     try:
         html = fetch_page(url)
@@ -132,6 +136,15 @@ def figure(url, model=None, log=print):
         result["how"] = f"the model step failed: {e}"[:300]
         return result
     result["tried"] += tried
+    if isinstance(how, dict) and how.get("follow"):       # a landing page that links to the list: go there, once
+        nxt = how["follow"]
+        if hops < 1 and nxt != url:
+            log(f"figure: {url} only links to the jobs; following {nxt}")
+            inner = figure(nxt, model, log, hops + 1)
+            inner["tried"] = result["tried"] + inner["tried"]
+            inner["from"] = url
+            return inner
+        how = "this page only links to the job list; paste the list's own address"
     result.update(source=src, how=how)
     return result
 
