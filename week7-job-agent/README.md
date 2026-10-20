@@ -1,15 +1,15 @@
 # Job Agent
 
-An agent that finds jobs for you, while improving itself with your feedback.
+An AI agent that finds jobs for you and improves itself with your guidance.
 
-It takes your CV and preferences as a profile, and periodically collects new postings from job boards. It filters and scores them, and shows the best matches in your Job Agent artifact, a web page in your Claude account.
+It takes your CV and preferences as a profile, and periodically collects new postings from job boards. It filters and scores them, and shows the best matches.
 
 It is a self-improving agent with your feedback. You mark the matching job posts as Good or Nope, and these verdicts measure how well it agrees with you. Then it suggests changes to what it reads: your rubrics, weights, roles and keywords. Each suggestion you accept is saved as a new version and used from the next run, so you can see whether it helped.
 
 It runs two ways:
 
-- **In Claude's cloud**, once a day, even when your laptop is closed. You set it up and use it from the Job Agent artifact; no terminal needed. See [Run it in Claude's cloud](#run-it-in-claudes-cloud).
-- **On your own computer**, step by step, to see how it works or change it. See [Run it locally](#run-it-locally).
+- **In Claude's cloud**, once a day, even when your laptop is closed. You set it up and use it from the Job Agent artifact.  [Run it in Claude's cloud](#run-it-in-claudes-cloud).
+- **On your own computer**, step by step, to see how it works or change it. [Run it locally](#run-it-locally).
 
 ## Start here
 
