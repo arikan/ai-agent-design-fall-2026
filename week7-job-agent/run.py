@@ -1,7 +1,7 @@
 """One command per half of a run, so the cloud session spends its turns only where Claude is needed.
 
   uv run run.py prepare [manual]   work/db/ -> config, fetch, filter, rank -> work/batch.json, progress "judging"
-                                   (`manual` marks a run the student started by hand; those are capped)
+                                   (`manual` marks a run the user started by hand; those are capped)
   uv run run.py finish [--model <id>]
                                    work/judgments.json -> check, rank -> work/out/writes.json, progress "done"
                                    (`--model` records which model did the scoring, on the run and its matches)

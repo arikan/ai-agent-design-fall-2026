@@ -14,7 +14,7 @@ import ssl
 import urllib.parse
 import urllib.request
 
-USER_AGENT = "CourseJobAgent/0.1 (Parsons student project; contact via course repo)"
+USER_AGENT = "CourseJobAgent/0.1 (course project; contact via github.com/arikan/ai-agent-design-fall-2026)"
 
 
 class BlockedDomain(Exception):

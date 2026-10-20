@@ -155,7 +155,7 @@ def judge_text(p):
 
 def prompt_sample(batch, judgments, matches):
     """One real example of what Claude read and answered this run, in labeled parts, for the
-    Agent tab: the run's own instruction, the agent's, the student's, the post, and the answer."""
+    Agent tab: the run's own instruction, the agent's, the user's, the post, and the answer."""
     if not matches:
         return None
     m = matches[0]
@@ -220,7 +220,7 @@ def rank_fixture():
 
 
 def drop_detail(p, reason, db):
-    """The reason in words a student can check against the posting and their settings."""
+    """The reason in words a user can check against the posting and their settings."""
     money = lambda n: f"${n:,.0f}"
     if reason == "location not in list":
         return f"Location {p.get('location') or 'not given'} matches none of {', '.join(db.get('locations_any', []))}, in the location or the title, and it isn't marked remote"
@@ -281,17 +281,17 @@ def keyword_hits(keywords, p):
     return score / (2 * len(keywords))
 
 
-# Which of the student's lists informs which dimension. The matcher sees each list
+# Which of the user's lists informs which dimension. The matcher sees each list
 # next to the dimension it belongs to, so a score can be traced to what it used.
 DIMENSION_INPUTS = {
-    "role": ("target_roles", "The student's target roles"),
-    "industry": ("industries", "The student's target industries"),
-    "background": ("keywords", "The student's background keywords"),
+    "role": ("target_roles", "The user's target roles"),
+    "industry": ("industries", "The user's target industries"),
+    "background": ("keywords", "The user's background keywords"),
 }
 
 
 def with_inputs(search):
-    """The search's dimensions, each with the student's own input that applies to it."""
+    """The search's dimensions, each with the user's own input that applies to it."""
     out = []
     for d in search["preferences"]["dimensions"]:
         d = dict(d)
@@ -305,7 +305,7 @@ def with_inputs(search):
             pay = [f"target {db['min_pay']:,.0f} {cur} (a bit below can still fit)" if db.get("min_pay") else "",
                    f"preferred {db['preferred_pay']:,.0f} {cur}" if db.get("preferred_pay") else ""]
             if any(pay):
-                parts.append(f"The student's total compensation targets: {', '.join(x for x in pay if x)} a year.")
+                parts.append(f"The user's total compensation targets: {', '.join(x for x in pay if x)} a year.")
         if d["key"] == "background":
             parts.append("Compare them, and the CV text if there is one, with the posting's requirements."
                          if (search.get("cv_text") or "").strip() or search.get("keywords")

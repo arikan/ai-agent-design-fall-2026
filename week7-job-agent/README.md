@@ -14,13 +14,13 @@ It runs two ways:
 1. Open [Claude Code](https://claude.ai/code) and start a new session.
 2. Send this prompt:
 
-   > Set up my Job Agent by following week7-job-agent/SETUP.md in https://github.com/arikan/ai-agent-design-fall-2026
+   > Set up my Job Agent by following https://github.com/arikan/ai-agent-design-fall-2026/blob/main/week7-job-agent/SETUP.md
 
 3. Answer Claude's question about the roles, industries and location you're after. Claude creates your Job Agent page and its daily run, then links you to the page.
 4. On the page, follow the setup panel: allow the daily run to reach job sites (one network setting), then press **I've changed it, check my setup**.
 5. When the light turns green, press **Start my agent**. Your first matches appear in a few minutes.
 
-Then read the [student guide](GUIDE.md): what to do each day, three exercises, and how to change the agent.
+Then read the [guide](GUIDE.md): what to do each day, how to change the agent, and an exercise.
 
 ## How it works
 
@@ -139,7 +139,7 @@ From then on, your runs use your code and your page updates from your fork's `co
 
 Built in adapters: Greenhouse, Lever, Ashby, Workable, Getro (venture firm portfolio boards), JSON API, web page (CSS selectors), RSS. Two more types exist only as sources: the frozen corpus of 20 fictional postings for repeatable tests, and "check by hand" reminders for boards that block automated access.
 
-**Starting sources.** A new Job Agent page starts with the boards in `defaults/agent.json`: company boards in AI, crypto and fintech, venture firm portfolio boards, and a few check-by-hand reminders for sites without a public feed. Turn off the ones that don't fit your search on the Sources tab. To change what every new student starts with, edit that file.
+**Starting sources.** A new Job Agent page starts with the boards in `defaults/agent.json`: company boards in AI, crypto and fintech, venture firm portfolio boards, and a few check-by-hand reminders for sites without a public feed. Turn off the ones that don't fit your search on the Sources tab. To change what every new page starts with, edit that file.
 
 **When a source breaks**, the fix is usually in its settings, not code: new selectors for a web page, new field paths for a JSON API, a corrected board token. The page flags sources that fail or suddenly return nothing, and the daily run proposes fixes it has tested. You apply or discard them.
 
@@ -149,7 +149,7 @@ Built in adapters: Greenhouse, Lever, Ashby, Workable, Getro (venture firm portf
 
 ## Limits
 
-Course limits live in `caps.json` and are enforced in code: the morning run always runs and the student may start ten more a day by hand (a rolling 24 hours), three active searches, 1,000 postings read per source, 10,000 per run, 12 judged per search. Reading is cheap and done in code, so every fetched posting goes through your filters and the ranking; judging is what uses your plan, so that is the tight cap. The page can lower them, never raise them.
+Course limits live in `caps.json` and are enforced in code: the morning run always runs and you may start ten more a day by hand (a rolling 24 hours), three active searches, 1,000 postings read per source, 10,000 per run, 12 judged per search. Reading is cheap and done in code, so every fetched posting goes through your filters and the ranking; judging is what uses your plan, so that is the tight cap. The page can lower them, never raise them.
 
 ## Your data
 
@@ -168,8 +168,8 @@ Course limits live in `caps.json` and are enforced in code: the morning run alwa
 week7-job-agent/
 ├── README.md            this file
 ├── RUN.md               what the cloud run follows, step by step
-├── SETUP.md             what Claude follows to set up a student's page and daily run
-├── GUIDE.md             the student guide: daily use, exercises, changing the agent
+├── SETUP.md             what Claude follows to set up a Job Agent page and daily run
+├── GUIDE.md             the guide: daily use, changing the agent, an exercise
 ├── console.html         the Job Agent page
 ├── engine.py            collect, filter, prepare, check, rank
 ├── sources.py           run sources through adapters

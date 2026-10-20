@@ -1,7 +1,7 @@
-"""Suggested Profile changes, from the student's Good and Nope verdicts.
+"""Suggested Profile changes, from the user's Good and Nope verdicts.
 
 Code gathers the evidence and checks the answer; the model only proposes. Nothing here
-changes a search: the page shows each suggestion, and the student applies it or not.
+changes a search: the page shows each suggestion, and the user applies it or not.
 
   uv run suggest.py prepare            work/db/ -> work/suggest.json (evidence, instructions, answer format)
   uv run suggest.py finish [--model <id>]
@@ -92,7 +92,7 @@ def prepare():
         for m, j in sorted(rows, key=miss, reverse=True)[:MAX_POSTS]:
             posts.append({"match_id": m["id"], "title": m["title"], "company": m["company"], "location": m.get("location"),
                           "industry": m.get("industry"), "total": m["total"], "verdict": "Good" if j["verdict"] == "accept" else "Nope",
-                          "student_reason": dim_names.get(j.get("main_dimension"), j.get("main_dimension")), "student_note": j.get("reason") or "",
+                          "your_reason": dim_names.get(j.get("main_dimension"), j.get("main_dimension")), "your_note": j.get("reason") or "",
                           "scores": {k: {"score": v.get("score"), "reason": v.get("reason")} for k, v in (m.get("scores") or {}).items()}})
         out.append({"search_id": sid, "prefs_version": s.get("prefs_version"),
                     "agreement": pairs_agree([m["total"] for m in good], [m["total"] for m in nope]),
@@ -105,12 +105,12 @@ def prepare():
         "matcher_instructions": agent.get("matcher_instructions", ""),
         "instructions": (
             f"For each search, propose at most {MAX_PER_SEARCH} changes to its Profile that would make the agent's scores agree better "
-            "with the student's verdicts. Agreement is how often a Good post scores above a Nope post. Use `by_dimension` to see which "
+            "with the user's verdicts. Agreement is how often a Good post scores above a Nope post. Use `by_dimension` to see which "
             "dimensions mislead (agreement under 50% means that dimension rates Nope posts higher than Good ones) and `posts` for the cases. "
             "Allowed targets: `weights` (a full map of every dimension key to a whole number, adding up to 100), `rubric:<dimension key>` "
             "(the new rubric text), `target_roles`, `keywords` or `industries` (the full new list). Never propose changes to filters such as "
-            "locations or pay; those are the student's rules. Prefer the smallest change that fixes a pattern seen in two or more posts. "
-            "Write `why` as one plain sentence to the student, naming the posts' pattern, not the statistic. Cite the posts in `posts` by match_id. "
+            "locations or pay; those are the user's rules. Prefer the smallest change that fixes a pattern seen in two or more posts. "
+            "Write `why` as one plain sentence to the user, naming the posts' pattern, not the statistic. Cite the posts in `posts` by match_id. "
             "Weight changes are checked in code on the same judged posts and dropped unless they raise agreement. "
             "If nothing would clearly help, return no suggestions for that search."),
         "searches": out,

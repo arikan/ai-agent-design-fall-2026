@@ -1,14 +1,14 @@
 # Job agent run
 
-The instructions a scheduled task follows on every run. Each run starts a fresh Claude session in the cloud with no memory of earlier runs. Everything it needs is in the student's console database and in this folder.
+The instructions a scheduled task follows on every run. Each run starts a fresh Claude session in the cloud with no memory of earlier runs. Everything it needs is in the user's console database and in this folder.
 
-Fill in before scheduling: `CONSOLE_URL` is the student's console link.
+Fill in before scheduling: `CONSOLE_URL` is the user's console link.
 
 The repo is the source of truth for code and for the console page. The published page is a copy of `console.html`; step 9 keeps it current.
 
-## Setup, once per student
+## Setup, once
 
-Students do this from the console's setup panel: it creates the scheduled task, asks for one network change, and checks the result.
+Done once from the console's setup panel: it creates the scheduled task, asks for one network change, and checks the result.
 
 1. The scheduled task's cloud environment needs **Network access** set to **Full**, so job sites are reachable without listing domains. For tighter containment, use **Custom** with the domains the console lists under Sources instead.
 2. Commands below run through `uv run`. If the environment has no `uv`, install it first with `pip install uv`; it installs the one dependency (beautifulsoup4) from `pyproject.toml`.
@@ -21,11 +21,11 @@ A run should take few turns: do independent tool calls in the same turn, and nev
    - `kind: "check"`: follow "Check setup" below instead of these steps.
    - `kind: "test"`: follow "Test one source" below for its `source_id`.
    - `kind: "suggest"`: follow "Suggest changes" below.
-   - `kind: "run"`: the student asked for a run now; continue.
+   - `kind: "run"`: the user asked for a run now; continue.
    Set its `status` to `"started"` (pass the version you read). Otherwise this is the daily run; continue. An extra message `TEST_SOURCE <id>` or `CHECK_SETUP` means the same as a request of that kind.
 2. **Get the engine.** In one command: shallow clone the course repo, `cd` into `week7-job-agent`, and run `pip install -q uv` if `uv` is missing.
-3. **Read the database**, all in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `runs` (list), `matches` (list), `judgments` (list), `rescore` (list; postings the student asked to score again), `meta` / `progress`, `meta` / `console` and `meta` / `postings` (get; any may not exist).
-4. **Collect, filter and rank:** `uv run run.py prepare`, or `uv run run.py prepare manual` when step 1 found a `run` request (the student pressed Run now; those runs are capped at a few a day, the morning run is not). It prints how long each stage took.
+3. **Read the database**, all in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `runs` (list), `matches` (list), `judgments` (list), `rescore` (list; postings the user asked to score again), `meta` / `progress`, `meta` / `console` and `meta` / `postings` (get; any may not exist).
+4. **Collect, filter and rank:** `uv run run.py prepare`, or `uv run run.py prepare manual` when step 1 found a `run` request (the user pressed Run now; those runs are capped at a few a day, the morning run is not). It prints how long each stage took.
    - If it says the run stopped on the course cap, go to step 7.
    - Otherwise set `meta` / `progress` from `work/out/progress.json` (`file_path`, with the version from step 3; keep the version the write returns).
 5. **Judge** `work/batch.json`: follow its `matcher_instructions` and each search's dimension rubrics. For every item and every dimension give a score from 1 to 5 or `"unknown"`, a one sentence reason, and evidence copied exactly from the posting's `text`. Keep reasons short. Write the list to `work/judgments.json` in the batch's `answer_format`, in one file write. The engine rejects any score whose evidence is not in the text.
@@ -42,12 +42,12 @@ A run should take few turns: do independent tool calls in the same turn, and nev
 
 ## Suggest changes
 
-When step 1 finds a pending `suggest` request, the student asked for suggestions. Do only this, then stop:
+When step 1 finds a pending `suggest` request, the user asked for suggestions. Do only this, then stop:
 
 1. Get the engine as in step 2.
 2. Read, in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `matches` (list), `judgments` (list).
 3. `uv run suggest.py prepare`. If it says there is nothing to suggest, skip to step 6.
-4. Read `work/suggest.json` and follow its `instructions`: propose changes to the student's Profile that would make the agent's scores agree better with their Good and Nope verdicts. Write `work/suggestions.json` in its `answer_format`, in one file write. These are proposals only; never change a search yourself.
+4. Read `work/suggest.json` and follow its `instructions`: propose changes to the user's Profile that would make the agent's scores agree better with their Good and Nope verdicts. Write `work/suggestions.json` in its `answer_format`, in one file write. These are proposals only; never change a search yourself.
 5. `uv run suggest.py finish --model <id>` (your model, as in step 6 above). Write `work/out/suggestion.json` with ArtifactData `set` to collection `suggestions` under the document id it prints.
 6. Set `meta` / `request` `status` to `"done"` and report in one line: suggestions written and rejected.
 
@@ -55,7 +55,7 @@ A suggestion request never collects or scores posts, and does not count toward t
 
 ## Test one source
 
-When step 0 finds a pending `test` request, the student pressed Test on that source. Do only this, then stop:
+When step 0 finds a pending `test` request, the user pressed Test on that source. Do only this, then stop:
 
 1. Get the engine as in step 2.
 2. Read `agent` / `current` with ArtifactData. Find the source whose `id` equals the request's `source_id`.
@@ -69,7 +69,7 @@ A test run never judges, never writes matches or runs, and does not count toward
 
 ## Check setup
 
-When step 0 finds a pending `check` request, the student pressed Check setup. Do only this, then stop:
+When step 0 finds a pending `check` request, the user pressed Check setup. Do only this, then stop:
 
 1. Get the engine as in step 2.
 2. Read `meta` / `setup_check` with ArtifactData to get its version. This read also proves the run can reach the console.
@@ -79,7 +79,7 @@ When step 0 finds a pending `check` request, the student pressed Check setup. Do
 
 ## What the session must not do
 
-- Change searches, preferences, agent settings or judgments. Those belong to the student; suggestions are written for the student to apply or not.
+- Change searches, preferences, agent settings or judgments. Those belong to the user; suggestions are written for the user to apply or not.
 - Change the repository. Code changes go through pull requests, never from a run.
 - Raise any limit. Caps live in `caps.json` and the engine applies them.
 - Fetch any site outside the sources' own domains.

@@ -10,7 +10,7 @@ database reads as JSON files under work/db/ (ArtifactData with out_dir), then:
                           -> work/out/progress.json, the live status the page shows while a
                               run works (stages: fetching, filtering, judging, saving, done, stopped)
   uv run dbio.py config [manual]
-                          -> the run is one the student started by hand (counted against its cap)
+                          -> the run is one the user started by hand (counted against its cap)
 """
 
 import json
@@ -34,7 +34,7 @@ def config(trigger="scheduled"):
         s = body(p)
         s["id"] = p.stem
         searches.append(s)
-    # Runs the student started by hand in the last 24 hours. A rolling day, not a calendar day,
+    # Runs the user started by hand in the last 24 hours. A rolling day, not a calendar day,
     # so it means the same thing in every time zone. The scheduled morning run is never counted.
     since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
     manual = sorted(body(p).get("started", "") for p in (db / "runs").glob("*.json")
@@ -47,7 +47,7 @@ def config(trigger="scheduled"):
         m = body(p)
         seen.setdefault(m["search_id"], []).append(m["posting_id"])
     # Rescore requests (collection `rescore`, made from the page): score these postings again this run,
-    # whatever their rank, and replace their match. The student's verdict stays in `judgments`.
+    # whatever their rank, and replace their match. The user's verdict stays in `judgments`.
     rescore = {}
     for p in sorted((db / "rescore").glob("*.json")) if (db / "rescore").exists() else []:
         q = body(p)

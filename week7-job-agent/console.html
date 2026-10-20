@@ -1360,7 +1360,7 @@ const TASK_NAME = "Job agent daily run";
 S.setup = {copied:false, netDone:false, checkAt:null, checkError:"", open:null, changing:false, tasks:null, tasksError:""};
 function taskPrompt(){
   const url = S.app?.console_url || "(this console's link)";
-  return `You run a student's job agent. Clone ${COURSE_REPO} (a shallow clone is enough) and work in its week7-job-agent folder. Follow week7-job-agent/RUN.md exactly, starting at "Steps".
+  return `You run a person's job agent. Clone ${COURSE_REPO} (a shallow clone is enough) and work in its week7-job-agent folder. Follow week7-job-agent/RUN.md exactly, starting at "Steps".
 CONSOLE_URL is ${url}
 If this run includes a message or fire payload of the exact form "TEST_SOURCE <source id>" or "CHECK_SETUP", follow the matching section of RUN.md ("Test one source" or "Check setup") instead of "Steps".
 Do not commit or push anything. If a step fails, stop, and report which step failed and the error, in two lines.`;

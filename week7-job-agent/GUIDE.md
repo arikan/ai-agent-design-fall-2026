@@ -1,4 +1,4 @@
-# Your Job Agent: a student guide
+# Using your Job Agent
 
 Your Job Agent reads job boards every morning, keeps the posts that fit your profile, and asks a model to score the best few. You judge the results. Over a week, your judgments show how good the agent is, and the agent suggests what to change.
 
@@ -39,14 +39,14 @@ Everything the agent reads is yours to change. Each change is saved as a new ver
 5. **Edit the model's instructions.** Agent tab, Settings: change the scoring instructions or how many posts are scored per run.
 6. **Change the code.** Fork the repository and point your daily run at your fork. See [Make it yours](README.md#make-it-yours).
 
-## 5. Exercise: improve your agent with its suggestions
+## 5. Try it: improve your agent with its suggestions
 
 1. **Judge at least 10 posts**, with both Good and Nope among them. Under Agent → Feedback, write down your agreement.
 2. **Press Suggest changes.** The model reads where you and the agent disagree and proposes up to three changes to your profile. Apply the ones you agree with and dismiss the rest. Write one line on each: why you applied or dismissed it.
 3. **Run again** (Run now, or wait for the morning run), then **judge at least 5 new posts**, again with both Good and Nope.
 4. **Compare.** "By version" shows agreement for the posts scored before and after your change. Did it go up? Is that enough posts to tell?
 
-Write a few lines: what you applied, what you dismissed, agreement before and after, and one thing the suggestions missed.
+Note what you applied, what you dismissed, agreement before and after, and one thing the suggestions missed.
 
 ## Good to know
 

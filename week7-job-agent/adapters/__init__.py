@@ -1,6 +1,6 @@
 """Adapter registry. A source names its adapter; this maps names to code.
 
-Built in types live in this folder. A student's own adapter arrives as code
+Built in types live in this folder. A user's own adapter arrives as code
 text in the source's config (adapter "custom"): it must define a class named
 Adapter that subclasses BaseSource, and declare its domains in config.
 """
