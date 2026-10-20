@@ -46,7 +46,16 @@ It opens http://localhost:8765, your Job Agent, with the course's 41 job boards 
 2. **Run now.** The agent collects posts from every board, filters and ranks them, and the model scores the best few. The terminal shows the log; matches appear when it finishes.
 3. **Judge** them Good or Nope. Then **Agent → Suggest changes**, apply what you agree with, and run again.
 
-Everything is saved in `work/db` in this folder, as plain JSON files. Nothing leaves your computer except requests to job boards and to the model. To start over, stop the server, delete `work/db`, and start it again.
+Everything is saved in `work/db` in this folder, as plain JSON files. Nothing leaves your computer except requests to job boards and to the model.
+
+**Start over.** Stop the server (Ctrl-C), delete the `work` folder, and start it again. The next start seeds a fresh database from `defaults/`: the 41 boards and the starting profile. Git ignores `work`, so nothing else changes.
+
+```bash
+rm -rf work
+uv run serve.py
+```
+
+To keep your profile and verdicts but clear the runs, delete only `work/db/matches`, `work/db/runs` and `work/db/postings`. The seed never overwrites what is already there.
 
 **Other models.** Copy `.env.example` to `.env` and set `JOB_AGENT_MODEL`. The page records which model scored every post, so models can be compared by their agreement with you.
 
