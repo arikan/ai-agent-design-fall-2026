@@ -261,6 +261,7 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgfold>summary{font-size:12.5px;color:var(--muted);cursor:pointer;padding:2px 0}
 .sgfold[open]>summary{margin-bottom:6px}
 .sgposts{margin:0;padding-left:18px;font-size:13px}
+.warn-t{color:var(--warn)}
 .vlist{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:280px;overflow:auto}
 .vlist li{display:grid;grid-template-columns:42px 1fr;gap:0 8px;font-size:13px}.vlist li .muted{grid-column:2}
 .costbars{display:flex;align-items:flex-end;gap:6px;height:120px;border-bottom:1px solid var(--line);padding-top:16px}
@@ -839,7 +840,7 @@ function renderSearchEditor(){
         <label for="d-locs"><span>Locations <button type="button" class="tip" aria-label="How locations match" data-tip="Separate with commas. A post passes if one of these appears in its location or title, ignoring case, or if the job board marks it remote.">i</button></span><input type="text" id="d-locs" value="${esc((db.locations_any||[]).join(", "))}" placeholder="New York, NYC, Remote, Hybrid"></label>
         <div class="grid2">
         <label for="d-ind">Exclude industries<input type="text" id="d-ind" value="${esc((db.exclude_industries||[]).join(", "))}" placeholder="Defense"></label>
-        <label for="d-tw"><span>Exclude job titles with <button type="button" class="tip" aria-label="How title words match" data-tip="Separate with commas. A post is skipped if its title contains one of these as a whole word, ignoring case: marketing skips Product Marketing Lead, not Go-to-Market. Only the title is checked.">i</button></span><input type="text" id="d-tw" value="${esc((db.exclude_title_words||[]).join(", "))}" placeholder="marketing, sales, compliance"></label>
+        <label for="d-tw"><span>Exclude job titles with <button type="button" class="tip" aria-label="How title words match" data-tip="Separate with commas. A post is skipped if its title contains one of these as a whole word, ignoring case: marketing skips Product Marketing Lead, not Go-to-Market. Only the title is checked.">i</button></span><input type="text" id="d-tw" value="${esc((db.exclude_title_words||[]).join(", "))}" placeholder="For example: marketing, sales"></label>
         <label for="d-kw"><span>Exclude posts mentioning <button type="button" class="tip" aria-label="How these match" data-tip="Separate with commas. Checked against the title and the whole description, so use words that only bad posts contain.">i</button></span><input type="text" id="d-kw" value="${esc((db.exclude_keywords||[]).join(", "))}" placeholder="clearance, 60 percent travel"></label>
         </div>
       </div>
@@ -1039,21 +1040,31 @@ function agentSuggest(){
   const mine = busy === "suggest" || (S.sg.at && !S.sg.error && (!S.request || new Date(S.request.requested_at) < new Date(S.sg.at)));
   const since = busy === "suggest" ? S.request.requested_at : S.sg.at;
   const nJudged = Object.values(S.judgments).filter(j => j.verdict).length;
+  const vs = Object.values(S.judgments), nG = vs.filter(j => j.verdict === "accept").length, nN = vs.filter(j => j.verdict === "dismiss").length;
+  const ready = nG > 0 && nN > 0;
   const btn = mine ? `<button type="button" class="btn busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Suggesting…</button>`
-    : `<button type="button" class="btn" data-suggest ${busy || (!S.local && !S.runner?.trigger_id) ? "disabled" : ""} ${busy ? `title="Wait until the current ${esc(busy)} finishes"` : ""}>Suggest changes</button>`;
+    : `<button type="button" class="btn" data-suggest ${busy || !ready || (!S.local && !S.runner?.trigger_id) ? "disabled" : ""} ${busy ? `title="Wait until the current ${esc(busy)} finishes"` : !ready ? `title="Mark at least one post Good and one Nope first"` : ""}>Suggest changes</button>`;
   const stage = !since ? 0 : (Date.now() - new Date(since)) / 1000 < (S.local ? 5 : 75) ? 0 : 1;
   const work = mine ? `<div class="testbox small stack sgwork" style="gap:6px" role="status">
       <div class="row between"><span class="row"><span class="spin" aria-hidden="true"></span><b>Working on suggestions</b></span><span class="mono" data-elapsed="${esc(since)}">${clock(Date.now() - new Date(since))}</span></div>
       <div class="bar"><i></i></div>
       <ol>
         <li class="${stage === 0 ? "now" : ""}">${S.local ? "Starting the model on this computer" : "Starting a cloud session for your agent"}</li>
-        <li class="${stage === 1 ? "now" : ""}">The model reads your ${nJudged} judged post${nJudged === 1 ? "" : "s"}, looks at where you and the agent disagree, and drafts up to three Profile changes</li>
-        <li>Code checks each one; a weight change is kept only if it raises agreement on your judged posts</li>
+        <li class="${stage === 1 ? "now" : ""}">The model reads your ${nJudged} judged post${nJudged === 1 ? "" : "s"}, looks for what your Nope posts share and where you and the agent disagree, and drafts up to three Profile changes</li>
+        <li>Code checks each one: a title word is kept only if no Good title or target role has it, a weight change only if it raises agreement</li>
       </ol>
       <span class="muted">${S.local ? "Usually under a minute." : "Usually 2 to 4 minutes. You can leave this page; suggestions appear here when they're ready."}</span></div>`
     : S.sg.error ? `<div class="status err">Could not start: ${esc(S.sg.error)}</div>` : "";
+  // What it learns from, and how much it needs: shown before the first run and folded after.
+  const enough = (n, k) => n >= 5 ? `<b>${n}</b>` : `<b class="warn-t">${n}</b>`;
+  const learn = `<details class="sgfold"${doc ? "" : " open"}><summary>How suggestions learn from your verdicts</summary><div class="sgbody small">
+      <p>Both verdicts teach. <b>Nope posts</b> show what to skip: a word in two or more Nope titles and no Good one can become a title to skip, and a pattern in your Nope reasons can sharpen a rubric. <b>Good and Nope together</b> show where the scores are off: a dimension that rates Nope posts as high as Good ones gets a new rubric or weight.</p>
+      <p>It needs at least one Good and one Nope; with five of each, the patterns start to mean something. A note on a verdict (“exclude marketing”) is the strongest hint. You have ${enough(nG)} Good and ${enough(nN)} Nope.</p>
+      <p class="muted">Nothing changes until you apply a suggestion, and each one you apply is a new profile version.</p></div></details>`;
   return `<div class="sghead row between"><h3 class="sechead" style="margin:0">Suggested changes</h3>${btn}</div>${work}
-    ${mine ? "" : !doc ? `<p class="small muted" style="margin:0">The model reads your disagreements and proposes up to three Profile changes. You decide what to apply.</p>`
+    ${mine ? "" : !ready ? `<p class="small muted" style="margin:0">Mark at least one post Good and one Nope in Matches; then the model can suggest changes.</p>` : ""}
+    ${mine ? "" : learn}
+    ${mine ? "" : !doc ? ""
       : `<p class="small muted" style="margin:0">From ${esc(when(doc.at))}${doc.model ? ` by ${esc(modelName(doc.model))}` : ""}.${doc.rejected?.length ? ` ${doc.rejected.length} more failed the code check.` : ""}${!open.length && doc.items.length ? " Nothing left to review." : ""}</p>
         ${!doc.items.length ? sgNone(doc) : ""}`}
     ${open.map(({it, i}) => {
