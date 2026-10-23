@@ -291,6 +291,7 @@ details.run[open] > summary .runcounts{display:none}
 .conn[aria-expanded="true"] .chev{transform:rotate(180deg)}
 .hdr-r{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .hdr-row{display:flex;align-items:center;gap:12px}
+.hdrrun{appearance:none;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));background:var(--accent-soft);color:var(--accent);font:600 12.5px var(--font-ui);border-radius:999px;padding:3px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}.hdrrun .spin{margin-right:2px;width:10px;height:10px}.hdrrun .mono{font-size:12px}
 .build{font-size:11px;opacity:.7}
 .newtag{font:600 10px var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:2px 6px;align-self:center}
 .usage{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--bg)}
@@ -379,7 +380,7 @@ label > span{display:inline-flex;align-items:center;gap:2px}
 <div class="wrap">
   <header>
     <h1><span class="logo" aria-hidden="true">🤖</span>Job Agent</h1>
-    <div class="hdr-r small muted"><div class="hdr-row"><button type="button" class="theme" id="theme" aria-label="Switch between light and dark" title="Light or dark"><svg class="sun" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="8" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="moon" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M13 10.2A5.5 5.5 0 0 1 5.8 3a5.5 5.5 0 1 0 7.2 7.2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button><button type="button" class="conn" id="conn-wrap" data-state="wait" aria-expanded="false" aria-controls="setup" disabled><i class="lamp" aria-hidden="true"></i><span id="conn">Connecting…</span><svg class="chev" id="conn-chev" hidden viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><span id="build" class="build"></span></div>
+    <div class="hdr-r small muted"><div class="hdr-row"><button type="button" class="hdrrun" id="hdr-run" hidden title="Your agent is running. See its progress"></button><button type="button" class="theme" id="theme" aria-label="Switch between light and dark" title="Light or dark"><svg class="sun" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="8" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><svg class="moon" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M13 10.2A5.5 5.5 0 0 1 5.8 3a5.5 5.5 0 1 0 7.2 7.2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button><button type="button" class="conn" id="conn-wrap" data-state="wait" aria-expanded="false" aria-controls="setup" disabled><i class="lamp" aria-hidden="true"></i><span id="conn">Connecting…</span><svg class="chev" id="conn-chev" hidden viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><span id="build" class="build"></span></div>
   </header>
 
   <section id="setup" hidden></section>
@@ -497,7 +498,7 @@ function renderMatches(){
   const nNew = scope.filter(isNew).length;
   $("m-summary").textContent = nNew ? `${nNew} new from the last run` : "";
   if (!rows.length){
-    if (S.matches.length){ $("matches").innerHTML = `<div class="card empty">${view[0] === "review" ? "All caught up. New matches arrive with the next run." : view[0] === "good" ? "Nothing marked Good yet." : "Nothing marked Nope yet."}</div>`; return; }
+    if (S.matches.length){ $("matches").innerHTML = `<div class="card empty">${view[0] === "review" ? `All caught up. New matches arrive with the next run.${runLink(" ", "Run now for more")}` : view[0] === "good" ? "Nothing marked Good yet." : "Nothing marked Nope yet."}</div>`; return; }
     const ready = setupDone(), running = ["starting","running"].includes(runNowPhase());
     $("matches").innerHTML = `<div class="card emptystate">
       <svg class="es-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15.5 15.5L20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -940,7 +941,7 @@ function wireSearchForm(s){
       if (prefsChanged) await S.db.doc(`searches/${id}/versions/prefs-${doc.prefs_version}`).set({kind:"preferences", version:doc.prefs_version, preferences:prefs, target_roles, keywords, industries, at:doc.updated});
       await S.db.doc("searches/"+id).set(doc);
       S.editing = id; st.className="status ok";
-      st.textContent = cvChanged || prefsChanged ? `Saved as CV v${doc.cv_version}, preferences v${doc.prefs_version}. The next run uses these.` : "Saved.";
+      st.innerHTML = cvChanged || prefsChanged ? `Saved as CV v${doc.cv_version}, preferences v${doc.prefs_version}. The next run uses these.${runLink(" ", "Run now to try them")}` : "Saved.";
     } catch(err){ st.className="status err"; st.textContent = "Could not save: " + (err.message || err.code); }
   };
 }
@@ -1070,7 +1071,7 @@ function agentSuggest(){
     ${open.map(({it, i}) => {
       const posts = `<details class="sgfold"><summary>Based on ${it.posts.length} post${it.posts.length === 1 ? "" : "s"}</summary><ul class="sgposts">${it.posts.map(p => `<li>${esc(titles[p] || p)}</li>`).join("")}</ul></details>`;
       if (it.status === "applied") return `<div class="sgitem done">
-        <div class="sgtop"><span class="sglabel">${esc(it.label)}</span><span class="sgstate" title="Saved as profile v${esc(it.applied_version)}. Posts scored before stay as they are.">✓ Applied · used from the next run</span></div>
+        <div class="sgtop"><span class="sglabel">${esc(it.label)}</span><span class="sgstate" title="Saved as profile v${esc(it.applied_version)}. Posts scored before stay as they are.">✓ Applied · used from the next run${newerThanLastRun(it.applied_at) ? runLink(" · ", "Run now to try it") : ""}</span></div>
         <details class="sgfold"><summary>What changed</summary><div class="sgbody"><p>${esc(it.why)}</p>${suggestChange(it)}</div></details>
       </div>`;
       return `<div class="sgitem">
@@ -1188,7 +1189,7 @@ function renderAgent(){
     try {
       await S.db.doc(`agent/current/versions/v${next.version}`).set({...next});
       await S.db.doc("agent/current").set(next);
-      st.className="status ok"; st.textContent=`Saved as version ${next.version}. The next run uses it.`;
+      st.className="status ok"; st.innerHTML=`Saved as version ${next.version}. The next run uses it.${runLink(" ", "Run now to try it")}`;
     } catch(err){ st.className="status err"; st.textContent="Could not save: "+(err.message||err.code); }
   };
 }
@@ -1838,7 +1839,30 @@ async function runNow(){
   catch(e){ S.runNow.error = mcpMessage(e); }
   renderAll();
 }
-function renderAll(){ renderMatches(); renderRuns(); renderSetup(); }
+function renderAll(){ renderMatches(); renderRuns(); renderSetup(); renderHdrRun(); }
+// A run is happening: one started here (meta/request) or the morning run (meta/progress). Returns when it started.
+function runActiveSince(){
+  const ph = runNowPhase();
+  if (ph === "starting") return S.runNow.at;
+  if (ph === "running") return S.request.requested_at;
+  const p = S.progress;
+  return p && !["done","stopped"].includes(p.stage) && Date.now() - new Date(p.updated_at) < 30 * 60000 ? p.started_at : null;
+}
+// "Run now" as a small link, where a change was just made. Nothing while a run is going or none are left.
+function runLink(sep, label){
+  if (!S.local && !S.runner?.trigger_id) return "";
+  if (runActiveSince()) return `${sep}<span class="muted">A run is in progress.</span>`;
+  if (!manualRuns().left) return "";
+  return `${sep}<button type="button" class="linkbtn small" data-runnow>${label}</button>`;
+}
+const newerThanLastRun = at => { const r = S.runs[0]; return !!at && (!r || new Date(at) > new Date(r.started)); };
+// The header shows a running run from any tab; clicking it opens Runs, where its progress is.
+function renderHdrRun(){
+  const el = $("hdr-run"); if (!el) return;
+  const since = runActiveSince();
+  el.hidden = !since;
+  if (since) el.innerHTML = `<span class="spin" aria-hidden="true"></span>Running <span class="mono" data-elapsed="${esc(since)}">${clock(Date.now() - new Date(since))}</span>`;
+}
 // While the setup chat is still filling this artifact, show what is happening instead of a half-ready page.
 // Setup writes meta/agent (the daily run) last, so its arrival means setup is done.
 function isInstalling(){
@@ -1870,6 +1894,7 @@ function renderInstalling(){
     </ol>
   </div>`;
 }
+$("hdr-run").addEventListener("click", () => { goTab("runs"); window.scrollTo({top:0}); });
 document.addEventListener("click", e => {
   if (e.target.closest("[data-runnow]")) runNow();
   if (e.target.closest("#matches [data-opensetup], #runs [data-opensetup]")){ S.setup.open = true; renderSetup(); $("setup").scrollIntoView({block:"start"}); }
@@ -2013,7 +2038,7 @@ function localDb(){
   const fail = e => { setConn("off", "Connection lost. Reload the page."); };
   db.collection("searches").onSnapshot(q => { S.searches = q.docs.map(d => ({id:d.id, ...structuredClone(d.data())})); renderInstalling(); renderSearchList(); if (S.editing && S.editing!=="new" && !document.activeElement?.closest?.("#sform")) renderSearchEditor(); renderMatches(); }, fail);
   db.doc("agent/current").onSnapshot(d => { S.agent = d.exists ? structuredClone(d.data()) : null; S.boot.agent = true; renderInstalling(); if (!document.activeElement?.closest?.("#aform")) renderAgent(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
-  db.collection("runs").orderBy("started","desc").limit(20).onSnapshot(q => { S.runs = q.docs.map(d => d.data()); renderRuns(); if (S.agent) renderAgent(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
+  db.collection("runs").orderBy("started","desc").limit(20).onSnapshot(q => { S.runs = q.docs.map(d => d.data()); renderRuns(); renderHdrRun(); if (S.agent) renderAgent(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
   db.collection("matches").onSnapshot(q => { S.matches = q.docs.map(d => ({id:d.id, ...d.data()})); renderMatches(); }, fail);
   db.collection("source_tests").onSnapshot(q => { S.tests = Object.fromEntries(q.docs.map(d => [d.data().source_id, d.data()])); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
   db.doc("meta/agent").onSnapshot(d => { S.runner = d.exists ? d.data() : null; S.boot.runner = true; renderInstalling(); renderSetup(); if (!document.activeElement?.closest?.(".src-edit")) renderSources(); }, fail);
@@ -2023,7 +2048,7 @@ function localDb(){
   db.collection("suggestions").onSnapshot(q => { S.suggestions = q.docs.map(d => ({id:d.id, ...d.data()})); renderAgent(); }, fail);
   db.collection("rescore").onSnapshot(q => { S.rescore = Object.fromEntries(q.docs.map(d => [d.id, d.data()])); renderMatches(); if ($("preview") && S.editing && S.editing !== "new") renderPreview(S.searches.find(x => x.id === S.editing)); }, fail);
   db.doc("meta/postings").onSnapshot(d => { const was = S.posts.index?.run_id; S.posts.index = d.exists ? d.data() : null; if (S.posts.index?.run_id !== was){ S.posts.items = null; S.posts.showAll = false; loadPosts(); } }, fail);
-  db.doc("meta/progress").onSnapshot(d => { S.progress = d.exists ? d.data() : null; renderMatches(); renderRuns(); }, fail);
+  db.doc("meta/progress").onSnapshot(d => { S.progress = d.exists ? d.data() : null; renderMatches(); renderRuns(); renderHdrRun(); }, fail);
   db.doc("meta/request").onSnapshot(d => { S.request = d.exists ? d.data() : null; renderAll(); if (S.agent) renderAgent(); }, fail);
   db.doc("meta/figure").onSnapshot(d => { S.figure = d.exists ? d.data() : null; renderFigure(); }, fail);
   db.doc("meta/app").onSnapshot(d => { S.app = d.exists ? d.data() : null; renderSetup(); }, fail);
