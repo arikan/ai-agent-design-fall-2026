@@ -65,6 +65,11 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .vtag.bad{background:color-mix(in srgb,var(--s-mid) 28%,var(--surface));border-color:color-mix(in srgb,var(--s-mid) 60%,var(--line));color:var(--warn)}
 .linkbtn.small{font-size:12.5px;font-weight:500}
 .match.moved,.match.noped{opacity:.6}.match.moved:hover,.match.noped:hover{opacity:1}
+.match.leaving{overflow:hidden;opacity:0 !important;transform:translateX(40px);height:0 !important;padding-top:0;padding-bottom:0;border-width:0;margin-top:-16px;transition:opacity .25s ease,transform .3s ease,height .35s ease .15s,padding .35s ease .15s,margin .35s ease .15s,border-width .35s ease .15s}
+.segtab.bump{animation:bump .6s ease}
+@keyframes bump{0%{transform:scale(1)}35%{transform:scale(1.12);color:var(--accent)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.match.leaving{transition:none}.segtab.bump{animation:none}}
+.sgwork{margin:0}.sgwork ol{margin:4px 0 0;padding-left:18px;display:grid;gap:2px}.sgwork li.now{color:var(--fg);font-weight:600}.sgwork li{color:var(--muted)}
 .btn:disabled{opacity:.5;cursor:default}
 .pill{display:inline-block;font:500 12px var(--font-ui);padding:2px 8px;border-radius:999px;background:var(--sunk);color:var(--muted)}
 .pill.ok{background:var(--accent-soft);color:var(--accent)}
@@ -570,7 +575,7 @@ function renderMatches(){
             <button class="btn bad" data-act="dismiss" aria-pressed="${verdict==="dismiss"}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="transform:scaleY(-1)"><path d="M5 7v7H2.5V7H5zm1 7V7l2.6-4.6c.3-.5 1-.6 1.4-.2.3.3.4.7.3 1.1L9.6 6.5h3.3c.7 0 1.2.6 1.1 1.3l-.8 5c-.1.7-.7 1.2-1.4 1.2H6z" fill="currentColor"/></svg>Nope</button>
             <button type="button" class="tip" aria-label="What a verdict does" data-tip="Your verdicts are the answer key the agent is tested against. Each is saved with a copy of the posting, so a later version of the agent can be scored on the same jobs.">i</button>
             <span class="savestate ${S.saved[m.id]?.state || ""}" id="save-${esc(m.id)}" role="status">${saveText(m.id)}</span>
-            ${moved ? `<span class="small muted">Moves to <button type="button" class="linkbtn" data-mview="${verdict === "accept" ? "good" : "nope"}">${verdict === "accept" ? "Good" : "Nope"}</button> when you switch views</span>` : ""}
+            ${moved ? `<span class="small muted">Moving to <button type="button" class="linkbtn" data-mview="${verdict === "accept" ? "good" : "nope"}">${verdict === "accept" ? "Good" : "Nope"}</button> in a moment. Pick a reason first if you like.</span>` : ""}
            </div>
            <span class="foot small muted">First seen ${esc(seen(m))}</span>
           </div>
@@ -588,8 +593,28 @@ S.mview = "review";      // every visit starts with what needs judging
 S.sticky = new Set();
 S.rescore = {};
 S.whyOpen = new Set();      // cards whose score explanations are open
+// After a verdict the card stays a few seconds, so a reason or note can be added, then slides out to its tab.
+// Any click in the card restarts the wait; the pointer over its verdict area or a focused note holds it.
+S.moveTimers = {};
+const MOVE_MS = 4000;
+function scheduleMove(id, ms = MOVE_MS){ clearTimeout(S.moveTimers[id]); S.moveTimers[id] = setTimeout(() => moveOut(id), ms); }
+function moveOut(id){
+  delete S.moveTimers[id];
+  const art = document.querySelector(`#matches article[data-id="${CSS.escape(id)}"]`);
+  if (!art || !S.sticky.has(id)) return;
+  if (art.querySelector(".judge:hover") || art.contains(document.activeElement) && document.activeElement.matches("[data-note]")) return scheduleMove(id, 1500);
+  const verdict = S.judgments[id]?.verdict;
+  if (!verdict || !art.classList.contains("moved")){ S.sticky.delete(id); renderMatches(); return; }   // undone, or it belongs in this view
+  const to = verdict === "accept" ? "good" : "nope";
+  art.style.height = art.offsetHeight + "px"; void art.offsetHeight;
+  art.classList.add("leaving");
+  setTimeout(() => {
+    S.sticky.delete(id); renderMatches();
+    const tab = document.querySelector(`#m-views [data-mview="${to}"]`); tab?.classList.add("bump");
+  }, 520);
+}
 $("matches").addEventListener("keydown", e => { const r = e.target.closest?.("[data-why]"); if (r && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); r.click(); } });
-$("m-views").addEventListener("click", e => { const b = e.target.closest("[data-mview]"); if (!b) return; S.mview = b.dataset.mview; S.sticky.clear(); renderMatches(); });
+$("m-views").addEventListener("click", e => { const b = e.target.closest("[data-mview]"); if (!b) return; S.mview = b.dataset.mview; S.sticky.clear(); Object.values(S.moveTimers).forEach(clearTimeout); S.moveTimers = {}; renderMatches(); });
 // Per card: "Saving…" while a write is in flight, then "Saved" for a few seconds.
 S.saved = {};
 const saveText = id => ({saving:`<span class="spin" aria-hidden="true"></span>Saving…`, ok:"✓ Saved", err:"Could not save"})[S.saved[id]?.state] || "";
@@ -621,14 +646,16 @@ $("matches").addEventListener("click", e => {
   if (e.target.closest("[data-change]")){ S.sticky.add(id); renderMatches(); return; }
   const go = e.target.closest("[data-mview]");
   if (go){ S.mview = go.dataset.mview; S.sticky.clear(); renderMatches(); window.scrollTo({top:0}); return; }
-  if (v){ S.sticky.add(id); busy(v); return saveJudgment(id, cur.verdict===v.dataset.act ? {verdict:null, main_dimension:null, reason:""} : {verdict:v.dataset.act}, v).finally(done); }
+  if (v){ S.sticky.add(id); busy(v); const undo = cur.verdict === v.dataset.act;
+    if (undo){ clearTimeout(S.moveTimers[id]); delete S.moveTimers[id]; }
+    return saveJudgment(id, undo ? {verdict:null, main_dimension:null, reason:""} : {verdict:v.dataset.act}, v).finally(() => { done(); if (!undo) scheduleMove(id); }); }
   const c = e.target.closest("button[data-dim]");
-  if (c){ busy(c); return saveJudgment(id, {main_dimension: cur.main_dimension===c.dataset.dim ? null : c.dataset.dim}, c).finally(done); }
+  if (c){ busy(c); if (S.moveTimers[id]) scheduleMove(id); return saveJudgment(id, {main_dimension: cur.main_dimension===c.dataset.dim ? null : c.dataset.dim}, c).finally(done); }
 });
 // Notes save as you type (after a short pause) and when you leave the field.
 const saveNote = n => { const id = n.closest("article").dataset.id; if ((S.judgments[id]?.reason||"") !== n.value.trim()) saveJudgment(id, {reason:n.value.trim()}, n); };
 let noteTimer;
-$("matches").addEventListener("input", e => { const n = e.target.closest("[data-note]"); if (!n || !S.db) return; clearTimeout(noteTimer); noteTimer = setTimeout(() => saveNote(n), 700); });
+$("matches").addEventListener("input", e => { const n = e.target.closest("[data-note]"); if (!n || !S.db) return; const nid = n.closest("article").dataset.id; if (S.moveTimers[nid]) scheduleMove(nid); clearTimeout(noteTimer); noteTimer = setTimeout(() => saveNote(n), 700); });
 $("matches").addEventListener("change", e => { const n = e.target.closest("[data-note]"); if (!n || !S.db) return; clearTimeout(noteTimer); saveNote(n); });
 // While a note has focus, a re-render would take the cursor away; catch up when it is left.
 $("matches").addEventListener("focusout", e => { if (e.target.closest("[data-note]") && S.matchesStale){ S.matchesStale = false; setTimeout(renderMatches, 0); } });
@@ -1004,10 +1031,24 @@ function agentSuggest(){
   const busy = suggestBusy(), doc = [...S.suggestions].sort((a,b) => String(b.at).localeCompare(String(a.at)))[0];
   const titles = Object.fromEntries(S.matches.map(m => [m.id, `${m.title} · ${m.company}`]));
   const open = doc ? doc.items.map((it, i) => ({it, i})).filter(x => x.it.status !== "dismissed") : [];
-  const btn = busy === "suggest" ? `<span class="small muted"><span class="spin" aria-hidden="true"></span>Working on suggestions…</span>`
-    : `<button type="button" class="btn" data-suggest ${busy || !S.runner?.trigger_id ? "disabled" : ""}>Suggest changes</button>`;
-  return `<div class="sghead row between"><h3 class="sechead" style="margin:0">Suggested changes</h3>${btn}</div>
-    ${!doc ? `<p class="small muted" style="margin:0">The model reads your disagreements and proposes up to three Profile changes. You decide what to apply.</p>`
+  const mine = busy === "suggest" || (S.sg.at && !S.sg.error && (!S.request || new Date(S.request.requested_at) < new Date(S.sg.at)));
+  const since = busy === "suggest" ? S.request.requested_at : S.sg.at;
+  const nJudged = Object.values(S.judgments).filter(j => j.verdict).length;
+  const btn = mine ? `<button type="button" class="btn busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Suggesting…</button>`
+    : `<button type="button" class="btn" data-suggest ${busy || (!S.local && !S.runner?.trigger_id) ? "disabled" : ""} ${busy ? `title="Wait until the current ${esc(busy)} finishes"` : ""}>Suggest changes</button>`;
+  const stage = !since ? 0 : (Date.now() - new Date(since)) / 1000 < (S.local ? 5 : 75) ? 0 : 1;
+  const work = mine ? `<div class="testbox small stack sgwork" style="gap:6px" role="status">
+      <div class="row between"><span class="row"><span class="spin" aria-hidden="true"></span><b>Working on suggestions</b></span><span class="mono" data-elapsed="${esc(since)}">${clock(Date.now() - new Date(since))}</span></div>
+      <div class="bar"><i></i></div>
+      <ol>
+        <li class="${stage === 0 ? "now" : ""}">${S.local ? "Starting the model on this computer" : "Starting a cloud session for your agent"}</li>
+        <li class="${stage === 1 ? "now" : ""}">The model reads your ${nJudged} judged post${nJudged === 1 ? "" : "s"}, looks at where you and the agent disagree, and drafts up to three Profile changes</li>
+        <li>Code checks each one; a weight change is kept only if it raises agreement on your judged posts</li>
+      </ol>
+      <span class="muted">${S.local ? "Usually under a minute." : "Usually 2 to 4 minutes. You can leave this page; suggestions appear here when they're ready."}</span></div>`
+    : S.sg.error ? `<div class="status err">Could not start: ${esc(S.sg.error)}</div>` : "";
+  return `<div class="sghead row between"><h3 class="sechead" style="margin:0">Suggested changes</h3>${btn}</div>${work}
+    ${mine ? "" : !doc ? `<p class="small muted" style="margin:0">The model reads your disagreements and proposes up to three Profile changes. You decide what to apply.</p>`
       : `<p class="small muted" style="margin:0">From ${esc(when(doc.at))}${doc.model ? ` by ${esc(modelName(doc.model))}` : ""}.${doc.rejected?.length ? ` ${doc.rejected.length} more failed the code check.` : ""}${!open.length ? " Nothing left to review." : ""}</p>`}
     ${open.map(({it, i}) => {
       const posts = `<details class="sgfold"><summary>Based on ${it.posts.length} post${it.posts.length === 1 ? "" : "s"}</summary><ul class="sgposts">${it.posts.map(p => `<li>${esc(titles[p] || p)}</li>`).join("")}</ul></details>`;
@@ -1104,7 +1145,9 @@ function renderAgent(){
     const g = e.target.closest("[data-goview]"); if (g){ goTab(g.dataset.goview); window.scrollTo({top:0}); return; }
     const j = e.target.closest("[data-jump]"); if (j){ $(j.dataset.jump)?.scrollIntoView({behavior:"smooth", block:"start"}); return; }
     const sg = e.target.closest("[data-suggest]");
-    if (sg){ sg.disabled = true; if (!MCP){ sg.textContent = "Could not start"; return; } startTask("suggest", {}).catch(() => { sg.textContent = "Could not start"; }); return; }
+    if (sg){ S.sg = {at:new Date().toISOString(), error:""}; renderAgent();
+      if (!MCP){ S.sg.error = "this page can't reach your scheduled task."; renderAgent(); return; }
+      startTask("suggest", {}).catch(err => { S.sg.error = S.local ? (err.message || "the server is busy") : mcpMessage(err); renderAgent(); }); return; }
     const ap = e.target.closest("[data-apply]"), dm = e.target.closest("[data-dismiss]");
     if (ap || dm){ const [d, i] = (ap || dm).dataset[ap ? "apply" : "dismiss"].split(/:(?=\d+$)/); (ap || dm).disabled = true;
       (ap ? applySuggestion : dismissSuggestion)(d, Number(i)).catch(err => { (ap || dm).textContent = "Could not save"; }); }
@@ -1456,6 +1499,7 @@ async function pickRunner(){
   } catch(e){ box.innerHTML = `<div class="status err">${esc(mcpMessage(e))}</div>`; }
 }
 const TEST_STALE_MIN = 20;
+S.sg = {at:null, error:""};      // Suggest changes pressed here, before the request shows up
 const clock = ms => { const t = Math.max(0, Math.floor(ms/1000)); return Math.floor(t/60) + ":" + String(t%60).padStart(2,"0"); };
 // Local state shows feedback the moment Test is clicked, before the database answers.
 S.pending = {};
@@ -1527,6 +1571,7 @@ setInterval(() => {
     if (ms > TEST_STALE_MIN * 60000) stale = true;
   });
   if (stale && !document.activeElement?.closest?.(".src-edit")){ renderSources(); renderSetup(); }
+  const first = document.querySelector(".sgwork li:first-child.now"); if (first){ const t = document.querySelector(".sgwork [data-elapsed]"); if (t && (Date.now() - new Date(t.dataset.elapsed)) / 1000 >= (S.local ? 5 : 75)) renderAgent(); }
 }, 1000);
 
 /* ---------- setup ---------- */
@@ -1950,7 +1995,7 @@ function localDb(){
   db.collection("rescore").onSnapshot(q => { S.rescore = Object.fromEntries(q.docs.map(d => [d.id, d.data()])); renderMatches(); if ($("preview") && S.editing && S.editing !== "new") renderPreview(S.searches.find(x => x.id === S.editing)); }, fail);
   db.doc("meta/postings").onSnapshot(d => { const was = S.posts.index?.run_id; S.posts.index = d.exists ? d.data() : null; if (S.posts.index?.run_id !== was){ S.posts.items = null; S.posts.showAll = false; loadPosts(); } }, fail);
   db.doc("meta/progress").onSnapshot(d => { S.progress = d.exists ? d.data() : null; renderMatches(); renderRuns(); }, fail);
-  db.doc("meta/request").onSnapshot(d => { S.request = d.exists ? d.data() : null; renderAll(); }, fail);
+  db.doc("meta/request").onSnapshot(d => { S.request = d.exists ? d.data() : null; renderAll(); if (S.agent) renderAgent(); }, fail);
   db.doc("meta/figure").onSnapshot(d => { S.figure = d.exists ? d.data() : null; renderFigure(); }, fail);
   db.doc("meta/app").onSnapshot(d => { S.app = d.exists ? d.data() : null; renderSetup(); }, fail);
   db.doc("meta/console").onSnapshot(d => { const m = d.exists ? d.data() : null;
