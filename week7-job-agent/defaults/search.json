@@ -44,7 +44,8 @@
     "Remote-friendly"
    ],
    "exclude_industries": [],
-   "exclude_keywords": []
+   "exclude_keywords": [],
+   "exclude_title_words": []
   },
   "dimensions": [
    {

@@ -414,6 +414,56 @@
    "expected": "pay far below 250000"
   }
  ],
+ "title_cases": [
+  {
+   "title": "Product Marketing Lead",
+   "words": [
+    "marketing",
+    "chief of staff"
+   ],
+   "expected": "excluded title word: marketing"
+  },
+  {
+   "title": "Head of Product, Go-to-Market",
+   "words": [
+    "marketing",
+    "chief of staff"
+   ],
+   "expected": null
+  },
+  {
+   "title": "Marketplace Product Lead",
+   "words": [
+    "marketing",
+    "chief of staff"
+   ],
+   "expected": null
+  },
+  {
+   "title": "Chief of Staff Director, Product",
+   "words": [
+    "marketing",
+    "chief of staff"
+   ],
+   "expected": "excluded title word: chief of staff"
+  },
+  {
+   "title": "MARKETING Director",
+   "words": [
+    "marketing",
+    "chief of staff"
+   ],
+   "expected": "excluded title word: marketing"
+  },
+  {
+   "title": "Head of Product",
+   "words": [
+    "marketing",
+    "chief of staff"
+   ],
+   "expected": null
+  }
+ ],
  "expected": [
   {
    "id": "c001",

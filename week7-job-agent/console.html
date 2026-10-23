@@ -697,6 +697,7 @@ const RANK = (() => {
   };
   const score = (search, p) => { const ps = parts(search, p), total = ps.reduce((a, x) => a + x.w, 0); return total ? Math.round(ps.reduce((a, x) => a + x.w * x.v, 0) / total * 1000) / 1000 : 0; };
   const PAY_SLACK = 0.25;      // as jobagent/engine.py: only pay more than 25% below the target is dropped
+  const titleHas = (title, word) => { const w = word.trim().toLowerCase(); return !!w && new RegExp("(?<![a-z0-9])" + esc(w) + "(?![a-z0-9])").test(title.toLowerCase()); };
   const dealBreaker = (p, db) => {
     const text = `${p.title} ${p.text}`.toLowerCase();
     if (db.remote_only && !p.remote) return "not remote";
@@ -707,9 +708,10 @@ const RANK = (() => {
     if (locs.length && !p.remote && !locs.some(l => where.includes(l))) return "location not in list";
     for (const ind of db.exclude_industries || []) if (ind.toLowerCase() === String(p.industry || "").toLowerCase()) return `excluded industry: ${ind}`;
     for (const kw of db.exclude_keywords || []) if (text.includes(kw.toLowerCase())) return `excluded keyword: ${kw}`;
+    for (const w of db.exclude_title_words || []) if (titleHas(p.title, w)) return `excluded title word: ${w}`;
     return null;
   };
-  return {score, parts, dealBreaker, roleHit};
+  return {score, parts, dealBreaker, roleHit, titleHas};
 })();
 /* rank:end */
 
@@ -735,7 +737,7 @@ async function loadPosts(){
 function formSearch(){
   return {target_roles:list($("s-roles")?.value), keywords:list($("s-kw")?.value), industries:list($("s-ind")?.value), cv_text:$("s-cv")?.value || "",
     deal_breakers:{remote_only:false, require_pay_listed:false, min_pay:$("d-minpay")?.value ? Number($("d-minpay").value) : null,
-      locations_any:list($("d-locs")?.value), exclude_industries:list($("d-ind")?.value), exclude_keywords:list($("d-kw")?.value)}};
+      locations_any:list($("d-locs")?.value), exclude_industries:list($("d-ind")?.value), exclude_keywords:list($("d-kw")?.value), exclude_title_words:list($("d-tw")?.value)}};
 }
 function renderPreview(s){
   const box = $("preview"); if (!box) return;
@@ -809,7 +811,7 @@ function renderSearchEditor(){
   const s = S.editing === "new"
     ? {id:"", name:"", active:S.searches.filter(x=>x.active).length < COURSE_CAPS.max_searches, cv_text:"", cv_version:0, prefs_version:0,
        target_roles:["Product Designer", "UX Researcher", "Service Designer", "Design Strategist", "Product Manager", "Design Lead"], keywords:["design research", "service design", "design strategy", "product strategy", "prototyping"], industries:["AI", "crypto", "fintech", "climate tech", "health tech", "civic tech"],
-       preferences:{deal_breakers:{remote_only:false, min_pay:null, require_pay_listed:false, locations_any:[], exclude_industries:[], exclude_keywords:[]}, dimensions:structuredClone(DEFAULT_DIMS), unknown_policy:"neutral"}}
+       preferences:{deal_breakers:{remote_only:false, min_pay:null, require_pay_listed:false, locations_any:[], exclude_industries:[], exclude_keywords:[], exclude_title_words:[]}, dimensions:structuredClone(DEFAULT_DIMS), unknown_policy:"neutral"}}
     : S.searches.find(x=>x.id===S.editing);
   if (!s) return;
   const db = s.preferences.deal_breakers || {};
@@ -837,7 +839,8 @@ function renderSearchEditor(){
         <label for="d-locs"><span>Locations <button type="button" class="tip" aria-label="How locations match" data-tip="Separate with commas. A post passes if one of these appears in its location or title, ignoring case, or if the job board marks it remote.">i</button></span><input type="text" id="d-locs" value="${esc((db.locations_any||[]).join(", "))}" placeholder="New York, NYC, Remote, Hybrid"></label>
         <div class="grid2">
         <label for="d-ind">Exclude industries<input type="text" id="d-ind" value="${esc((db.exclude_industries||[]).join(", "))}" placeholder="Defense"></label>
-        <label for="d-kw">Exclude words<input type="text" id="d-kw" value="${esc((db.exclude_keywords||[]).join(", "))}" placeholder="clearance, 60 percent travel"></label>
+        <label for="d-tw"><span>Exclude job titles with <button type="button" class="tip" aria-label="How title words match" data-tip="Separate with commas. A post is skipped if its title contains one of these as a whole word, ignoring case: marketing skips Product Marketing Lead, not Go-to-Market. Only the title is checked.">i</button></span><input type="text" id="d-tw" value="${esc((db.exclude_title_words||[]).join(", "))}" placeholder="marketing, sales, compliance"></label>
+        <label for="d-kw"><span>Exclude posts mentioning <button type="button" class="tip" aria-label="How these match" data-tip="Separate with commas. Checked against the title and the whole description, so use words that only bad posts contain.">i</button></span><input type="text" id="d-kw" value="${esc((db.exclude_keywords||[]).join(", "))}" placeholder="clearance, 60 percent travel"></label>
         </div>
       </div>
     </div>
@@ -921,7 +924,7 @@ function wireSearchForm(s){
     const prefs = {deal_breakers:{remote_only:false, require_pay_listed:false, currency:"USD",
         min_pay:$("d-minpay").value ? Number($("d-minpay").value) : null, preferred_pay:null,
         locations_any:list($("d-locs").value),
-        exclude_industries:list($("d-ind").value), exclude_keywords:list($("d-kw").value)},
+        exclude_industries:list($("d-ind").value), exclude_keywords:list($("d-kw").value), exclude_title_words:list($("d-tw").value)},
       dimensions:readDims(), unknown_policy:$("s-unknown").value};
     const wsum = readDims().reduce((a,d) => a + d.weight, 0);
     if (wsum !== 100){ st.className="status err"; st.textContent=`Weights add up to ${wsum}%. Make them add up to 100% to save.`; return; }
@@ -1025,7 +1028,9 @@ function suggestChange(it){
   if (it.target.startsWith("rubric:")) return `<div class="sgdiff"><span class="sgk">Now</span><span class="muted">${esc(it.current)}</span><span class="sgk">Suggested</span><span>${esc(it.proposed)}</span></div>`;
   const cur = new Set((it.current || []).map(x => x.toLowerCase())), nxt = new Set(it.proposed.map(x => x.toLowerCase()));
   const add = it.proposed.filter(x => !cur.has(x.toLowerCase())), rm = (it.current || []).filter(x => !nxt.has(x.toLowerCase()));
-  return `<p class="small" style="margin:0">${add.length ? `Add ${add.map(esc).join(", ")}` : ""}${add.length && rm.length ? " · " : ""}${rm.length ? `Remove ${rm.map(esc).join(", ")}` : ""}</p>`;
+  const ev = it.evidence ? ` <span class="muted">(${Object.entries(it.evidence).map(([w, n]) => `“${esc(w)}” in ${n} Nope title${n === 1 ? "" : "s"}`).join(", ")}, no Good ones)</span>` : "";
+  const what = it.target === "exclude_title_words" ? "Skip titles with" : "Add";
+  return `<p class="small" style="margin:0">${add.length ? `${what} ${add.map(esc).join(", ")}` : ""}${ev}${add.length && rm.length ? " · " : ""}${rm.length ? `Remove ${rm.map(esc).join(", ")}` : ""}</p>`;
 }
 function agentSuggest(){
   const busy = suggestBusy(), doc = [...S.suggestions].sort((a,b) => String(b.at).localeCompare(String(a.at)))[0];
@@ -1079,6 +1084,7 @@ async function applySuggestion(docId, i){
   const {id, ...next} = structuredClone(s), prefs = next.preferences;
   if (it.target === "weights") prefs.dimensions.forEach(d => { if (it.proposed[d.key] != null) d.weight = it.proposed[d.key]; });
   else if (it.target.startsWith("rubric:")){ const d = prefs.dimensions.find(d => d.key === it.target.slice(7)); if (!d) return; d.rubric = it.proposed; }
+  else if (it.target === "exclude_title_words") prefs.deal_breakers = {...(prefs.deal_breakers || {}), exclude_title_words: it.proposed};
   else next[it.target] = it.proposed;
   next.prefs_version = (s.prefs_version || 0) + 1; next.updated = new Date().toISOString();
   await S.db.doc(`searches/${id}/versions/prefs-${next.prefs_version}`).set({kind:"preferences", version:next.prefs_version, preferences:prefs, target_roles:next.target_roles, keywords:next.keywords, industries:next.industries, at:next.updated, note:`Suggested change: ${it.label}`});
@@ -1887,7 +1893,8 @@ function usageView(u){
 }
 // Deal-breaker kinds as the engine records them, in words.
 const dropLabel = k => k === "location not in list" ? "location outside your list" : k === "not remote" ? "not remote"
-  : k.startsWith("pay far below") || k.startsWith("pay below") ? "pay far below your target" : k === "no pay listed" ? "no pay listed" : k;
+  : k.startsWith("pay far below") || k.startsWith("pay below") ? "pay far below your target" : k === "no pay listed" ? "no pay listed"
+  : k.startsWith("excluded title word: ") ? `title has "${k.slice(21)}"` : k;
 // The funnel of one run: collected by sources, removed by code, ranked by code, scored by Claude.
 function runFunnel(r){
   const tr = r.trace || [], norm = tr.find(t => t.step === "normalize"), judge = tr.find(t => t.step === "judge");

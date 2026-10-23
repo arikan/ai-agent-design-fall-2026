@@ -213,6 +213,10 @@ def rank_fixture():
            "pay_cases": [{"target": 250000, "pay_max": m, "expected": deal_breaker(
                 {"title": "x", "text": "", "location": "", "remote": True, "pay_max": m}, {"min_pay": 250000})}
                          for m in (None, 300000, 190000, 187500, 187499, 120000)],
+           "title_cases": [{"title": t, "words": ["marketing", "chief of staff"], "expected": deal_breaker(
+                {"title": t, "text": "", "location": "", "remote": True, "pay_max": None}, {"exclude_title_words": ["marketing", "chief of staff"]})}
+                           for t in ("Product Marketing Lead", "Head of Product, Go-to-Market", "Marketplace Product Lead", "Chief of Staff Director, Product",
+                                     "MARKETING Director", "Head of Product")],
            "expected": [{"id": p["id"], "dropped": deal_breaker(p, db), "score": prefilter_score(search, p)} for p in postings]}
     (HERE / "tests").mkdir(exist_ok=True)
     (HERE / "tests" / "rank_fixture.json").write_text(json.dumps(out, indent=1))
@@ -230,6 +234,8 @@ def drop_detail(p, reason, db):
         return f"Pay tops out at {money(p['pay_max'])}, more than {round(PAY_SLACK * 100)}% below your {money(db['min_pay'])} target"
     if reason == "no pay listed":
         return "No pay listed, and you require it"
+    if reason.startswith("excluded title word"):
+        return f"Title has \"{reason.split(': ', 1)[1]}\", which you excluded"
     return reason[0].upper() + reason[1:]
 
 
@@ -261,7 +267,17 @@ def deal_breaker(p, db):
     for kw in db.get("exclude_keywords", []):
         if kw.lower() in text:
             return f"excluded keyword: {kw}"
+    for w in db.get("exclude_title_words", []):
+        if title_has(p["title"], w):
+            return f"excluded title word: {w}"
     return None
+
+
+def title_has(title, word):
+    """A word or phrase in the title, as a whole word, ignoring case: "marketing" matches "Product Marketing Lead",
+    not "Go-to-market". Only the title, since descriptions of good jobs mention marketing too."""
+    w = word.strip().lower()
+    return bool(w) and re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", title.lower()) is not None
 
 
 def overlap(cv_text, p):

@@ -20,7 +20,23 @@ HERE = Path(__file__).resolve().parents[1]     # the project folder: work/, defa
 WORK = HERE / "work"
 MAX_PER_SEARCH = 3
 MAX_POSTS = 40
-LIST_TARGETS = {"target_roles": "Target roles", "keywords": "Background keywords", "industries": "Target industries"}
+LIST_TARGETS = {"target_roles": "Target roles", "keywords": "Background keywords", "industries": "Target industries",
+                "exclude_title_words": "Excluded title words"}
+
+
+def nope_only_words(good, nope):
+    """Title words and two-word phrases in at least two Nope titles and no Good title: candidates for
+    `exclude_title_words`, found in code so the model needn't count."""
+    import re
+    def grams(t):
+        w = re.findall(r"[a-z0-9]+", t.lower())
+        return {x for x in w if len(x) > 3} | {f"{a} {b}" for a, b in zip(w, w[1:])}
+    gset = set().union(*(grams(m["title"]) for m in good)) if good else set()
+    count = {}
+    for m in nope:
+        for g in grams(m["title"]) - gset:
+            count[g] = count.get(g, 0) + 1
+    return sorted(([g, c] for g, c in count.items() if c >= 2), key=lambda x: -x[1])[:15]
 
 
 def body(path):
@@ -98,7 +114,9 @@ def prepare():
                     "agreement": pairs_agree([m["total"] for m in good], [m["total"] for m in nope]),
                     "good": len(good), "nope": len(nope), "by_dimension": per_dim,
                     "profile": {"dimensions": dims, "target_roles": s.get("target_roles", []), "keywords": s.get("keywords", []),
-                                "industries": s.get("industries", []), "unknown_policy": prefs.get("unknown_policy", "neutral")},
+                                "industries": s.get("industries", []), "unknown_policy": prefs.get("unknown_policy", "neutral"),
+                                "exclude_title_words": (prefs.get("deal_breakers") or {}).get("exclude_title_words", [])},
+                    "nope_only_title_words": nope_only_words(good, nope),
                     "posts": posts})
     task = {
         "agent_version": agent.get("version"),
@@ -108,8 +126,12 @@ def prepare():
             "with the user's verdicts. Agreement is how often a Good post scores above a Nope post. Use `by_dimension` to see which "
             "dimensions mislead (agreement under 50% means that dimension rates Nope posts higher than Good ones) and `posts` for the cases. "
             "Allowed targets: `weights` (a full map of every dimension key to a whole number, adding up to 100), `rubric:<dimension key>` "
-            "(the new rubric text), `target_roles`, `keywords` or `industries` (the full new list). Never propose changes to filters such as "
-            "locations or pay; those are the user's rules. Prefer the smallest change that fixes a pattern seen in two or more posts. "
+            "(the new rubric text), `target_roles`, `keywords`, `industries` or `exclude_title_words` (the full new list). "
+            "Nope verdicts teach even when agreement is high: if the user keeps rejecting one kind of job, such as product marketing roles, "
+            "propose `exclude_title_words` so the next runs skip those titles and score others instead. `nope_only_title_words` lists title "
+            "words found in two or more Nope titles and no Good title, with counts; the user's notes often say it outright. A title word is "
+            "kept only if no Good post's title and none of the target roles has it. Never propose other filters, such as locations or pay; those are the user's rules. "
+            "Prefer the smallest change that fixes a pattern seen in two or more posts. "
             "Write `why` as one plain sentence to the user, naming the posts' pattern, not the statistic. Cite the posts in `posts` by match_id. "
             "Weight changes are checked in code on the same judged posts and dropped unless they raise agreement. "
             "If nothing would clearly help, return no suggestions for that search, and say why in `note`: one plain sentence to the user."),
@@ -185,6 +207,18 @@ def finish(model=None):
         cited = [x for x in sug.get("posts", []) if x in known]
         if not cited:
             errs.append("cites no judged post")
+        if not errs and sug["target"] == "exclude_title_words":
+            rows = [(p["title"], p["verdict"]) for p in s["posts"]]
+            for w in [x for x in sug["proposed"] if x.lower() not in {c.lower() for c in current}]:
+                hits_good = [t for t, v in rows if v == "Good" and engine.title_has(t, w)]
+                hits_nope = [t for t, v in rows if v == "Nope" and engine.title_has(t, w)]
+                role = next((r for r in s["profile"]["target_roles"] if engine.title_has(r, w)), None)
+                if hits_good:
+                    errs.append(f"{w!r} is in the title of a Good post: {hits_good[0]}")
+                elif role:
+                    errs.append(f"{w!r} is part of your target role {role!r}")
+                elif len(hits_nope) < 2:
+                    errs.append(f"{w!r} is in fewer than two Nope titles")
         if not errs and count.get(s["search_id"], 0) >= MAX_PER_SEARCH:
             errs.append(f"more than {MAX_PER_SEARCH} for this search")
         if errs:
@@ -201,6 +235,9 @@ def finish(model=None):
                 "proposed": sug["proposed"], "why": str(sug.get("why", ""))[:400], "posts": cited, "status": "open"}
         if sug["target"] == "weights":
             item["predicted"] = {"before": before, "after": after}
+        if sug["target"] == "exclude_title_words":
+            new = [w for w in sug["proposed"] if w.lower() not in {c.lower() for c in current}]
+            item["evidence"] = {w: sum(1 for p in s["posts"] if p["verdict"] == "Nope" and engine.title_has(p["title"], w)) for w in new}
         items.append(item)
     at = now()
     doc_id = "s-" + at[:19].replace(":", "").replace("-", "")

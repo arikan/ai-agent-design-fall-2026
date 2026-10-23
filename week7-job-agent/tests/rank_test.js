@@ -24,5 +24,9 @@ for (const c of fx.pay_cases || []){
   const got = RANK.dealBreaker({title:"x", text:"", location:"", remote:true, pay_max:c.pay_max}, {min_pay:c.target});
   if (got !== c.expected){ bad++; console.log(`pay ${c.pay_max}: page says ${got}, engine says ${c.expected}`); }
 }
+for (const c of fx.title_cases || []){
+  const got = RANK.dealBreaker({title:c.title, text:"", location:"", remote:true, pay_max:null}, {exclude_title_words:c.words});
+  if (got !== c.expected){ bad++; console.log(`title "${c.title}": page says ${got}, engine says ${c.expected}`); }
+}
 console.log(bad ? `${bad} of ${fx.postings.length} differ` : `ok: ${fx.postings.length} postings rank the same in the page and the engine`);
 process.exit(bad ? 1 : 0);
