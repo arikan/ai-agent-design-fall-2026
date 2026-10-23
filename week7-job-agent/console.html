@@ -1049,7 +1049,8 @@ function agentSuggest(){
     : S.sg.error ? `<div class="status err">Could not start: ${esc(S.sg.error)}</div>` : "";
   return `<div class="sghead row between"><h3 class="sechead" style="margin:0">Suggested changes</h3>${btn}</div>${work}
     ${mine ? "" : !doc ? `<p class="small muted" style="margin:0">The model reads your disagreements and proposes up to three Profile changes. You decide what to apply.</p>`
-      : `<p class="small muted" style="margin:0">From ${esc(when(doc.at))}${doc.model ? ` by ${esc(modelName(doc.model))}` : ""}.${doc.rejected?.length ? ` ${doc.rejected.length} more failed the code check.` : ""}${!open.length ? " Nothing left to review." : ""}</p>`}
+      : `<p class="small muted" style="margin:0">From ${esc(when(doc.at))}${doc.model ? ` by ${esc(modelName(doc.model))}` : ""}.${doc.rejected?.length ? ` ${doc.rejected.length} more failed the code check.` : ""}${!open.length && doc.items.length ? " Nothing left to review." : ""}</p>
+        ${!doc.items.length ? sgNone(doc) : ""}`}
     ${open.map(({it, i}) => {
       const posts = `<details class="sgfold"><summary>Based on ${it.posts.length} post${it.posts.length === 1 ? "" : "s"}</summary><ul class="sgposts">${it.posts.map(p => `<li>${esc(titles[p] || p)}</li>`).join("")}</ul></details>`;
       if (it.status === "applied") return `<div class="sgitem done">
@@ -1061,6 +1062,16 @@ function agentSuggest(){
         <div class="sgbody"><p>${esc(it.why)}</p>${suggestChange(it)}</div>
         ${posts}
       </div>`; }).join("")}`;
+}
+// An empty answer is a result too: say why, from what the run measured.
+function sgNone(doc){
+  const s = (doc.searches || [])[0];
+  const stats = s ? (s.agreement === 100
+      ? `The agent already scores all ${s.good} of your Good posts above all ${s.nope} Nope posts, so there is no disagreement to learn from.`
+      : `Agreement is ${s.agreement}% on ${s.good} Good and ${s.nope} Nope posts, and no change clearly helped.`) : "";
+  const next = s && (s.good < 5 || s.nope < 5) ? ` With only ${Math.min(s.good, s.nope)} ${s.good < s.nope ? "Good" : "Nope"} post${Math.min(s.good, s.nope) === 1 ? "" : "s"}, judge more first.`
+    : s?.agreement === 100 ? " Try again after you judge posts where the agent's score surprises you." : "";
+  return `<div class="testbox small stack" style="gap:4px"><b>No changes suggested</b><span>${esc(doc.note || stats)}${esc(doc.note ? "" : next)}</span>${doc.note && stats ? `<span class="muted">${esc(stats)}</span>` : ""}</div>`;
 }
 async function applySuggestion(docId, i){
   const doc = S.suggestions.find(d => d.id === docId), it = doc?.items[i], s = S.searches.find(x => x.id === it?.search_id);

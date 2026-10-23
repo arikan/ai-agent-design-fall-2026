@@ -112,11 +112,12 @@ def prepare():
             "locations or pay; those are the user's rules. Prefer the smallest change that fixes a pattern seen in two or more posts. "
             "Write `why` as one plain sentence to the user, naming the posts' pattern, not the statistic. Cite the posts in `posts` by match_id. "
             "Weight changes are checked in code on the same judged posts and dropped unless they raise agreement. "
-            "If nothing would clearly help, return no suggestions for that search."),
+            "If nothing would clearly help, return no suggestions for that search, and say why in `note`: one plain sentence to the user."),
         "searches": out,
         "answer_format": {"file": "work/suggestions.json",
                           "shape": {"suggestions": [{"search_id": "...", "target": "weights | rubric:<key> | target_roles | keywords | industries",
-                                                     "proposed": "map, text or list, per target", "why": "one sentence", "posts": ["match_id"]}]}},
+                                                     "proposed": "map, text or list, per target", "why": "one sentence", "posts": ["match_id"]}],
+                                    "note": "one sentence, only when there are no suggestions: why not"}},
     }
     (WORK / "suggest.json").write_text(json.dumps(task, indent=1))
     n = sum(len(s["posts"]) for s in out)
@@ -205,7 +206,7 @@ def finish(model=None):
     doc_id = "s-" + at[:19].replace(":", "").replace("-", "")
     doc = {"id": doc_id, "at": at, "model": model, "agent_version": task["agent_version"],
            "searches": [{k: s[k] for k in ("search_id", "prefs_version", "agreement", "good", "nope", "by_dimension")} for s in task["searches"]],
-           "items": items, "rejected": rejected}
+           "items": items, "rejected": rejected, "note": str(answer.get("note") or "")[:300]}
     out = WORK / "out"
     out.mkdir(exist_ok=True)
     (out / "suggestion.json").write_text(json.dumps(doc, indent=1))
