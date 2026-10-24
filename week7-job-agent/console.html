@@ -496,7 +496,7 @@ function floorNote(){
   return `<div class="stack" style="gap:8px;justify-items:center;text-align:center"><b style="color:var(--fg)">The last run found no new matches.</b>
     <span>${num(t.passed)} new posts passed your filters, but none ranked ${t.min_rank_score} or more, the minimum for the model to score it. The rank is high mainly when a post's title has one of your target roles.</span>
     ${best.length ? `<span class="small">Closest: ${best.map(b => `${esc(b.title)} · ${esc(b.company)} (${b.rank})`).join("; ")}</span>` : ""}
-    <span><button type="button" class="linkbtn" data-tominrank>Lower the minimum rank in Settings</button> or add target roles in Profile.</span></div>`;
+    <span>For more matches: <button type="button" class="linkbtn" data-tominrank>lower the minimum rank</button>, <button type="button" class="linkbtn" data-totab="searches">add target roles</button>, or <button type="button" class="linkbtn" data-totab="sources">add sources</button> with more jobs like yours.</span></div>`;
 }
 function renderMatches(){
   const sel = $("f-search"), cur = sel.value;
@@ -1156,6 +1156,8 @@ function agentVersions(){
     </div></div>`;
 }
 
+// "How your agent works" opens by default; once someone closes or opens it, this browser remembers.
+const howOpen = () => { try { return localStorage.getItem("how-open") !== "0"; } catch(e){ return true; } };
 function renderAgent(){
   const a = S.agent;
   if (!a){ $("agent-editor").innerHTML = `<div class="card empty">The agent's settings appear here once they are set up.</div>`; return; }
@@ -1164,12 +1166,14 @@ function renderAgent(){
   const steps = agentPipeline(run), cur = steps.find(x => x.key === S.agentStep) || steps[3];
   $("agent-editor").innerHTML = `<div class="panel">
     <section class="asec">
-      <div class="row between"><h2>How your agent works</h2>${run ? `<span class="small muted">Last run ${esc(when(run.started))}</span>` : ""}</div>
+      <div class="row between"><h2>How your agent works</h2><span class="row" style="gap:10px">${run ? `<span class="small muted">Last run ${esc(when(run.started))}</span>` : ""}<button type="button" class="xbtn pchev" id="how-toggle" aria-expanded="${howOpen()}" aria-controls="how-body" aria-label="Show or hide how your agent works" title="${howOpen() ? "Collapse" : "Expand"}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span></div>
+      <div class="stack" id="how-body" style="gap:10px"${howOpen() ? "" : " hidden"}>
       <p class="small muted" style="margin:0">Only one step uses a model. Click a step.</p>
       <div class="pipe" role="tablist" aria-label="Agent steps">${steps.map((x, i) => `${i ? `<span class="pipe-arrow" aria-hidden="true">→</span>` : ""}<button type="button" role="tab" class="pstep who-${x.who}" data-astep="${x.key}" aria-selected="${x.key === cur.key}">
           <span class="pwho">${x.who}</span><span class="pname">${x.name}</span><span class="pnum">${x.n}</span><span class="pwhat">${x.what}</span></button>`).join("")}</div>
       <div class="pdetail"><p style="margin:0">${cur.how}${cur.from ? ` <span class="muted">Last run: ${esc(cur.from)}.</span>` : ""}</p>
         <button type="button" class="linkbtn small" ${cur.go[0].startsWith("a-") ? `data-jump="${cur.go[0]}"` : `data-goview="${cur.go[0]}"`}>${cur.go[1]} ${cur.go[0].startsWith("a-") ? "↓" : "→"}</button></div>
+      </div>
     </section>
     <section class="card stack" id="a-eval">
       <h2>Feedback</h2>
@@ -1206,6 +1210,7 @@ function renderAgent(){
     </section></div>`;
   $("agent-editor").onclick = e => {
     const st = e.target.closest("[data-astep]"); if (st){ S.agentStep = st.dataset.astep; renderAgent(); return; }
+    const ht = e.target.closest("#how-toggle"); if (ht){ const open = !howOpen(); try { localStorage.setItem("how-open", open ? "1" : "0"); } catch(err){} $("how-body").hidden = !open; ht.setAttribute("aria-expanded", String(open)); ht.title = open ? "Collapse" : "Expand"; return; }
     const g = e.target.closest("[data-goview]"); if (g){ goTab(g.dataset.goview); window.scrollTo({top:0}); return; }
     const j = e.target.closest("[data-jump]"); if (j){ $(j.dataset.jump)?.scrollIntoView({behavior:"smooth", block:"start"}); return; }
     const sg = e.target.closest("[data-suggest]");
@@ -1991,6 +1996,7 @@ function renderInstalling(){
 }
 $("hdr-run").addEventListener("click", () => { goTab("runs"); window.scrollTo({top:0}); });
 document.addEventListener("click", e => {
+  const tt = e.target.closest("[data-totab]"); if (tt){ goTab(tt.dataset.totab); window.scrollTo({top:0}); if (tt.dataset.totab === "sources") setTimeout(() => $("qa-text")?.focus(), 50); return; }
   if (e.target.closest("[data-tominrank]")){ goTab("agent"); setTimeout(() => { const f = $("a-minrank"); f?.scrollIntoView({behavior:"smooth", block:"center"}); f?.focus(); }, 50); return; }
   if (e.target.closest("[data-runnow]")) runNow();
   if (e.target.closest("#matches [data-opensetup], #runs [data-opensetup]")){ S.setup.open = true; renderSetup(); $("setup").scrollIntoView({block:"start"}); }
