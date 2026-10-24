@@ -262,6 +262,7 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgfold[open]>summary{margin-bottom:6px}
 .sgposts{margin:0;padding-left:18px;font-size:13px}
 .warn-t{color:var(--warn)}
+.srcbar select{width:auto;padding:4px 8px;font-size:13px}
 .src .about{font-size:13.5px;color:var(--fg)}.src .about b{font-weight:600}
 .votes{display:inline-flex;gap:10px;font:600 12.5px var(--font-data)}.votes>span{display:inline-flex;align-items:center;gap:4px}.votes .vg{color:var(--accent)}.votes .vn{color:var(--warn)}
 .vlist{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:280px;overflow:auto}
@@ -1258,7 +1259,10 @@ function renderSources(){
     </div>
     ${S.flash && !S.flash.id ? `<div class="status ok">${esc(S.flash.msg)}</div>` : ""}
     <div id="src-new"></div>
-    ${a.sources.map(s => sourceCard(s)).join("")}`;
+    <div class="row between srcbar"><span class="small muted">${a.sources.filter(x => x.enabled).length} on · ${a.sources.filter(x => !x.enabled).length} off</span>
+      <label class="inline small" for="src-order">Order by <select id="src-order">${SRC_ORDERS.map(([k, label]) => `<option value="${k}" ${k === srcOrder() ? "selected" : ""}>${label}</option>`).join("")}</select></label></div>
+    ${orderedSources(a.sources).map(s => sourceCard(s)).join("")}`;
+  $("src-order").onchange = e => { try { localStorage.setItem("src-order", e.target.value); } catch(err){} S.srcOrder = e.target.value; renderSources(); };
   if ($("pick-runner")) $("pick-runner").onclick = pickRunner;
   $("add-source").onclick = () => { $("src-new").innerHTML = sourceEditor({id:"", adapter:"greenhouse", enabled:true, category:"", cap:COURSE_CAPS.max_postings_per_source, config:{}}, true); wireEditor($("src-new").firstElementChild); };
   $("quickadd").onsubmit = e => { e.preventDefault(); quickAdd($("qa-text").value.trim()); };
@@ -1374,6 +1378,24 @@ function srcYield(id){
   return y;
 }
 // Under the title: who the company is, so a board added from a suggestion explains itself.
+// Ways to order the list. Sources that are off always come last, except by name.
+const SRC_ORDERS = [["good","Your Good verdicts"], ["passed","Posts that passed your filters"], ["collected","Posts collected"],
+  ["attention","Needs attention first"], ["category","Category"], ["name","Name"], ["added","Newest first"]];
+const srcOrder = () => { if (S.srcOrder) return S.srcOrder; try { return localStorage.getItem("src-order") || "good"; } catch(e){ return "good"; } };
+function orderedSources(list){
+  const k = srcOrder(), idx = new Map(list.map((x, i) => [x.id, i])), Y = new Map(list.map(x => [x.id, srcYield(x.id)]));
+  const rank = {failed:0, empty:1, new:2, ok:3, manual:4};
+  const by = {
+    good: (a, b) => Y.get(b.id).good - Y.get(a.id).good || Y.get(b.id).passed - Y.get(a.id).passed,
+    passed: (a, b) => Y.get(b.id).passed - Y.get(a.id).passed || Y.get(b.id).collected - Y.get(a.id).collected,
+    collected: (a, b) => Y.get(b.id).collected - Y.get(a.id).collected,
+    attention: (a, b) => (rank[a.adapter === "manual" ? "manual" : srcHealth(a.id).status] ?? 5) - (rank[b.adapter === "manual" ? "manual" : srcHealth(b.id).status] ?? 5),
+    category: (a, b) => !a.category - !b.category || String(a.category || "").localeCompare(String(b.category || "")),
+    name: (a, b) => String(a.config?.company_name || a.id).localeCompare(String(b.config?.company_name || b.id)),
+    added: (a, b) => idx.get(b.id) - idx.get(a.id),
+  }[k] || (() => 0);
+  return [...list].sort((a, b) => (k !== "name" && (!a.enabled - !b.enabled)) || by(a, b) || idx.get(a.id) - idx.get(b.id));
+}
 function aboutLine(s){
   const c = s.config || {}, name = s.adapter === "getro" ? "" : (c.company_name || "");
   const parts = [name && `<b>${esc(name)}</b>`, s.about && esc(s.about), s.category && `<span class="muted">${esc(s.category)}</span>`].filter(Boolean);
