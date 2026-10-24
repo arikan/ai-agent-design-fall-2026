@@ -1104,7 +1104,7 @@ function agentSuggest(){
         <details class="sgfold"><summary>What changed</summary><div class="sgbody"><p>${esc(it.why)}</p>${suggestChange(it)}</div></details>
       </div>`;
       return `<div class="sgitem">
-        <div class="sgtop"><span class="sglabel">${esc(it.label)}</span><span class="row" style="gap:10px"><button type="button" class="btn primary small" data-apply="${esc(doc.id)}:${i}">Apply suggestion</button><button type="button" class="linkbtn small" data-dismiss="${esc(doc.id)}:${i}">Dismiss</button></span></div>
+        <div class="sgtop"><span class="sglabel">${esc(it.label)}</span><span class="row" style="gap:10px"><button type="button" class="btn primary small" data-apply="${esc(doc.id)}:${i}">Apply</button><button type="button" class="linkbtn small" data-dismiss="${esc(doc.id)}:${i}">Dismiss</button></span></div>
         <div class="sgbody"><p>${esc(it.why)}</p>${suggestChange(it)}</div>
         ${posts}
       </div>`; }).join("")}`;
