@@ -19,6 +19,8 @@
   --bg:#111613; --surface:#18201B; --sunk:#0D110F; --line:#2C3830; --fg:#E4EBE5; --muted:#93A198;
   --accent:#5FBF94; --accent-soft:#1B3328; --warn:#E0A54F; --warn-soft:#33270F; --bad:#E58475; --bad-soft:#3A1E19; --s-hi:#5FBF94; --s-mid:#E2B257; --s-lo:#E08A7A; color-scheme:dark}
 *{box-sizing:border-box}
+/* Phones in landscape enlarge some text blocks on their own (iOS text autosizing); keep every size as written. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--font-ui)}
 .wrap{max-width:980px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px 16px;margin-bottom:16px}
