@@ -75,6 +75,10 @@ def pump():
     if JOB["kind"] in ("figure", "find"):
         r = dbio.read(dbio.WORK / f"{JOB['kind']}-result.json") or {"url": JOB["source_id"] if JOB["kind"] == "figure" else "name:" + JOB["source_id"], "how": "the step did not finish"}
         src = r.get("source")
+        have = {x["id"] for x in ((localdb.read("agent/current") or {}).get("data") or {}).get("sources", [])}
+        if src and src["id"] in have:      # found a board that is already in the list: say so, don't add it twice
+            r = {**r, "already": src["id"], "source": None}
+            src = None
         if src:
             v = dbio.add_source(src, f"Added {src['id']} from {r['url']}")
             localdb.write(f"source_tests/{safe(src['id'])}", {"source_id": src["id"], "status": "done", "health": {"status": "ok", "fetched": None, "kept": int(re.search(r"(\d+) posts", r["how"] or "").group(1)) if re.search(r"(\d+) posts", r["how"] or "") else None}, "finished_at": now()})

@@ -264,6 +264,10 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgfold[open]>summary{margin-bottom:6px}
 .sgposts{margin:0;padding-left:18px;font-size:13px}
 .warn-t{color:var(--warn)}
+.src.isnew{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.src.ping{animation:ping 1.4s ease-out}
+@keyframes ping{0%{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 45%,transparent)}100%{box-shadow:0 0 0 1px var(--accent)}}
+@media (prefers-reduced-motion:reduce){.src.ping{animation:none}}
 .srcbar{flex-wrap:nowrap}.srcbar label,.srcbar>span{white-space:nowrap}.srcbar select{width:auto;max-width:60vw;padding:4px 8px;font-size:13px}
 .src .about{font-size:13.5px;color:var(--fg)}.src .about b{font-weight:600}
 .votes{display:inline-flex;gap:10px;font:600 12.5px var(--font-data)}.votes>span{display:inline-flex;align-items:center;gap:4px}.votes .vg{color:var(--accent)}.votes .vn{color:var(--warn)}
@@ -1274,7 +1278,7 @@ function renderSources(){
   $("sources").innerHTML = `
     <div class="stack srchead">
       <div class="row between"><p class="small muted" style="margin:0">The job boards your agent reads.</p><button type="button" class="linkbtn small" id="add-source">Add by hand</button></div>
-      <form class="quickadd" id="quickadd"><input type="text" id="qa-text" placeholder="Job board link or company name" aria-label="Job board link or company name" autocomplete="off"><button class="btn primary" type="submit" id="qa-go">Add</button></form>
+      <form class="quickadd" id="quickadd"><input type="text" id="qa-text" placeholder="Job board link or company name" aria-label="Job board link or company name" autocomplete="off">${S.figuring ? `<button class="btn primary busy" type="submit" id="qa-go" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Looking…</button>` : `<button class="btn primary" type="submit" id="qa-go">Add</button>`}</form>
       <div id="qa-out"></div>
     </div>
     ${S.flash && !S.flash.id ? `<div class="status ok">${esc(S.flash.msg)}</div>` : ""}
@@ -1287,6 +1291,7 @@ function renderSources(){
   $("add-source").onclick = () => { $("src-new").innerHTML = sourceEditor({id:"", adapter:"greenhouse", enabled:true, category:"", cap:COURSE_CAPS.max_postings_per_source, config:{}}, true); wireEditor($("src-new").firstElementChild); };
   $("quickadd").onsubmit = e => { e.preventDefault(); quickAdd($("qa-text").value.trim()); };
   $("qa-out").onclick = async e => {
+    const g = e.target.closest("[data-qa-goto]"); if (g){ const c = document.querySelector(`article.src[data-sid="${CSS.escape(g.dataset.qaGoto)}"]`); if (c){ c.scrollIntoView({behavior:"smooth", block:"center"}); c.classList.remove("ping"); void c.offsetWidth; c.classList.add("ping"); } return; }
     const b = e.target.closest("[data-qa-add]"); if (b){ const [adapter, slug] = b.dataset.qaAdd.split("|"); addBoard(adapter, slug); return; }
     const fo = e.target.closest("[data-qa-follow]"); if (fo){ $("qa-text").value = fo.dataset.qaFollow; quickAdd(fo.dataset.qaFollow); return; }
     const m = e.target.closest("[data-qa-manual]"); if (m){ const url = m.dataset.qaManual, host = new URL(url).hostname, id = `manual:${host}`;
@@ -1303,9 +1308,10 @@ const slugOf = u => (u.pathname.split("/").filter(Boolean)[0] || "").toLowerCase
 const nameFromSlug = slug => slug.replace(/[-_]+/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 const qaSay = (html, text) => { S.qa = {html, text: text ?? $("qa-text")?.value}; $("qa-out").innerHTML = html; };
 async function quickAdd(text){
-  if (!text) return;
+  if (!text || S.figuring) return;
   const go = $("qa-go"); go.disabled = true;
   try {
+    const have = existingFor(text); if (have) return qaHave(have);
     let u = null; try { u = new URL(/^https?:\/\//i.test(text) ? text : (text.includes(".") && !text.includes(" ") ? "https://" + text : "x:")); } catch(e){}
     if (u && u.protocol.startsWith("http")){
       const host = u.hostname.toLowerCase(), hit = BOARD_HOSTS.find(([re]) => re.test(host));
@@ -1316,7 +1322,30 @@ async function quickAdd(text){
     }
     // A company name: the agent looks for its board (board APIs by name, then the company's own site, then a web search in the cloud).
     return await findByName(text);
-  } finally { go.disabled = false; }
+  } finally { if (!S.figuring){ const g = $("qa-go"); if (g) g.disabled = false; } else renderSources(); }
+}
+// Already in the list? A name matches a board's company or its id; an address matches the board it points to.
+const squash = t => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+function existingFor(text){
+  const list = S.agent?.sources || [];
+  let u = null; try { u = new URL(/^https?:\/\//i.test(text) ? text : (text.includes(".") && !text.includes(" ") ? "https://" + text : "x:")); } catch(e){}
+  if (u && u.protocol.startsWith("http")){
+    const hit = BOARD_HOSTS.find(([re]) => re.test(u.hostname.toLowerCase()));
+    if (hit && slugOf(u)) return list.find(x => x.id.toLowerCase() === `${hit[1]}:${slugOf(u)}`) || null;
+    const href = u.href.replace(/\/$/, "");
+    return list.find(x => String(x.config?.url || "").replace(/\/$/, "") === href) || null;
+  }
+  const q = squash(text);
+  return list.find(x => squash(x.config?.company_name) === q || squash(x.id.split(":").slice(1).join(":")) === q) || null;
+}
+// Say what happened at the top, where the person is looking, with a link to the card instead of scrolling away.
+S.newIds = new Set();
+const gotoBtn = id => `<button type="button" class="linkbtn small" data-qa-goto="${esc(id)}">Go to its card</button>`;
+function qaHave(src){ qaSay(`<p class="qanote warn"><b>${esc(src.id)}</b> is already in your sources${src.enabled ? "" : ", turned off"}. ${gotoBtn(src.id)}</p>`); }
+function qaAdded(id, how){
+  S.newIds.add(id);
+  S.qa = {html:`<p class="qanote">✓ Added <b>${esc(id)}</b> at the top of your sources${how ? `: ${esc(how)}` : ""}. ${gotoBtn(id)}</p>`, text:""};
+  renderSources();
 }
 // The agent works out a source from a careers page: code first (an embedded board, a feed), then the
 // model proposes selectors and each proposal is tested. Locally `jobagent figure` does it; in the cloud,
@@ -1346,11 +1375,9 @@ async function figureLog(url){
 function renderFigure(){
   const f = S.figure; if (!f || !S.figuring || f.url !== S.figuring || f.status !== "done") return;
   S.figuring = null;
-  if (f.source){
-    S.flash = {id:f.source.id, msg: f.url.startsWith("name:") ? `Added: ${f.how || f.source.id}.` : `Added from ${f.url}: ${f.how || ""}.`}; renderSources();
-    document.querySelector(`[data-sid="${CSS.escape(f.source.id)}"]`)?.scrollIntoView({behavior:"smooth", block:"center"});
-    return qaSay("", "");
-  }
+  if (f.already){ renderSources(); const have = S.agent.sources.find(x => x.id === f.already); return have ? qaHave(have) : qaSay(`<p class="qanote warn"><b>${esc(f.already)}</b> is already in your sources.</p>`); }
+  if (f.source) return qaAdded(f.source.id, f.how);
+  renderSources();
   if (f.url.startsWith("name:")){
     const name = f.url.slice(5);
     return qaSay(`<p class="qanote warn"><b>Couldn't find ${esc(name)}'s job board.</b> ${esc((f.how || "").replace(/\.?$/, "."))}${f.page ? ` <button type="button" class="linkbtn small" data-qa-follow="${esc(f.page)}">Try ${esc(f.page)}</button>` : ""} If you know the page that lists its jobs, paste its address here.</p>`);
@@ -1360,14 +1387,12 @@ function renderFigure(){
 }
 async function addBoard(adapter, slug, displayName){
   const A = ADAPTERS[adapter], id = `${adapter}:${slug}`;
-  if (S.agent.sources.some(x => x.id === id)) return qaSay(`<p class="qanote warn">${esc(id)} is already in your sources.</p>`);
+  const have = S.agent.sources.find(x => x.id === id); if (have) return qaHave(have);
   const src = {id, adapter, enabled:true, category:"", cap:COURSE_CAPS.max_postings_per_source, note:"", config:{[A.key]: slug, company_name: displayName || nameFromSlug(slug)}};
   try {
     const v = await saveSources([...S.agent.sources, src], `Added ${id}`);
-    S.flash = {id, msg:`Added. Saved as agent version ${v}.`}; S.qa = null; $("qa-text").value = "";
-    renderSources();
+    qaAdded(id, `saved as agent version ${v}, testing it now`);
     testSource(id);
-    document.querySelector(`[data-sid="${CSS.escape(id)}"]`)?.scrollIntoView({behavior:"smooth", block:"center"});
   } catch(err){ qaSay(`<p class="qanote bad">Could not save: ${esc(err.message || err.code)}</p>`); }
 }
 
@@ -1414,7 +1439,7 @@ function orderedSources(list){
     name: (a, b) => String(a.config?.company_name || a.id).localeCompare(String(b.config?.company_name || b.id)),
     added: (a, b) => idx.get(b.id) - idx.get(a.id),
   }[k] || (() => 0);
-  return [...list].sort((a, b) => (k !== "name" && (!a.enabled - !b.enabled)) || by(a, b) || idx.get(a.id) - idx.get(b.id));
+  return [...list].sort((a, b) => (S.newIds.has(b.id) - S.newIds.has(a.id)) || (k !== "name" && (!a.enabled - !b.enabled)) || by(a, b) || idx.get(a.id) - idx.get(b.id));
 }
 function aboutLine(s){
   // The title already names the board, so this line is only what the company does and its category.
@@ -1450,10 +1475,10 @@ function sourceCard(s){
   const tally = (h.history || []).reduce((t, x) => (t[x.h.status] = (t[x.h.status] || 0) + 1, t), {});
   const stripTip = h.history?.length ? `Last ${h.history.length} run${h.history.length === 1 ? "" : "s"}, newest on the right: ${[tally.ok && `${tally.ok} worked`, tally.empty && `${tally.empty} returned nothing`, tally.failed && `${tally.failed} failed`].filter(Boolean).join(", ")}` : "";
   const strip = h.history?.length ? `<span class="strip" title="${esc(stripTip)}" aria-label="${esc(stripTip)}">${h.history.map(x=>`<i class="${x.h.status}" title="${esc(when(x.at))}: ${esc(x.h.status)}${x.h.kept!=null?", "+x.h.kept+" kept":""}"></i>`).join("")}</span>` : "";
-  return `<article class="card src" data-sid="${esc(s.id)}">
+  return `<article class="card src${S.newIds.has(s.id) ? " isnew" : ""}" data-sid="${esc(s.id)}">
     <div class="row between">
       <div class="stack" style="gap:2px;min-width:0">
-        <div class="row"><h3>${esc(s.id)}</h3>${board ? `<a class="ext small" href="${esc(board)}" target="_blank" rel="noopener" title="Open the board in a new tab">Open board ↗</a>` : ""}<span class="pill ${st[0]}">${st[1]}</span>${h.repair?`<span class="pill bad">Needs repair</span>`:""}${h.blocked && s.enabled?`<span class="pill warn">Domain not allowed yet</span>`:""}</div>
+        <div class="row"><h3>${esc(s.id)}</h3>${S.newIds.has(s.id) ? `<span class="newtag">New</span>` : ""}${board ? `<a class="ext small" href="${esc(board)}" target="_blank" rel="noopener" title="Open the board in a new tab">Open board ↗</a>` : ""}<span class="pill ${st[0]}">${st[1]}</span>${h.repair?`<span class="pill bad">Needs repair</span>`:""}${h.blocked && s.enabled?`<span class="pill warn">Domain not allowed yet</span>`:""}</div>
         ${aboutLine(s)}
       </div>
       <div class="row">${strip}${s.enabled && s.adapter!=="corpus" && s.adapter!=="manual" ? testButton(s) : ""}<label class="inline small" for="on-${esc(s.id)}"><input type="checkbox" id="on-${esc(s.id)}" data-toggle ${s.enabled?"checked":""}> On</label><details class="kebab"><summary class="btn" aria-label="More actions for ${esc(s.id)}" title="More">⋯</summary><div class="menu"><button type="button" data-edit>Edit</button><button type="button" class="danger" data-remove>Remove source</button></div></details></div>
