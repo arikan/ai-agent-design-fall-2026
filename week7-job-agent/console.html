@@ -1375,6 +1375,8 @@ function srcYield(id){
     const h = (r.sources || []).find(x => x.source === id); if (!h) continue;
     y.runs++; y.collected += h.kept || 0;
     const f = (r.trace || []).filter(t => t.step === "filter" && t.by_source);
+    if (!y.last){ y.last = {at:r.started, status:h.status, collected:h.kept || 0, counted:!!f.length, passed:0, scored:0};
+      for (const t of f){ const c = t.by_source[id]; if (c){ y.last.passed += c.passed || 0; y.last.scored += c.scored || 0; } } }
     if (f.length){ y.counted++; for (const t of f){ const c = t.by_source[id]; if (c){ y.passed += c.passed || 0; y.ranked += c.ranked || 0; y.scored += c.scored || 0; } } }
   }
   for (const m of S.matches){ if (!String(m.posting_id || "").startsWith(id + ":")) continue; const v = S.judgments[m.id]?.verdict; if (v === "accept") y.good++; else if (v === "dismiss") y.nope++; }
@@ -1382,16 +1384,16 @@ function srcYield(id){
 }
 // Under the title: who the company is, so a board added from a suggestion explains itself.
 // Ways to order the list. Sources that are off always come last, except by name.
-const SRC_ORDERS = [["good","Your Good verdicts"], ["passed","Posts that passed your filters"], ["collected","Posts collected"],
+const SRC_ORDERS = [["good","Your Good verdicts"], ["passed","Passed your filters, last run"], ["collected","Open posts, last run"],
   ["attention","Needs attention first"], ["category","Category"], ["name","Name"], ["added","Newest first"]];
 const srcOrder = () => { if (S.srcOrder) return S.srcOrder; try { return localStorage.getItem("src-order") || "good"; } catch(e){ return "good"; } };
 function orderedSources(list){
   const k = srcOrder(), idx = new Map(list.map((x, i) => [x.id, i])), Y = new Map(list.map(x => [x.id, srcYield(x.id)]));
   const rank = {failed:0, empty:1, new:2, ok:3, manual:4};
   const by = {
-    good: (a, b) => Y.get(b.id).good - Y.get(a.id).good || Y.get(b.id).passed - Y.get(a.id).passed,
-    passed: (a, b) => Y.get(b.id).passed - Y.get(a.id).passed || Y.get(b.id).collected - Y.get(a.id).collected,
-    collected: (a, b) => Y.get(b.id).collected - Y.get(a.id).collected,
+    good: (a, b) => Y.get(b.id).good - Y.get(a.id).good || (Y.get(b.id).last?.passed || 0) - (Y.get(a.id).last?.passed || 0),
+    passed: (a, b) => (Y.get(b.id).last?.passed || 0) - (Y.get(a.id).last?.passed || 0) || (Y.get(b.id).last?.collected || 0) - (Y.get(a.id).last?.collected || 0),
+    collected: (a, b) => (Y.get(b.id).last?.collected || 0) - (Y.get(a.id).last?.collected || 0),
     attention: (a, b) => (rank[a.adapter === "manual" ? "manual" : srcHealth(a.id).status] ?? 5) - (rank[b.adapter === "manual" ? "manual" : srcHealth(b.id).status] ?? 5),
     category: (a, b) => !a.category - !b.category || String(a.category || "").localeCompare(String(b.category || "")),
     name: (a, b) => String(a.config?.company_name || a.id).localeCompare(String(b.config?.company_name || b.id)),
@@ -1405,20 +1407,25 @@ function aboutLine(s){
   return parts.length ? `<div class="about">${parts.join(" · ")}</div>` : "";
 }
 // Last: when it last ran, how many posts that brought, and how it is read.
-function metaLine(s, h){
-  const how = s.adapter === "corpus" || s.adapter === "manual" ? esc(ADAPTERS[s.adapter]?.label || s.adapter) : `${esc(ADAPTERS[s.adapter]?.label || s.adapter)}, up to ${num(s.cap || COURSE_CAPS.max_postings_per_source)} posts a run`;
-  const last = h.lastAt ? `Last run ${esc(when(h.lastAt))} · ${num(h.kept)} post${h.kept === 1 ? "" : "s"}` : s.enabled ? "Not run yet" : "Off";
-  const worked = h.lastOk && h.status !== "ok" ? ` · last worked ${esc(when(h.lastOk))}` : "";
-  return `<div class="small muted">${last}${worked} · ${how}</div>`;
-}
 const THUMB = `<path d="M5 7v7H2.5V7H5zm1 7V7l2.6-4.6c.3-.5 1-.6 1.4-.2.3.3.4.7.3 1.1L9.6 6.5h3.3c.7 0 1.2.6 1.1 1.3l-.8 5c-.1.7-.7 1.2-1.4 1.2H6z" fill="currentColor"/>`;
-function yieldLine(s){
-  if (!s.enabled || s.adapter === "manual" || s.adapter === "corpus") return "";
-  const y = srcYield(s.id); if (!y.runs) return "";
-  const parts = [`${num(y.collected)} collected`];
-  if (y.counted) parts.push(y.passed ? `${num(y.passed)} passed your filters` : `<span class="warn-t">none passed your filters</span>`, `${num(y.scored)} scored`);
-  const votes = y.good || y.nope ? `<span class="votes"><span class="vg" title="${y.good} marked Good"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">${THUMB}</svg>${y.good}</span><span class="vn" title="${y.nope} marked Nope"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" style="transform:scaleY(-1)">${THUMB}</svg>${y.nope}</span></span>` : "";
-  return `<div class="small yieldl row" style="gap:4px 12px"><span class="muted" title="Over the last ${y.runs} run${y.runs === 1 ? "" : "s"}${y.counted < y.runs ? `; filter counts from ${y.counted} of them, as runs before recorded only what was collected` : ""}">Last ${y.runs} run${y.runs === 1 ? "" : "s"}: ${parts.join(" · ")}</span>${votes}</div>`;
+// The last run, in one line: when, how many open posts the board had, how many passed your filters, how many the
+// model scored. One run, not a sum: boards list the same open jobs every day, so adding runs up counts them again.
+function runLine(s, h){
+  if (s.adapter === "manual") return "";
+  if (!s.enabled || !h.lastAt) return "";      // the badge already says Off or Not run yet
+  const y = srcYield(s.id), L = y.last;
+  const parts = [];
+  if (L && L.at === h.lastAt){
+    parts.push(`${num(L.collected)} open post${L.collected === 1 ? "" : "s"}`);
+    if (L.counted) parts.push(L.passed ? `${num(L.passed)} passed your filters` : `<span class="warn-t">none passed your filters</span>`, `${num(L.scored)} scored by the model`);
+  } else parts.push(h.status === "failed" ? `<span class="warn-t">failed</span>` : `${num(h.kept)} open posts`);
+  const worked = h.lastOk && h.status !== "ok" ? ` · last worked ${esc(when(h.lastOk))}` : "";
+  return `<div class="small muted" title="Open posts: what the board listed. Passed your filters: left after your locations, pay and title filters. Scored: the ones that ranked high enough for the model to read.">Last run ${esc(when(h.lastAt))}: ${parts.join(" · ")}${worked}</div>`;
+}
+// Your verdicts on this board's posts, all time.
+function votesLine(s){
+  const y = srcYield(s.id); if (!y.good && !y.nope) return "";
+  return `<div class="small row" style="gap:10px"><span class="muted">Your verdicts</span><span class="votes"><span class="vg" title="${y.good} marked Good"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">${THUMB}</svg>${y.good}</span><span class="vn" title="${y.nope} marked Nope"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" style="transform:scaleY(-1)">${THUMB}</svg>${y.nope}</span></span></div>`;
 }
 function sourceCard(s){
   const h = s.enabled ? srcHealth(s.id) : {status:"off", history:[]};
@@ -1436,8 +1443,8 @@ function sourceCard(s){
       </div>
       <div class="row">${strip}${s.enabled && s.adapter!=="corpus" && s.adapter!=="manual" ? testButton(s) : ""}<label class="inline small" for="on-${esc(s.id)}"><input type="checkbox" id="on-${esc(s.id)}" data-toggle ${s.enabled?"checked":""}> On</label><details class="kebab"><summary class="btn" aria-label="More actions for ${esc(s.id)}" title="More">⋯</summary><div class="menu"><button type="button" data-edit>Edit</button><button type="button" class="danger" data-remove>Remove source</button></div></details></div>
     </div>
-    ${yieldLine(s)}
-    ${metaLine(s, h)}
+    ${runLine(s, h)}
+    ${votesLine(s)}
     ${h.error && s.enabled ? `<div class="err-line small"><b>${h.failures>1?`Failed ${h.failures} runs in a row: `:"Last run: "}</b><span class="mono">${esc(h.error)}</span></div>` : ""}
     ${s.note && !(s.about || "").toLowerCase().includes(s.note.toLowerCase()) ? `<div class="small muted">${esc(s.note)}</div>` : ""}
     ${prop ? `<div class="proposal stack">
