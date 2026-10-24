@@ -378,6 +378,12 @@ label > span{display:inline-flex;align-items:center;gap:2px}
   .match{grid-template-columns:1fr}.dimrow{grid-template-columns:1fr 1fr}.dimrow .field:last-child{grid-column:1/-1}
 }
 @media (prefers-reduced-motion:no-preference){.btn,nav button{transition:border-color .15s,background .15s,color .15s}}
+/* Source cards: one typeface and one text size throughout, title a step up; only color and weight vary. Same on every width. */
+.src{font:400 13px/1.5 var(--font-ui)}
+.src h3{font:600 14px/1.4 var(--font-ui);word-break:break-all}
+.src .small,.src .about,.src .muted,.src .ext,.src .pill,.src .btn,.src label.inline,.src .votes,.src .err-line,.src .testbox,.src .status,.src .proposal,.src .mono,.src .menu button{font-family:var(--font-ui);font-size:13px}
+.src .pill{padding:1px 8px}
+.src .src-edit .mono,.src .src-edit textarea{font-family:var(--font-data)}
 </style>
 
 <div class="wrap">
@@ -1423,7 +1429,7 @@ function sourceCard(s){
   return `<article class="card src" data-sid="${esc(s.id)}">
     <div class="row between">
       <div class="stack" style="gap:2px;min-width:0">
-        <div class="row"><h3 class="mono">${esc(s.id)}</h3>${board ? `<a class="ext small" href="${esc(board)}" target="_blank" rel="noopener" title="Open the board in a new tab">Open board ↗</a>` : ""}<span class="pill ${st[0]}">${st[1]}</span>${h.repair?`<span class="pill bad">Needs repair</span>`:""}${h.blocked && s.enabled?`<span class="pill warn">Domain not allowed yet</span>`:""}</div>
+        <div class="row"><h3>${esc(s.id)}</h3>${board ? `<a class="ext small" href="${esc(board)}" target="_blank" rel="noopener" title="Open the board in a new tab">Open board ↗</a>` : ""}<span class="pill ${st[0]}">${st[1]}</span>${h.repair?`<span class="pill bad">Needs repair</span>`:""}${h.blocked && s.enabled?`<span class="pill warn">Domain not allowed yet</span>`:""}</div>
         ${aboutLine(s)}
       </div>
       <div class="row">${strip}${s.enabled && s.adapter!=="corpus" && s.adapter!=="manual" ? testButton(s) : ""}<label class="inline small" for="on-${esc(s.id)}"><input type="checkbox" id="on-${esc(s.id)}" data-toggle ${s.enabled?"checked":""}> On</label><details class="kebab"><summary class="btn" aria-label="More actions for ${esc(s.id)}" title="More">⋯</summary><div class="menu"><button type="button" data-edit>Edit</button><button type="button" class="danger" data-remove>Remove source</button></div></details></div>
