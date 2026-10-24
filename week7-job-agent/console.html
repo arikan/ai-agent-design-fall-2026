@@ -254,7 +254,9 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgitem{display:grid;gap:8px;padding:12px 0;border-top:1px solid var(--line)}
 .sgitem.done{gap:2px;padding:8px 0}
 .sgtop{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;min-height:32px}
-.sglabel{font-size:14px}
+.sglabel{font-size:14px;display:inline-flex;align-items:center;gap:8px}
+.sgicon{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:6px;flex:none;color:var(--muted);background:var(--sunk)}
+.sgicon.src{color:var(--surface);background:var(--accent)}
 .sgstate{font-size:12.5px;color:var(--muted)}
 .sgbody{display:grid;gap:8px;font-size:13.5px}.sgbody p{margin:0}
 .sgdiff{display:grid;grid-template-columns:72px 1fr;gap:6px 10px;padding:8px 10px;border-radius:8px;background:var(--sunk);font-size:13px;line-height:1.45}
@@ -1047,6 +1049,19 @@ function suggestBusy(){
   const r = S.request; if (!r || r.status === "done") return false;
   return Date.now() - new Date(r.requested_at) < 30 * 60000 ? r.kind : false;
 }
+// Each kind of suggestion has an icon; sources get a filled badge, since they change what the agent reads at all.
+const SG_ICON = {
+  sources_add: ["src", "Add a source", '<path d="M8 3.5v9M3.5 8h9" stroke-width="1.8"/>'],
+  sources_off: ["src", "Turn off sources", '<path d="M8 2.5v5"/><path d="M4.6 4.6a5 5 0 1 0 6.8 0"/>'],
+  exclude_title_words: ["prof", "Titles to skip", '<path d="M2.5 3.5h11l-4.2 5v4l-2.6 1.2V8.5z"/>'],
+  weights: ["prof", "Weights", '<path d="M3 4.5h10M3 8h10M3 11.5h10"/><circle cx="6" cy="4.5" r="1.4" fill="currentColor"/><circle cx="10.5" cy="8" r="1.4" fill="currentColor"/><circle cx="7.5" cy="11.5" r="1.4" fill="currentColor"/>'],
+  rubric: ["prof", "Rubric", '<path d="M10.5 2.8l2.7 2.7-7.4 7.4-3.3.6.6-3.3z"/>'],
+  list: ["prof", "Profile list", '<path d="M2.8 2.8h5.3l5.1 5.1-5.3 5.3-5.1-5.1z"/><circle cx="5.6" cy="5.6" r="1" fill="currentColor"/>'],
+};
+function sgIcon(it){
+  const k = it.target.startsWith("rubric:") ? "rubric" : SG_ICON[it.target] ? it.target : "list", [cls, label, path] = SG_ICON[k];
+  return `<span class="sgicon ${cls}" title="${label}" aria-hidden="true"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${path}</svg></span>`;
+}
 function suggestChange(it){
   if (it.target === "sources_off") return `<ul class="sgposts">${it.proposed.map(id => { const e = it.evidence?.[id] || {}; return `<li><span class="mono">${esc(id)}</span> <span class="muted">· ${num(e.collected)} posts in ${e.counted_runs} runs, none passed your filters</span></li>`; }).join("")}</ul>`;
   if (it.target === "sources_add"){ const p = it.proposed, url = boardUrl({adapter:p.adapter, config:{[ADAPTERS[p.adapter].key]: p.slug}});
@@ -1096,15 +1111,16 @@ function agentSuggest(){
     ${mine ? "" : learn}
     ${mine ? "" : !doc ? ""
       : `<p class="small muted" style="margin:0">From ${esc(when(doc.at))}${doc.model ? ` by ${esc(modelName(doc.model))}` : ""}.${doc.rejected?.length ? ` ${doc.rejected.length} more failed the code check.` : ""}${!open.length && doc.items.length ? " Nothing left to review." : ""}</p>
-        ${!doc.items.length ? sgNone(doc) : ""}`}
+        ${!doc.items.length ? sgNone(doc) : ""}
+        ${(() => { const n = doc.items.filter(x => x.status === "applied" && newerThanLastRun(x.applied_at)).length; return n ? `<p class="small" style="margin:0">${n} applied since the last run.${runLink(" ", n === 1 ? "Run now to try it" : "Run now to try them")}</p>` : ""; })()}`}
     ${open.map(({it, i}) => {
       const posts = !it.posts?.length ? "" : `<details class="sgfold"><summary>Based on ${it.posts.length} post${it.posts.length === 1 ? "" : "s"}</summary><ul class="sgposts">${it.posts.map(p => `<li>${esc(titles[p] || p)}</li>`).join("")}</ul></details>`;
       if (it.status === "applied") return `<div class="sgitem done">
-        <div class="sgtop"><span class="sglabel">${esc(it.label)}</span><span class="sgstate" title="${it.applied_agent_version ? `Saved as agent v${esc(it.applied_agent_version)}.` : `Saved as profile v${esc(it.applied_version)}.`} Posts scored before stay as they are.">✓ Applied · used from the next run${newerThanLastRun(it.applied_at) ? runLink(" · ", "Run now to try it") : ""}</span></div>
+        <div class="sgtop"><span class="sglabel">${sgIcon(it)}${esc(it.label)}</span><span class="sgstate" title="${it.applied_agent_version ? `Saved as agent v${esc(it.applied_agent_version)}.` : `Saved as profile v${esc(it.applied_version)}.`} Posts scored before stay as they are.">✓ Applied · used from the next run</span></div>
         <details class="sgfold"><summary>What changed</summary><div class="sgbody"><p>${esc(it.why)}</p>${suggestChange(it)}</div></details>
       </div>`;
       return `<div class="sgitem">
-        <div class="sgtop"><span class="sglabel">${esc(it.label)}</span><span class="row" style="gap:10px"><button type="button" class="btn primary small" data-apply="${esc(doc.id)}:${i}">Apply</button><button type="button" class="linkbtn small" data-dismiss="${esc(doc.id)}:${i}">Dismiss</button></span></div>
+        <div class="sgtop"><span class="sglabel">${sgIcon(it)}${esc(it.label)}</span><span class="row" style="gap:10px"><button type="button" class="btn primary small" data-apply="${esc(doc.id)}:${i}">Apply</button><button type="button" class="linkbtn small" data-dismiss="${esc(doc.id)}:${i}">Dismiss</button></span></div>
         <div class="sgbody"><p>${esc(it.why)}</p>${suggestChange(it)}</div>
         ${posts}
       </div>`; }).join("")}`;
