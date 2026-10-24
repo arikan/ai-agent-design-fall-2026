@@ -1400,8 +1400,8 @@ function orderedSources(list){
   return [...list].sort((a, b) => (k !== "name" && (!a.enabled - !b.enabled)) || by(a, b) || idx.get(a.id) - idx.get(b.id));
 }
 function aboutLine(s){
-  const c = s.config || {}, name = s.adapter === "getro" ? "" : (c.company_name || "");
-  const parts = [name && `<b>${esc(name)}</b>`, s.about && esc(s.about), s.category && `<span class="muted">${esc(s.category)}</span>`].filter(Boolean);
+  // The title already names the board, so this line is only what the company does and its category.
+  const parts = [s.about && esc(s.about), s.category && `<span class="muted">${esc(s.category)}</span>`].filter(Boolean);
   return parts.length ? `<div class="about">${parts.join(" · ")}</div>` : "";
 }
 // Last: when it last ran, how many posts that brought, and how it is read.
