@@ -1384,7 +1384,7 @@ function srcYield(id){
 }
 // Under the title: who the company is, so a board added from a suggestion explains itself.
 // Ways to order the list. Sources that are off always come last, except by name.
-const SRC_ORDERS = [["good","Your Good verdicts"], ["passed","Passed your filters, last run"], ["collected","Open posts, last run"],
+const SRC_ORDERS = [["good","Your Good verdicts"], ["passed","Passed your filters, last run"], ["collected","Jobs listed, last run"],
   ["attention","Needs attention first"], ["category","Category"], ["name","Name"], ["added","Newest first"]];
 const srcOrder = () => { if (S.srcOrder) return S.srcOrder; try { return localStorage.getItem("src-order") || "good"; } catch(e){ return "good"; } };
 function orderedSources(list){
@@ -1408,7 +1408,7 @@ function aboutLine(s){
 }
 // Last: when it last ran, how many posts that brought, and how it is read.
 const THUMB = `<path d="M5 7v7H2.5V7H5zm1 7V7l2.6-4.6c.3-.5 1-.6 1.4-.2.3.3.4.7.3 1.1L9.6 6.5h3.3c.7 0 1.2.6 1.1 1.3l-.8 5c-.1.7-.7 1.2-1.4 1.2H6z" fill="currentColor"/>`;
-// The last run, in one line: when, how many open posts the board had, how many passed your filters, how many the
+// The last run, in one line: when, how many jobs the board listed, how many passed your filters, how many the
 // model scored. One run, not a sum: boards list the same open jobs every day, so adding runs up counts them again.
 function runLine(s, h){
   if (s.adapter === "manual") return "";
@@ -1416,11 +1416,11 @@ function runLine(s, h){
   const y = srcYield(s.id), L = y.last;
   const parts = [];
   if (L && L.at === h.lastAt){
-    parts.push(`${num(L.collected)} open post${L.collected === 1 ? "" : "s"}`);
+    parts.push(`${num(L.collected)} job${L.collected === 1 ? "" : "s"} listed`);
     if (L.counted) parts.push(L.passed ? `${num(L.passed)} passed your filters` : `<span class="warn-t">none passed your filters</span>`, `${num(L.scored)} scored by the model`);
-  } else parts.push(h.status === "failed" ? `<span class="warn-t">failed</span>` : `${num(h.kept)} open posts`);
+  } else parts.push(h.status === "failed" ? `<span class="warn-t">failed</span>` : `${num(h.kept)} jobs listed`);
   const worked = h.lastOk && h.status !== "ok" ? ` · last worked ${esc(when(h.lastOk))}` : "";
-  return `<div class="small muted" title="Open posts: what the board listed. Passed your filters: left after your locations, pay and title filters. Scored: the ones that ranked high enough for the model to read.">Last run ${esc(when(h.lastAt))}: ${parts.join(" · ")}${worked}</div>`;
+  return `<div class="small muted" title="Jobs listed: every job on the board that morning. Passed your filters: left after your locations, pay and title filters. Scored: the ones that ranked high enough for the model to read.">Last run ${esc(when(h.lastAt))}: ${parts.join(" · ")}${worked}</div>`;
 }
 // Your verdicts on this board's posts, all time.
 function votesLine(s){
