@@ -262,7 +262,7 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgfold[open]>summary{margin-bottom:6px}
 .sgposts{margin:0;padding-left:18px;font-size:13px}
 .warn-t{color:var(--warn)}
-.srcbar select{width:auto;padding:4px 8px;font-size:13px}
+.srcbar{flex-wrap:nowrap}.srcbar label,.srcbar>span{white-space:nowrap}.srcbar select{width:auto;max-width:60vw;padding:4px 8px;font-size:13px}
 .src .about{font-size:13.5px;color:var(--fg)}.src .about b{font-weight:600}
 .votes{display:inline-flex;gap:10px;font:600 12.5px var(--font-data)}.votes>span{display:inline-flex;align-items:center;gap:4px}.votes .vg{color:var(--accent)}.votes .vn{color:var(--warn)}
 .vlist{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:280px;overflow:auto}
@@ -273,7 +273,7 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .cb span{position:absolute;top:-16px;font:11px var(--font-data);color:var(--muted);white-space:nowrap}
 .runbar.plain{padding:4px 0 12px}
 .srchead{padding:4px 0 8px;gap:8px}
-.quickadd{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.quickadd input{flex:1 1 320px;min-width:0}
+#qa-out:empty,#src-new:empty{display:none}.quickadd{display:flex;gap:8px;align-items:center}.quickadd input{flex:1 1 auto;min-width:0}.quickadd .btn{flex:none}
 .qanote{margin:0;padding:8px 12px;border-radius:8px;font-size:13px;background:var(--accent-soft);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent)}
 .qanote.warn{background:var(--warn-soft);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 30%,transparent)}
 .qanote.bad{background:var(--bad-soft);color:var(--bad);border-color:color-mix(in srgb,var(--bad) 30%,transparent)}
@@ -1245,17 +1245,13 @@ function renderSources(){
   const a = S.agent;
   if (!a){ $("sources").innerHTML = `<div class="card empty">Sources appear here once the agent is set up.</div>`; return; }
   clearTimeout(S.flashTimer); if (S.flash) S.flashTimer = setTimeout(() => { S.flash = null; renderSources(); }, 6000);
-  const doms = [...new Set(a.sources.filter(s=>s.enabled).flatMap(srcDomains))].sort();
   const repairs = a.sources.filter(s => s.enabled && srcHealth(s.id).repair).length;
   $("c-sources").textContent = repairs ? `${repairs} need repair` : a.sources.length;
   $("sources").innerHTML = `
     <div class="stack srchead">
-      <p class="small muted" style="margin:0">The job boards your agent reads. Every change is saved as a new agent version.</p>
-      <form class="quickadd" id="quickadd"><input type="text" id="qa-text" placeholder="Paste the address of a page that lists the jobs, or type a company name" aria-label="Job board address or company name" autocomplete="off"><button class="btn primary" type="submit" id="qa-go">Add source</button><button type="button" class="linkbtn small" id="add-source">Advanced</button></form>
+      <div class="row between"><p class="small muted" style="margin:0">The job boards your agent reads.</p><button type="button" class="linkbtn small" id="add-source">Add by hand</button></div>
+      <form class="quickadd" id="quickadd"><input type="text" id="qa-text" placeholder="Job board link or company name" aria-label="Job board link or company name" autocomplete="off"><button class="btn primary" type="submit" id="qa-go">Add</button></form>
       <div id="qa-out"></div>
-      <details><summary>Domains to allow in your cloud environment (${doms.length})</summary>
-        <p class="small muted">The daily run can only reach these. Paste them into your environment's network setting under Custom, allowed domains.</p>
-        <div class="row"><code class="mono domlist" id="domlist">${esc(doms.join("\n"))}</code><button type="button" class="btn" id="copy-doms">Copy</button></div></details>
     </div>
     ${S.flash && !S.flash.id ? `<div class="status ok">${esc(S.flash.msg)}</div>` : ""}
     <div id="src-new"></div>
@@ -1275,7 +1271,6 @@ function renderSources(){
       catch(err){ qaSay(`<p class="qanote bad">Could not save: ${esc(err.message || err.code)}</p>`); } }
   };
   if (S.qa){ $("qa-text").value = S.qa.text || ""; $("qa-out").innerHTML = S.qa.html || ""; }
-  $("copy-doms").onclick = async e => { try { await navigator.clipboard.writeText(doms.join("\n")); e.target.textContent = "Copied"; } catch(err){ const r=document.createRange(); r.selectNodeContents($("domlist")); getSelection().removeAllRanges(); getSelection().addRange(r); } };
 }
 /* ---------- add a source from an address or a name ---------- */
 // Known board hosts: the part of the address after the host is the company's slug.
