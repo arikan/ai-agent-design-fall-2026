@@ -1072,8 +1072,8 @@ function agentSuggest(){
   const nJudged = Object.values(S.judgments).filter(j => j.verdict).length;
   const vs = Object.values(S.judgments), nG = vs.filter(j => j.verdict === "accept").length, nN = vs.filter(j => j.verdict === "dismiss").length;
   const ready = nG > 0 && nN > 0;
-  const btn = mine ? `<button type="button" class="btn busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Suggesting…</button>`
-    : `<button type="button" class="btn" data-suggest ${busy || !ready || (!S.local && !S.runner?.trigger_id) ? "disabled" : ""} ${busy ? `title="Wait until the current ${esc(busy)} finishes"` : !ready ? `title="Mark at least one post Good and one Nope first"` : ""}>Suggest changes</button>`;
+  const btn = S.sgBtn = mine ? `<button type="button" class="btn primary busy" disabled aria-busy="true"><span class="spin" aria-hidden="true"></span>Suggesting…</button>`
+    : `<button type="button" class="btn primary" data-suggest ${busy || !ready || (!S.local && !S.runner?.trigger_id) ? "disabled" : ""} ${busy ? `title="Wait until the current ${esc(busy)} finishes"` : !ready ? `title="Mark at least one post Good and one Nope first"` : ""}>Suggest changes</button>`;
   const stage = !since ? 0 : (Date.now() - new Date(since)) / 1000 < (S.local ? 5 : 75) ? 0 : 1;
   const work = mine ? `<div class="testbox small stack sgwork" style="gap:6px" role="status">
       <div class="row between"><span class="row"><span class="spin" aria-hidden="true"></span><b>Working on suggestions</b></span><span class="mono" data-elapsed="${esc(since)}">${clock(Date.now() - new Date(since))}</span></div>
@@ -1091,7 +1091,7 @@ function agentSuggest(){
       <p>Both verdicts teach. <b>Nope posts</b> show what to skip: a word in two or more Nope titles and no Good one can become a title to skip, and a pattern in your Nope reasons can sharpen a rubric. <b>Good and Nope together</b> show where the scores are off: a dimension that rates Nope posts as high as Good ones gets a new rubric or weight. <b>Your sources</b> adapt too: a board none of whose posts pass your filters for three runs can be turned off, and boards of companies like your Good ones can be added, each found and tested first.</p>
       <p>It needs at least one Good and one Nope; with five of each, the patterns start to mean something. A note on a verdict (“exclude marketing”) is the strongest hint. You have ${enough(nG)} Good and ${enough(nN)} Nope.</p>
       <p class="muted">Nothing changes until you apply a suggestion, and each one you apply is a new profile version.</p></div></details>`;
-  return `<div class="sghead row between"><h3 class="sechead" style="margin:0">Suggested changes</h3>${btn}</div>${work}
+  return `<div class="sghead"><h3 class="sechead" style="margin:0">Suggested changes</h3></div>${work}
     ${mine ? "" : !ready ? `<p class="small muted" style="margin:0">Mark at least one post Good and one Nope in Matches; then the model can suggest changes.</p>` : ""}
     ${mine ? "" : learn}
     ${mine ? "" : !doc ? ""
@@ -1168,6 +1168,7 @@ function renderAgent(){
   if (document.activeElement?.matches?.("#aform input, #aform textarea")) return;     // don't redraw under someone typing
   const run = S.runs.find(r => r.status === "ok");
   const steps = agentPipeline(run), cur = steps.find(x => x.key === S.agentStep) || steps[3];
+  const sgHtml = agentSuggest();      // first: it also makes the Suggest changes button for the card's header
   $("agent-editor").innerHTML = `<div class="panel">
     <section class="asec">
       <div class="row between"><h2>How your agent works</h2><span class="row" style="gap:10px">${run ? `<span class="small muted">Last run ${esc(when(run.started))}</span>` : ""}<button type="button" class="xbtn pchev" id="how-toggle" aria-expanded="${howOpen()}" aria-controls="how-body" aria-label="Show or hide how your agent works" title="${howOpen() ? "Collapse" : "Expand"}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span></div>
@@ -1180,10 +1181,10 @@ function renderAgent(){
       </div>
     </section>
     <section class="card stack" id="a-eval">
-      <h2>Feedback</h2>
+      <div class="row between"><h2>Feedback</h2>${S.sgBtn}</div>
       <p class="small muted" style="margin:0">Your verdicts measure the agent and update what it reads. <button type="button" class="tip" aria-label="How feedback works" data-tip="Agreement measures how well the agent's scores match your verdicts. Suggested changes are edits to your Profile, the text the agent reads every run, so applying one works like updating its memory. The model itself doesn't change. You decide what to apply, and agreement by version shows whether it helped.">i</button></p>
       ${agentEval()}
-      ${agentSuggest()}
+      ${sgHtml}
     </section>
     <form class="card stack" id="aform">
       <div class="row between"><h2>Settings</h2><span class="small muted">Version ${a.version}</span></div>
