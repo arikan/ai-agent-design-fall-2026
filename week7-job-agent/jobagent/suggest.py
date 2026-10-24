@@ -188,13 +188,13 @@ def prepare():
             "If nothing would clearly help, return no suggestions for that search, and say why in `note`: one plain sentence to the user. "
             f"Sources: in `add_sources`, name up to {MAX_ADD} companies whose job boards would likely carry more posts like the user's Good ones "
             "(`sources.good_companies`), and that are not already in `sources.yours`: companies in the same field, stage and kind of role. "
-            "Give each the company name and one plain sentence why. Code looks up and tests each company's board; names it can't find are dropped. "
+            "Give each the company name, `about` (what the company does, a few words, like 'Banking for startups'), `category` (one or two words, like those in `sources.yours`) and one plain sentence why. Code looks up and tests each company's board; names it can't find are dropped. "
             "Boards to turn off are found in code (`sources.quiet`); don't propose those."),
         "searches": out,
         "answer_format": {"file": "work/suggestions.json",
                           "shape": {"suggestions": [{"search_id": "...", "target": "weights | rubric:<key> | target_roles | keywords | industries",
                                                      "proposed": "map, text or list, per target", "why": "one sentence", "posts": ["match_id"]}],
-                                    "add_sources": [{"company": "name", "why": "one sentence"}],
+                                    "add_sources": [{"company": "name", "about": "what it does, a few words", "category": "fintech", "why": "one sentence"}],
                                     "note": "one sentence, only when there are no suggestions: why not"}},
     }
     (WORK / "suggest.json").write_text(json.dumps(task, indent=1))
@@ -331,7 +331,8 @@ def source_items(task, answer, rejected):
         sid = f"{f['adapter']}:{f['slug']}"
         have.add(sid)
         items.append({"search_id": None, "target": "sources_add", "label": f"Add {name}", "current": None,
-                      "proposed": {"id": sid, "adapter": f["adapter"], "slug": f["slug"], "company": name, "jobs": f["jobs"]},
+                      "proposed": {"id": sid, "adapter": f["adapter"], "slug": f["slug"], "company": name, "jobs": f["jobs"],
+                                   "about": str(ask.get("about") or "")[:120], "category": str(ask.get("category") or "")[:40]},
                       "why": str(ask.get("why") or "")[:300], "posts": [], "status": "open"})
     return items
 

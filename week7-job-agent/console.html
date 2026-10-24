@@ -262,6 +262,8 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgfold[open]>summary{margin-bottom:6px}
 .sgposts{margin:0;padding-left:18px;font-size:13px}
 .warn-t{color:var(--warn)}
+.src .about{font-size:13.5px;color:var(--fg)}.src .about b{font-weight:600}
+.votes{display:inline-flex;gap:10px;font:600 12.5px var(--font-data)}.votes>span{display:inline-flex;align-items:center;gap:4px}.votes .vg{color:var(--accent)}.votes .vn{color:var(--warn)}
 .vlist{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:280px;overflow:auto}
 .vlist li{display:grid;grid-template-columns:42px 1fr;gap:0 8px;font-size:13px}.vlist li .muted{grid-column:2}
 .costbars{display:flex;align-items:flex-end;gap:6px;height:120px;border-bottom:1px solid var(--line);padding-top:16px}
@@ -1024,7 +1026,7 @@ function suggestBusy(){
 function suggestChange(it){
   if (it.target === "sources_off") return `<ul class="sgposts">${it.proposed.map(id => { const e = it.evidence?.[id] || {}; return `<li><span class="mono">${esc(id)}</span> <span class="muted">· ${num(e.collected)} posts in ${e.counted_runs} runs, none passed your filters</span></li>`; }).join("")}</ul>`;
   if (it.target === "sources_add"){ const p = it.proposed, url = boardUrl({adapter:p.adapter, config:{[ADAPTERS[p.adapter].key]: p.slug}});
-    return `<p class="small" style="margin:0"><span class="mono">${esc(p.id)}</span> <span class="muted">· ${num(p.jobs)} open jobs now, board found and read</span>${url ? ` · <a class="ext" href="${esc(url)}" target="_blank" rel="noopener">Open board ↗</a>` : ""}</p>`; }
+    return `${p.about ? `<p style="margin:0">${esc(p.about)}${p.category ? ` <span class="muted">· ${esc(p.category)}</span>` : ""}</p>` : ""}<p class="small" style="margin:0"><span class="mono">${esc(p.id)}</span> <span class="muted">· ${num(p.jobs)} open jobs now, board found and read</span>${url ? ` · <a class="ext" href="${esc(url)}" target="_blank" rel="noopener">Open board ↗</a>` : ""}</p>`; }
   if (it.target === "weights"){
     const dims = Object.fromEntries((S.searches.find(x => x.id === it.search_id)?.preferences?.dimensions || []).map(d => [d.key, d.name]));
     const ch = Object.keys(it.proposed).filter(k => it.proposed[k] !== it.current?.[k]).map(k => `<span>${esc(dims[k] || k)}</span><span class="mono">${it.current?.[k]}% → ${it.proposed[k]}%</span>`);
@@ -1099,7 +1101,7 @@ async function applySuggestion(docId, i){
     // Sources live in the agent, so these make a new agent version, as a change on the Sources tab does.
     let sources = S.agent.sources, msg;
     if (it.target === "sources_off"){ const off = new Set(it.proposed); sources = sources.map(x => off.has(x.id) ? {...x, enabled:false} : x); msg = `Suggested change: turned off ${it.proposed.join(", ")}`; }
-    else { const p = it.proposed; if (!sources.some(x => x.id === p.id)) sources = [...sources, {id:p.id, adapter:p.adapter, enabled:true, category:"", cap:COURSE_CAPS.max_postings_per_source, note:"Added from a suggestion", config:{[ADAPTERS[p.adapter].key]: p.slug, company_name:p.company}}]; msg = `Suggested change: added ${p.id}`; }
+    else { const p = it.proposed; if (!sources.some(x => x.id === p.id)) sources = [...sources, {id:p.id, adapter:p.adapter, enabled:true, cap:COURSE_CAPS.max_postings_per_source, category:p.category || "", about:p.about || "", note:"Added from a suggestion", config:{[ADAPTERS[p.adapter].key]: p.slug, company_name:p.company}}]; msg = `Suggested change: added ${p.id}`; }
     const v = await saveSources(sources, msg);
     const items = doc.items.map((x, j) => j === i ? {...x, status:"applied", applied_agent_version:v, applied_at:new Date().toISOString()} : x);
     await S.db.doc("suggestions/" + docId).set({...doc, items});
@@ -1232,7 +1234,7 @@ function srcHealth(id){
   const latest = runs[0].h, fails = runs.findIndex(x=>x.h.status!=="failed");
   const everKept = runs.slice(1).some(x => (x.h.kept||0) > 0);
   const lastOk = runs.find(x=>x.h.status==="ok");
-  return {status:latest.status, error:latest.error || latest.reason, kept:latest.kept||0, history:runs.slice(0,14).reverse(),
+  return {status:latest.status, error:latest.error || latest.reason, kept:latest.kept||0, lastAt:runs[0].at, history:runs.slice(0,14).reverse(),
     failures: fails === -1 ? runs.length : fails, lastOk: lastOk?.at,
     blocked: !!latest.blocked_by_network,
     repair: (latest.status==="failed" && !latest.blocked_by_network) || (latest.status==="empty" && everKept)};
@@ -1371,13 +1373,27 @@ function srcYield(id){
   for (const m of S.matches){ if (!String(m.posting_id || "").startsWith(id + ":")) continue; const v = S.judgments[m.id]?.verdict; if (v === "accept") y.good++; else if (v === "dismiss") y.nope++; }
   return y;
 }
+// Under the title: who the company is, so a board added from a suggestion explains itself.
+function aboutLine(s){
+  const c = s.config || {}, name = s.adapter === "getro" ? "" : (c.company_name || "");
+  const parts = [name && `<b>${esc(name)}</b>`, s.about && esc(s.about), s.category && `<span class="muted">${esc(s.category)}</span>`].filter(Boolean);
+  return parts.length ? `<div class="about">${parts.join(" · ")}</div>` : "";
+}
+// Last: when it last ran, how many posts that brought, and how it is read.
+function metaLine(s, h){
+  const how = s.adapter === "corpus" || s.adapter === "manual" ? esc(ADAPTERS[s.adapter]?.label || s.adapter) : `${esc(ADAPTERS[s.adapter]?.label || s.adapter)}, up to ${num(s.cap || COURSE_CAPS.max_postings_per_source)} posts a run`;
+  const last = h.lastAt ? `Last run ${esc(when(h.lastAt))} · ${num(h.kept)} post${h.kept === 1 ? "" : "s"}` : s.enabled ? "Not run yet" : "Off";
+  const worked = h.lastOk && h.status !== "ok" ? ` · last worked ${esc(when(h.lastOk))}` : "";
+  return `<div class="small muted">${last}${worked} · ${how}</div>`;
+}
+const THUMB = `<path d="M5 7v7H2.5V7H5zm1 7V7l2.6-4.6c.3-.5 1-.6 1.4-.2.3.3.4.7.3 1.1L9.6 6.5h3.3c.7 0 1.2.6 1.1 1.3l-.8 5c-.1.7-.7 1.2-1.4 1.2H6z" fill="currentColor"/>`;
 function yieldLine(s){
   if (!s.enabled || s.adapter === "manual" || s.adapter === "corpus") return "";
   const y = srcYield(s.id); if (!y.runs) return "";
   const parts = [`${num(y.collected)} collected`];
   if (y.counted) parts.push(y.passed ? `${num(y.passed)} passed your filters` : `<span class="warn-t">none passed your filters</span>`, `${num(y.scored)} scored`);
-  if (y.good || y.nope) parts.push(`${y.good} Good · ${y.nope} Nope`);
-  return `<div class="small muted yieldl" title="Over the last ${y.runs} run${y.runs === 1 ? "" : "s"}${y.counted < y.runs ? `; filter counts from ${y.counted} of them, as runs before recorded only what was collected` : ""}">Last ${y.runs} run${y.runs === 1 ? "" : "s"}: ${parts.join(" · ")}</div>`;
+  const votes = y.good || y.nope ? `<span class="votes"><span class="vg" title="${y.good} marked Good"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">${THUMB}</svg>${y.good}</span><span class="vn" title="${y.nope} marked Nope"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" style="transform:scaleY(-1)">${THUMB}</svg>${y.nope}</span></span>` : "";
+  return `<div class="small yieldl row" style="gap:4px 12px"><span class="muted" title="Over the last ${y.runs} run${y.runs === 1 ? "" : "s"}${y.counted < y.runs ? `; filter counts from ${y.counted} of them, as runs before recorded only what was collected` : ""}">Last ${y.runs} run${y.runs === 1 ? "" : "s"}: ${parts.join(" · ")}</span>${votes}</div>`;
 }
 function sourceCard(s){
   const h = s.enabled ? srcHealth(s.id) : {status:"off", history:[]};
@@ -1391,13 +1407,14 @@ function sourceCard(s){
     <div class="row between">
       <div class="stack" style="gap:2px;min-width:0">
         <div class="row"><h3 class="mono">${esc(s.id)}</h3>${board ? `<a class="ext small" href="${esc(board)}" target="_blank" rel="noopener" title="Open the board in a new tab">Open board ↗</a>` : ""}<span class="pill ${st[0]}">${st[1]}</span>${h.repair?`<span class="pill bad">Needs repair</span>`:""}${h.blocked && s.enabled?`<span class="pill warn">Domain not allowed yet</span>`:""}</div>
-        <div class="small muted">${esc(ADAPTERS[s.adapter]?.label || s.adapter)}${s.category?` · ${esc(s.category)}`:""}${s.adapter!=="corpus"&&s.adapter!=="manual"?` · up to ${s.cap||COURSE_CAPS.max_postings_per_source} postings`:""}${h.lastOk?` · last worked ${esc(when(h.lastOk))}`:""}</div>
+        ${aboutLine(s)}
       </div>
       <div class="row">${strip}${s.enabled && s.adapter!=="corpus" && s.adapter!=="manual" ? testButton(s) : ""}<label class="inline small" for="on-${esc(s.id)}"><input type="checkbox" id="on-${esc(s.id)}" data-toggle ${s.enabled?"checked":""}> On</label><details class="kebab"><summary class="btn" aria-label="More actions for ${esc(s.id)}" title="More">⋯</summary><div class="menu"><button type="button" data-edit>Edit</button><button type="button" class="danger" data-remove>Remove source</button></div></details></div>
     </div>
     ${yieldLine(s)}
+    ${metaLine(s, h)}
     ${h.error && s.enabled ? `<div class="err-line small"><b>${h.failures>1?`Failed ${h.failures} runs in a row: `:"Last run: "}</b><span class="mono">${esc(h.error)}</span></div>` : ""}
-    ${s.note ? `<div class="small muted">${esc(s.note)}</div>` : ""}
+    ${s.note && !(s.about || "").toLowerCase().includes(s.note.toLowerCase()) ? `<div class="small muted">${esc(s.note)}</div>` : ""}
     ${prop ? `<div class="proposal stack">
       <div class="row between"><b>Proposed fix</b><span class="small muted">${esc(when(prop.at))}</span></div>
       <div class="small">${esc(prop.reason)}</div>
@@ -1419,6 +1436,7 @@ function sourceEditor(s, isNew){
     <div class="grid2">
       <label>Adapter<select data-adapter>${opts}</select></label>
       <label>Category<input type="text" data-common="category" value="${esc(s.category||"")}" placeholder="design, ai, civic"></label>
+      <label>What the company does<input type="text" data-common="about" value="${esc(s.about||"")}" placeholder="Banking for startups"></label>
       ${s.adapter!=="corpus"&&s.adapter!=="manual"?`<label>Most postings to read<input type="number" data-common="cap" min="1" max="${COURSE_CAPS.max_postings_per_source}" value="${s.cap||COURSE_CAPS.max_postings_per_source}"></label>`:""}
       ${fields}
     </div>
@@ -1445,7 +1463,7 @@ function readEditor(f){
   const keyVal = A.key ? (A.key === "url" ? host(config.url) : config[A.key]) : "";
   const id = adapter === "corpus" ? "corpus" : adapter === "manual" ? "manual:" + (host(config.url) || slug(common("note"))) : `${adapter}:${keyVal}`;
   if (A.key && !keyVal) throw new Error(`Fill in ${A.fields.find(x=>x[0]===A.key || (A.key==="url"&&x[0]==="url"))?.[1] || A.key}.`);
-  return {id, adapter, enabled:true, category:common("category")||"", cap:Math.min(Number(common("cap"))||COURSE_CAPS.max_postings_per_source, COURSE_CAPS.max_postings_per_source), note:common("note")||"", config};
+  return {id, adapter, enabled:true, category:common("category")||"", about:common("about")||"", cap:Math.min(Number(common("cap"))||COURSE_CAPS.max_postings_per_source, COURSE_CAPS.max_postings_per_source), note:common("note")||"", config};
 }
 async function saveSources(sources, msg){
   const a = S.agent, next = {...a, version:a.version+1, sources, updated:new Date().toISOString()};
