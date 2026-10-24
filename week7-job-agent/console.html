@@ -487,6 +487,17 @@ function seen(m){
   const r = /run-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/.exec(m.first_seen||"");
   return r ? when(`${r[1]}-${r[2]}-${r[3]}T${r[4]}:${r[5]}:00Z`) : "";
 }
+// When the last run scored nothing because no new post reached the minimum rank, say so and show what came closest.
+function floorNote(){
+  const r = S.runs.find(x => x.status === "ok"); if (!r) return "";
+  const f = (r.trace || []).filter(t => t.step === "filter");
+  if (!f.length || f.some(t => t.sent_to_judge) || !f.some(t => t.below_min_rank)) return "";
+  const t = f[0], best = t.best_below_min || [];
+  return `<div class="stack" style="gap:8px;justify-items:center;text-align:center"><b style="color:var(--fg)">The last run found no new matches.</b>
+    <span>${num(t.passed)} new posts passed your filters, but none ranked ${t.min_rank_score} or more, the minimum for the model to score it. The rank is high mainly when a post's title has one of your target roles.</span>
+    ${best.length ? `<span class="small">Closest: ${best.map(b => `${esc(b.title)} · ${esc(b.company)} (${b.rank})`).join("; ")}</span>` : ""}
+    <span><button type="button" class="linkbtn" data-tominrank>Lower the minimum rank in Settings</button> or add target roles in Profile.</span></div>`;
+}
 function renderMatches(){
   const sel = $("f-search"), cur = sel.value;
   sel.innerHTML = `<option value="">All searches</option>` + S.searches.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
@@ -509,7 +520,7 @@ function renderMatches(){
   const nNew = scope.filter(isNew).length;
   $("m-summary").textContent = nNew ? `${nNew} new from the last run` : "";
   if (!rows.length){
-    if (S.matches.length){ $("matches").innerHTML = `<div class="card empty">${view[0] === "review" ? `All caught up. New matches arrive with the next run.${runLink(" ", "Run now for more")}` : view[0] === "good" ? "Nothing marked Good yet." : "Nothing marked Nope yet."}</div>`; return; }
+    if (S.matches.length){ $("matches").innerHTML = `<div class="card empty">${view[0] === "review" ? (floorNote() || `All caught up. New matches arrive with the next run.${runLink(" ", "Run now for more")}`) : view[0] === "good" ? "Nothing marked Good yet." : "Nothing marked Nope yet."}</div>`; return; }
     const ready = setupDone(), running = ["starting","running"].includes(runNowPhase());
     $("matches").innerHTML = `<div class="card emptystate">
       <svg class="es-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15.5 15.5L20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -1980,6 +1991,7 @@ function renderInstalling(){
 }
 $("hdr-run").addEventListener("click", () => { goTab("runs"); window.scrollTo({top:0}); });
 document.addEventListener("click", e => {
+  if (e.target.closest("[data-tominrank]")){ goTab("agent"); setTimeout(() => { const f = $("a-minrank"); f?.scrollIntoView({behavior:"smooth", block:"center"}); f?.focus(); }, 50); return; }
   if (e.target.closest("[data-runnow]")) runNow();
   if (e.target.closest("#matches [data-opensetup], #runs [data-opensetup]")){ S.setup.open = true; renderSetup(); $("setup").scrollIntoView({block:"start"}); }
 });

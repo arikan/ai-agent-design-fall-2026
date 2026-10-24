@@ -436,7 +436,10 @@ def prepare(config):
                 by_source.setdefault(src, {"passed": 0, "ranked": 0, "scored": 0})[key] += 1
         step(trace, "filter", search=s["id"], already_matched=already, passed=len(passed), dropped=len(postings) - len(passed) - already,
              sent_to_judge=len(chosen), rescored=len(forced), rescore_not_found=sorted(again - {t[1]["id"] for t in forced}), below_min_rank=len(passed) - len(eligible), min_rank_score=round(floor * 100),
-             not_judged_over_cap=max(0, len(eligible) - per_search_cap), by_source=by_source)
+             not_judged_over_cap=max(0, len(eligible) - per_search_cap), by_source=by_source,
+             # The best posts the minimum rank kept from the model, so an empty run can say what it missed.
+             best_below_min=[{"title": p["title"], "company": p["company"], "rank": round(sc * 100)}
+                             for sc, p in passed if sc < floor][:3])
         for ov, p in chosen:
             items.append({"search_id": s["id"], "posting_id": p["id"], "prefilter": ov,
                           "company": p["company"], "title": p["title"], "location": p["location"],
