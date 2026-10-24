@@ -11,7 +11,7 @@ when the server starts, if a run left any behind (work/out/writes.json).
   GET  /db/<collection>             every document: [{"id", "data", "version"}]
   GET  /db/<collection>/<id>        one document
   PUT  /db/<collection>/<id>        set {"data": ...}; DELETE removes it
-  POST /run {"kind": "run"|"suggest"|"test"|"figure", "source_id"?|"url"?}
+  POST /run {"kind": "run"|"suggest"|"test"|"figure"|"find", "source_id"?|"url"?|"name"?}
                                     starts a run, suggestions, one source's test, or working out a source from an address
   POST /probe {"name": "Cycles"}    which job boards a company name finds
   GET  /run                         the running job's state and its last log lines
@@ -51,6 +51,10 @@ def start_job(kind, source_id=None):
         (dbio.WORK / "figure-result.json").unlink(missing_ok=True)
         localdb.write("meta/figure", {"url": source_id, "status": "working", "started_at": now()})
         cmd = [sys.executable, "-u", "-m", "jobagent", "figure", source_id]
+    elif kind == "find":
+        (dbio.WORK / "find-result.json").unlink(missing_ok=True)
+        localdb.write("meta/figure", {"url": "name:" + source_id, "status": "working", "started_at": now()})
+        cmd = [sys.executable, "-u", "-m", "jobagent", "find", source_id]
     else:
         cmd = [sys.executable, "-u", "-m", "jobagent"] + (["run", "manual"] if kind == "run" else ["suggest"])
     JOB.update(proc=subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1),
@@ -68,8 +72,8 @@ def pump():
         del JOB["log"][:-200]
     p.wait()
     JOB["log"].append(f"[exit {p.returncode}]")
-    if JOB["kind"] == "figure":
-        r = dbio.read(dbio.WORK / "figure-result.json") or {"url": JOB["source_id"], "how": "the step did not finish"}
+    if JOB["kind"] in ("figure", "find"):
+        r = dbio.read(dbio.WORK / f"{JOB['kind']}-result.json") or {"url": JOB["source_id"] if JOB["kind"] == "figure" else "name:" + JOB["source_id"], "how": "the step did not finish"}
         src = r.get("source")
         if src:
             v = dbio.add_source(src, f"Added {src['id']} from {r['url']}")
@@ -159,9 +163,9 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/run":
             b = self.body()
             kind = b.get("kind", "run")
-            if kind not in ("run", "suggest", "test", "figure"):
-                return self.send(400, {"error": "kind must be run, suggest, test or figure"})
-            what = b.get("url") if kind == "figure" else b.get("source_id")
+            if kind not in ("run", "suggest", "test", "figure", "find"):
+                return self.send(400, {"error": "kind must be run, suggest, test, figure or find"})
+            what = b.get("url") if kind == "figure" else b.get("name") if kind == "find" else b.get("source_id")
             localdb.write("meta/request", {"kind": kind, "status": "started", "requested_at": now(), **({"source_id": what} if what else {})})
             ok = start_job(kind, what)
             return self.send(200 if ok else 409, {"started": ok, "error": None if ok else "a run is already going"})

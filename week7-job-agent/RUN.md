@@ -21,9 +21,10 @@ A run should take few turns: do independent tool calls in the same turn, and nev
    - `kind: "check"`: follow "Check setup" below instead of these steps.
    - `kind: "test"`: follow "Test one source" below for its `source_id`.
    - `kind: "suggest"`: follow "Suggest changes" below.
-   - `kind: "figure"`: follow "Figure out a source" below for its `source_id`, which holds the page's address.
+   - `kind: "figure"`: follow "Figure out a source" below for its `url`, the page's address.
+   - `kind: "find"`: follow "Find a board by name" below for its `name`, a company name.
    - `kind: "run"`: the user asked for a run now; continue.
-   Set its `status` to `"started"` (pass the version you read). Otherwise this is the daily run; continue. An extra message `TEST_SOURCE <id>`, `FIGURE_SOURCE <url>` or `CHECK_SETUP` means the same as a request of that kind.
+   Set its `status` to `"started"` (pass the version you read). Otherwise this is the daily run; continue. An extra message `TEST_SOURCE <id>`, `FIGURE_SOURCE <url>`, `FIND_SOURCE <name>` or `CHECK_SETUP` means the same as a request of that kind.
 2. **Get the engine.** In one command: shallow clone the course repo, `cd` into `week7-job-agent`, and run `pip install -q uv` if `uv` is missing.
 3. **Read the database**, all in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `runs` (list), `matches` (list), `judgments` (list), `rescore` (list; postings the user asked to score again), `meta` / `progress`, `meta` / `console` and `meta` / `postings` (get; any may not exist).
 4. **Collect, filter and rank:** `uv run jobagent prepare`, or `uv run jobagent prepare manual` when step 1 found a `run` request (the user pressed Run now; those runs are capped at a few a day, the morning run is not). It prints how long each stage took.
@@ -68,6 +69,17 @@ When step 1 finds a pending `figure` request, the user pasted a careers page add
 8. Set `meta` / `figure` to `{"url", "status": "done", "source": <the source, or null>, "how": "<one plain sentence: what was found and how, or why the page can't be read and where its jobs come from>", "finished_at"}`, with the version from step 2. Set `meta` / `request` `status` to `"done"` and report in one line.
 
 This is the one case where a run changes the agent's sources: the user asked for exactly that address.
+
+## Find a board by name
+
+When step 1 finds a pending `find` request, the user typed a company name. Find its job board and add it, then stop:
+
+1. Get the engine as in step 2. Read `agent` / `current` and `meta` / `figure` with ArtifactData, for their versions.
+2. Set `meta` / `figure` to `{"url": "name:<the name>", "status": "working", "started_at": now}`. Use exactly that `url` in every later write to `meta` / `figure`; the artifact waits for it.
+3. Run `uv run jobagent find "<the name>" --model none`. It tries the company's Greenhouse, Lever, Ashby and Workable boards by name, then likely careers addresses on its own site, looking for an embedded board or a feed, and tests what it finds. Read `work/find-result.json`.
+4. If it found a source, write it to `work/figure-test.json` as `{"health": {"status": "ok"}}` and do steps 7 and 8 of "Figure out a source", with the source from `work/find-result.json`, the note "Added <source id> for <the name>", and a `how` from its `how`. Set the source's `about` to what the company does, a few words, and `category` to one or two words, if you know them.
+5. Otherwise search the web for the company's careers or jobs page (for example "<the name> careers"). The board is often on a host named in the page (Greenhouse, Lever, Ashby, Workable): if so, run `uv run jobagent find "<that board's company slug>" --model none` or add that board as in step 4. Else take the page that lists the jobs and do "Figure out a source" from its step 3 with that address, keeping `url` "name:<the name>" in `meta` / `figure`.
+6. If nothing works, set `meta` / `figure` to `{"url": "name:<the name>", "status": "done", "source": null, "how": "<one plain sentence: what you tried and, if you found it, the careers page address>", "page": <that address or null>, "finished_at"}`, set `meta` / `request` `status` to `"done"` and report in one line.
 
 ## Test one source
 

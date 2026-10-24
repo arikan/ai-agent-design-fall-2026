@@ -7,6 +7,7 @@ On your computer
 
 Parts, to run one step at a time
   figure <url> [--model <id>]       work out a source from a careers page address
+  find <company> [--model <id>]     find a company's job board from its name
   judge [--model <id>]              score work/batch.json -> work/judgments.json
   sources test                      every adapter against its saved responses, offline
   sources try <source.json> [out]   one source, live, with a sample
@@ -55,6 +56,9 @@ def main(argv=None):
     elif cmd == "figure":
         from . import figure
         figure.main(rest)
+    elif cmd == "find":
+        from . import find
+        find.main(rest)
     elif cmd == "sources":
         from . import sources
         call(sources, "sources", rest)

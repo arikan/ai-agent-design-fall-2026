@@ -1302,11 +1302,6 @@ const BOARD_HOSTS = [[/^(job-boards|boards)\.greenhouse\.io$/, "greenhouse"], [/
 const slugOf = u => (u.pathname.split("/").filter(Boolean)[0] || "").toLowerCase();
 const nameFromSlug = slug => slug.replace(/[-_]+/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 const qaSay = (html, text) => { S.qa = {html, text: text ?? $("qa-text")?.value}; $("qa-out").innerHTML = html; };
-function boardLinks(name){
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "");
-  return [["greenhouse", `https://job-boards.greenhouse.io/${slug}`], ["lever", `https://jobs.lever.co/${slug}`], ["ashby", `https://jobs.ashbyhq.com/${slug}`], ["workable", `https://apply.workable.com/${slug}`]]
-    .map(([a, u]) => `<a class="ext" href="${esc(u)}" target="_blank" rel="noopener">${esc(ADAPTERS[a].label)} ↗</a>`).join(" · ");
-}
 async function quickAdd(text){
   if (!text) return;
   const go = $("qa-go"); go.disabled = true;
@@ -1319,16 +1314,8 @@ async function quickAdd(text){
       // Any other address: the agent opens the page and works out how to read it.
       return await figureOut(u.href);
     }
-    // A company name. On this computer the server can look; in the cloud the person checks the links.
-    if (S.local){
-      qaSay(`<p class="qanote"><span class="spin" aria-hidden="true"></span>Looking for ${esc(text)}'s job board…</p>`);
-      const r = await (await fetch("/probe", {method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({name:text})})).json();
-      const found = r.found || [];
-      if (found.length === 1) return await addBoard(found[0].adapter, found[0].slug, text);
-      if (found.length) return qaSay(`<p class="qanote">Found more than one. Add the right one:</p><div class="row" style="gap:8px;flex-wrap:wrap">${found.map(f => `<button type="button" class="btn small" data-qa-add="${esc(f.adapter)}|${esc(f.slug)}">${esc(ADAPTERS[f.adapter].label)}, ${f.jobs} jobs</button>`).join("")}</div>`);
-      return qaSay(`<p class="qanote warn">No board found under that name. Open the company's careers page and paste its address here. Common places: ${boardLinks(text)}.</p>`);
-    }
-    return qaSay(`<p class="qanote">Open the one that shows ${esc(text)}'s jobs, then paste its address here: ${boardLinks(text)}. If none does, paste the company's careers page.</p>`);
+    // A company name: the agent looks for its board (board APIs by name, then the company's own site, then a web search in the cloud).
+    return await findByName(text);
   } finally { go.disabled = false; }
 }
 // The agent works out a source from a careers page: code first (an embedded board, a feed), then the
@@ -1341,20 +1328,32 @@ async function figureOut(url){
   try { await startTask("figure", {url}, "FIGURE_SOURCE " + url); if (S.local) figureLog(url); }
   catch(e){ S.figuring = null; qaSay(`<p class="qanote bad">Could not start: ${esc(mcpMessage(e))}</p>`); }
 }
+async function findByName(name){
+  if (!S.local && !S.runner?.trigger_id){ S.setup.open = true; renderSetup(); return qaSay(`<p class="qanote warn">Finish the setup above first; the agent needs its run to look for the board.</p>`); }
+  const key = "name:" + name;
+  qaSay(`<p class="qanote"><span class="spin" aria-hidden="true"></span>Looking for ${esc(name)}'s job board. ${S.local ? "Usually under a minute." : "A cloud run does this, and searches the web if needed; a few minutes."}<span class="small" id="qa-log"></span></p>`, "");
+  S.figuring = key;
+  try { await startTask("find", {name}, "FIND_SOURCE " + name); if (S.local) figureLog(key); }
+  catch(e){ S.figuring = null; qaSay(`<p class="qanote bad">Could not start: ${esc(S.local ? (e.message || "the server is busy") : mcpMessage(e))}</p>`); }
+}
 // On this computer, the job's latest step shows under the note while it works.
 async function figureLog(url){
   if (S.figuring !== url) return;
-  try { const r = await (await fetch("/run")).json(); const el = $("qa-log"); const line = (r.log || []).filter(l => l.startsWith("figure:")).pop();
-    if (el && line) el.textContent = " " + line.replace(/^figure:\s*/, "") + (r.running ? "" : " · finishing"); } catch(e){}
+  try { const r = await (await fetch("/run")).json(); const el = $("qa-log"); const line = (r.log || []).filter(l => /^(figure|find):/.test(l)).pop();
+    if (el && line) el.textContent = " " + line.replace(/^(figure|find):\s*/, "") + (r.running ? "" : " · finishing"); } catch(e){}
   setTimeout(() => figureLog(url), 2000);
 }
 function renderFigure(){
   const f = S.figure; if (!f || !S.figuring || f.url !== S.figuring || f.status !== "done") return;
   S.figuring = null;
   if (f.source){
-    S.flash = {id:f.source.id, msg:`Added from ${f.url}: ${esc(f.how || "")}.`}; renderSources();
+    S.flash = {id:f.source.id, msg: f.url.startsWith("name:") ? `Added: ${f.how || f.source.id}.` : `Added from ${f.url}: ${f.how || ""}.`}; renderSources();
     document.querySelector(`[data-sid="${CSS.escape(f.source.id)}"]`)?.scrollIntoView({behavior:"smooth", block:"center"});
     return qaSay("", "");
+  }
+  if (f.url.startsWith("name:")){
+    const name = f.url.slice(5);
+    return qaSay(`<p class="qanote warn"><b>Couldn't find ${esc(name)}'s job board.</b> ${esc((f.how || "").replace(/\.?$/, "."))}${f.page ? ` <button type="button" class="linkbtn small" data-qa-follow="${esc(f.page)}">Try ${esc(f.page)}</button>` : ""} If you know the page that lists its jobs, paste its address here.</p>`);
   }
   if (f.follow) return qaSay(`<p class="qanote warn"><b>${esc(f.url)} only links to the jobs.</b> The list is at ${esc(f.follow)}: <button type="button" class="linkbtn small" data-qa-follow="${esc(f.follow)}">add that page</button></p>`);
   qaSay(`<p class="qanote warn"><b>Couldn't read ${esc(f.url)}.</b> ${esc(f.how || "")} You can still keep it as a reminder to check by hand: <button type="button" class="linkbtn small" data-qa-manual="${esc(f.url)}">Add as check by hand</button></p>`);

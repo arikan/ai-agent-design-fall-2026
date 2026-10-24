@@ -133,6 +133,8 @@ From then on, your runs use your code and your artifact updates from your fork's
 | `uv run jobagent prepare` / `finish` | The cloud run's two halves: everything before Claude scores, and everything after |
 | `uv run jobagent sources test` | Run every adapter against its saved responses, offline |
 | `uv run jobagent sources try <source.json> [out.json]` | Run one source live and show a sample |
+| `uv run jobagent find "<company>"` | Find a company's job board from its name, and test it |
+| `uv run jobagent figure <url>` | Work out how to read a careers page, and test it |
 | `uv run jobagent sources fetch <config.json>` | Fetch every enabled source into `work/fetched/` |
 | `uv run jobagent sources domains <config.json>` | List the domains the enabled sources need |
 | `uv run jobagent engine prepare <config.json>` | Collect, filter and prepare `work/batch.json` |
@@ -143,7 +145,7 @@ From then on, your runs use your code and your artifact updates from your fork's
 
 Built in adapters: Greenhouse, Lever, Ashby, Workable, Getro (venture firm portfolio boards), JSON API, web page (CSS selectors), RSS. Two more types exist only as sources: the frozen corpus of 20 fictional postings for repeatable tests, and "check by hand" reminders for boards that block automated access.
 
-**Adding a board.** On the Sources tab, paste the address of the page that lists the jobs, or type the company's name, and press **Add**. A Greenhouse, Lever, Ashby or Workable address is added and tested at once. Any other page goes to the agent: code looks for an embedded board or a feed, and failing that the model reads the page and proposes selectors, each proposal tested before it is kept. Pages that load their jobs with JavaScript can't be read this way; the agent says so and offers to keep the address as a reminder. **Add by hand** opens the full form.
+**Adding a board.** On the Sources tab, paste the address of the page that lists the jobs, or type the company's name, and press **Add**. A Greenhouse, Lever, Ashby or Workable address is added and tested at once. A company name goes to the agent, which looks for the company's Greenhouse, Lever, Ashby or Workable board by name, then for a careers page on its own site, and in the cloud searches the web for it; whatever it finds is tested before it is added. Any other page goes to the agent: code looks for an embedded board or a feed, and failing that the model reads the page and proposes selectors, each proposal tested before it is kept. Pages that load their jobs with JavaScript can't be read this way; the agent says so and offers to keep the address as a reminder. **Add by hand** opens the full form.
 
 **Starting sources.** A new Job Agent artifact starts with the boards in `defaults/agent.json`: company boards in AI, crypto and fintech, venture firm portfolio boards, and a few check-by-hand reminders for sites without a public feed. Turn off the ones that don't fit your search on the Sources tab. To change what every new artifact starts with, edit that file.
 
