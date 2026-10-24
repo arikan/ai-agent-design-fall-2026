@@ -427,9 +427,16 @@ def prepare(config):
         again = set(config.get("rescore", {}).get(s["id"], []))
         forced = [t for t in passed if t[1]["id"] in again]          # asked to be scored again, whatever their rank
         chosen = forced + [t for t in eligible if t[1]["id"] not in again][:per_search_cap]
+        # Per source: how many of its posts passed the filters, ranked high enough, and were scored.
+        # The Sources tab shows it, and suggestions use it to find boards that never yield anything for you.
+        by_source = {}
+        for group, key in ((passed, "passed"), (eligible, "ranked"), (chosen, "scored")):
+            for _, p in group:
+                src = (p.get("sources") or ["?"])[0]
+                by_source.setdefault(src, {"passed": 0, "ranked": 0, "scored": 0})[key] += 1
         step(trace, "filter", search=s["id"], already_matched=already, passed=len(passed), dropped=len(postings) - len(passed) - already,
              sent_to_judge=len(chosen), rescored=len(forced), rescore_not_found=sorted(again - {t[1]["id"] for t in forced}), below_min_rank=len(passed) - len(eligible), min_rank_score=round(floor * 100),
-             not_judged_over_cap=max(0, len(eligible) - per_search_cap))
+             not_judged_over_cap=max(0, len(eligible) - per_search_cap), by_source=by_source)
         for ov, p in chosen:
             items.append({"search_id": s["id"], "posting_id": p["id"], "prefilter": ov,
                           "company": p["company"], "title": p["title"], "location": p["location"],

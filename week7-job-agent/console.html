@@ -1022,6 +1022,9 @@ function suggestBusy(){
   return Date.now() - new Date(r.requested_at) < 30 * 60000 ? r.kind : false;
 }
 function suggestChange(it){
+  if (it.target === "sources_off") return `<ul class="sgposts">${it.proposed.map(id => { const e = it.evidence?.[id] || {}; return `<li><span class="mono">${esc(id)}</span> <span class="muted">· ${num(e.collected)} posts in ${e.counted_runs} runs, none passed your filters</span></li>`; }).join("")}</ul>`;
+  if (it.target === "sources_add"){ const p = it.proposed, url = boardUrl({adapter:p.adapter, config:{[ADAPTERS[p.adapter].key]: p.slug}});
+    return `<p class="small" style="margin:0"><span class="mono">${esc(p.id)}</span> <span class="muted">· ${num(p.jobs)} open jobs now, board found and read</span>${url ? ` · <a class="ext" href="${esc(url)}" target="_blank" rel="noopener">Open board ↗</a>` : ""}</p>`; }
   if (it.target === "weights"){
     const dims = Object.fromEntries((S.searches.find(x => x.id === it.search_id)?.preferences?.dimensions || []).map(d => [d.key, d.name]));
     const ch = Object.keys(it.proposed).filter(k => it.proposed[k] !== it.current?.[k]).map(k => `<span>${esc(dims[k] || k)}</span><span class="mono">${it.current?.[k]}% → ${it.proposed[k]}%</span>`);
@@ -1059,7 +1062,7 @@ function agentSuggest(){
   // What it learns from, and how much it needs: shown before the first run and folded after.
   const enough = (n, k) => n >= 5 ? `<b>${n}</b>` : `<b class="warn-t">${n}</b>`;
   const learn = `<details class="sgfold"${doc ? "" : " open"}><summary>How suggestions learn from your verdicts</summary><div class="sgbody small">
-      <p>Both verdicts teach. <b>Nope posts</b> show what to skip: a word in two or more Nope titles and no Good one can become a title to skip, and a pattern in your Nope reasons can sharpen a rubric. <b>Good and Nope together</b> show where the scores are off: a dimension that rates Nope posts as high as Good ones gets a new rubric or weight.</p>
+      <p>Both verdicts teach. <b>Nope posts</b> show what to skip: a word in two or more Nope titles and no Good one can become a title to skip, and a pattern in your Nope reasons can sharpen a rubric. <b>Good and Nope together</b> show where the scores are off: a dimension that rates Nope posts as high as Good ones gets a new rubric or weight. <b>Your sources</b> adapt too: a board none of whose posts pass your filters for three runs can be turned off, and boards of companies like your Good ones can be added, each found and tested first.</p>
       <p>It needs at least one Good and one Nope; with five of each, the patterns start to mean something. A note on a verdict (“exclude marketing”) is the strongest hint. You have ${enough(nG)} Good and ${enough(nN)} Nope.</p>
       <p class="muted">Nothing changes until you apply a suggestion, and each one you apply is a new profile version.</p></div></details>`;
   return `<div class="sghead row between"><h3 class="sechead" style="margin:0">Suggested changes</h3>${btn}</div>${work}
@@ -1069,9 +1072,9 @@ function agentSuggest(){
       : `<p class="small muted" style="margin:0">From ${esc(when(doc.at))}${doc.model ? ` by ${esc(modelName(doc.model))}` : ""}.${doc.rejected?.length ? ` ${doc.rejected.length} more failed the code check.` : ""}${!open.length && doc.items.length ? " Nothing left to review." : ""}</p>
         ${!doc.items.length ? sgNone(doc) : ""}`}
     ${open.map(({it, i}) => {
-      const posts = `<details class="sgfold"><summary>Based on ${it.posts.length} post${it.posts.length === 1 ? "" : "s"}</summary><ul class="sgposts">${it.posts.map(p => `<li>${esc(titles[p] || p)}</li>`).join("")}</ul></details>`;
+      const posts = !it.posts?.length ? "" : `<details class="sgfold"><summary>Based on ${it.posts.length} post${it.posts.length === 1 ? "" : "s"}</summary><ul class="sgposts">${it.posts.map(p => `<li>${esc(titles[p] || p)}</li>`).join("")}</ul></details>`;
       if (it.status === "applied") return `<div class="sgitem done">
-        <div class="sgtop"><span class="sglabel">${esc(it.label)}</span><span class="sgstate" title="Saved as profile v${esc(it.applied_version)}. Posts scored before stay as they are.">✓ Applied · used from the next run${newerThanLastRun(it.applied_at) ? runLink(" · ", "Run now to try it") : ""}</span></div>
+        <div class="sgtop"><span class="sglabel">${esc(it.label)}</span><span class="sgstate" title="${it.applied_agent_version ? `Saved as agent v${esc(it.applied_agent_version)}.` : `Saved as profile v${esc(it.applied_version)}.`} Posts scored before stay as they are.">✓ Applied · used from the next run${newerThanLastRun(it.applied_at) ? runLink(" · ", "Run now to try it") : ""}</span></div>
         <details class="sgfold"><summary>What changed</summary><div class="sgbody"><p>${esc(it.why)}</p>${suggestChange(it)}</div></details>
       </div>`;
       return `<div class="sgitem">
@@ -1092,6 +1095,16 @@ function sgNone(doc){
 }
 async function applySuggestion(docId, i){
   const doc = S.suggestions.find(d => d.id === docId), it = doc?.items[i], s = S.searches.find(x => x.id === it?.search_id);
+  if (it?.target === "sources_off" || it?.target === "sources_add"){
+    // Sources live in the agent, so these make a new agent version, as a change on the Sources tab does.
+    let sources = S.agent.sources, msg;
+    if (it.target === "sources_off"){ const off = new Set(it.proposed); sources = sources.map(x => off.has(x.id) ? {...x, enabled:false} : x); msg = `Suggested change: turned off ${it.proposed.join(", ")}`; }
+    else { const p = it.proposed; if (!sources.some(x => x.id === p.id)) sources = [...sources, {id:p.id, adapter:p.adapter, enabled:true, category:"", cap:COURSE_CAPS.max_postings_per_source, note:"Added from a suggestion", config:{[ADAPTERS[p.adapter].key]: p.slug, company_name:p.company}}]; msg = `Suggested change: added ${p.id}`; }
+    const v = await saveSources(sources, msg);
+    const items = doc.items.map((x, j) => j === i ? {...x, status:"applied", applied_agent_version:v, applied_at:new Date().toISOString()} : x);
+    await S.db.doc("suggestions/" + docId).set({...doc, items});
+    return;
+  }
   if (!it || !s) return;
   const {id, ...next} = structuredClone(s), prefs = next.preferences;
   if (it.target === "weights") prefs.dimensions.forEach(d => { if (it.proposed[d.key] != null) d.weight = it.proposed[d.key]; });
@@ -1346,6 +1359,26 @@ function boardUrl(s){
     default: return /^https?:\/\//.test(c.url || "") ? c.url : "";
   }
 }
+// What a source gave you over recent runs, from each run's per-source counts and your verdicts.
+function srcYield(id){
+  const y = {runs:0, counted:0, collected:0, passed:0, ranked:0, scored:0, good:0, nope:0};
+  for (const r of S.runs.filter(r => r.status === "ok").slice(0, 7)){
+    const h = (r.sources || []).find(x => x.source === id); if (!h) continue;
+    y.runs++; y.collected += h.kept || 0;
+    const f = (r.trace || []).filter(t => t.step === "filter" && t.by_source);
+    if (f.length){ y.counted++; for (const t of f){ const c = t.by_source[id]; if (c){ y.passed += c.passed || 0; y.ranked += c.ranked || 0; y.scored += c.scored || 0; } } }
+  }
+  for (const m of S.matches){ if (!String(m.posting_id || "").startsWith(id + ":")) continue; const v = S.judgments[m.id]?.verdict; if (v === "accept") y.good++; else if (v === "dismiss") y.nope++; }
+  return y;
+}
+function yieldLine(s){
+  if (!s.enabled || s.adapter === "manual" || s.adapter === "corpus") return "";
+  const y = srcYield(s.id); if (!y.runs) return "";
+  const parts = [`${num(y.collected)} collected`];
+  if (y.counted) parts.push(y.passed ? `${num(y.passed)} passed your filters` : `<span class="warn-t">none passed your filters</span>`, `${num(y.scored)} scored`);
+  if (y.good || y.nope) parts.push(`${y.good} Good · ${y.nope} Nope`);
+  return `<div class="small muted yieldl" title="Over the last ${y.runs} run${y.runs === 1 ? "" : "s"}${y.counted < y.runs ? `; filter counts from ${y.counted} of them, as runs before recorded only what was collected` : ""}">Last ${y.runs} run${y.runs === 1 ? "" : "s"}: ${parts.join(" · ")}</div>`;
+}
 function sourceCard(s){
   const h = s.enabled ? srcHealth(s.id) : {status:"off", history:[]};
   const board = boardUrl(s);
@@ -1362,6 +1395,7 @@ function sourceCard(s){
       </div>
       <div class="row">${strip}${s.enabled && s.adapter!=="corpus" && s.adapter!=="manual" ? testButton(s) : ""}<label class="inline small" for="on-${esc(s.id)}"><input type="checkbox" id="on-${esc(s.id)}" data-toggle ${s.enabled?"checked":""}> On</label><details class="kebab"><summary class="btn" aria-label="More actions for ${esc(s.id)}" title="More">⋯</summary><div class="menu"><button type="button" data-edit>Edit</button><button type="button" class="danger" data-remove>Remove source</button></div></details></div>
     </div>
+    ${yieldLine(s)}
     ${h.error && s.enabled ? `<div class="err-line small"><b>${h.failures>1?`Failed ${h.failures} runs in a row: `:"Last run: "}</b><span class="mono">${esc(h.error)}</span></div>` : ""}
     ${s.note ? `<div class="small muted">${esc(s.note)}</div>` : ""}
     ${prop ? `<div class="proposal stack">

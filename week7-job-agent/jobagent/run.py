@@ -126,7 +126,7 @@ def suggest_local(model=None):
     if not task["searches"]:
         return
     system = "You improve a job agent's profile from its user's verdicts. Answer with JSON only, in the answer shape."
-    user = json.dumps({k: task[k] for k in ("instructions", "matcher_instructions", "searches")}, indent=1) + \
+    user = json.dumps({k: task[k] for k in ("instructions", "matcher_instructions", "searches", "sources") if k in task}, indent=1) + \
         "\n\nAnswer shape:\n" + json.dumps(task["answer_format"]["shape"], indent=1)
     text, u = llm.complete(system, user, model)
     (dbio.WORK / "suggestions.json").write_text(json.dumps(llm.json_block(text)))

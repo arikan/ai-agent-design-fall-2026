@@ -76,6 +76,51 @@ def judged(search_id, matches, judgments):
     return out
 
 
+MIN_RUNS_OFF = 3      # runs with per-source counts before a board can be called quiet
+MAX_ADD = 3
+
+
+def source_of(posting_id):
+    """greenhouse:affirm:7773695003 -> greenhouse:affirm (posting ids are the source id plus the board's own id)."""
+    return posting_id.rsplit(":", 1)[0]
+
+
+def source_yield(agent, runs, matches, judgments):
+    """Per source, over recent runs: collected, passed your filters, ranked high enough, scored, and your verdicts.
+    Runs before per-source counts were recorded add to `collected` only."""
+    out = {s["id"]: {"id": s["id"], "adapter": s["adapter"], "enabled": s.get("enabled", True), "runs": 0, "counted_runs": 0,
+                     "collected": 0, "passed": 0, "ranked": 0, "scored": 0, "good": 0, "nope": 0} for s in agent.get("sources", [])}
+    for r in sorted(runs.values(), key=lambda r: r.get("started", ""), reverse=True)[:7]:
+        if r.get("status") != "ok":
+            continue
+        for h in r.get("sources", []):
+            if h.get("source") in out:
+                out[h["source"]]["runs"] += 1
+                out[h["source"]]["collected"] += h.get("kept") or 0
+        filters = [t for t in r.get("trace", []) if t.get("step") == "filter" and "by_source" in t]
+        if filters:
+            for y in out.values():
+                if any(h.get("source") == y["id"] for h in r.get("sources", [])):
+                    y["counted_runs"] += 1
+            for t in filters:
+                for src, c in t["by_source"].items():
+                    if src in out:
+                        for k in ("passed", "ranked", "scored"):
+                            out[src][k] += c.get(k, 0)
+    for mid, m in matches.items():
+        v = (judgments.get(mid) or {}).get("verdict")
+        src = source_of(m.get("posting_id", ""))
+        if src in out and v in ("accept", "dismiss"):
+            out[src]["good" if v == "accept" else "nope"] += 1
+    return out
+
+
+def quiet_sources(yields):
+    """Boards that collected posts in several runs and none passed your filters, and never gave you a Good post."""
+    return [y for y in yields.values() if y["enabled"] and y["adapter"] not in ("corpus", "manual")
+            and y["counted_runs"] >= MIN_RUNS_OFF and y["collected"] > 0 and y["passed"] == 0 and y["good"] == 0]
+
+
 def prepare():
     searches, matches, judgments = docs("searches"), docs("matches"), docs("judgments")
     agent = body(WORK / "db" / "agent" / "current.json")
@@ -118,8 +163,14 @@ def prepare():
                                 "exclude_title_words": (prefs.get("deal_breakers") or {}).get("exclude_title_words", [])},
                     "nope_only_title_words": nope_only_words(good, nope),
                     "posts": posts})
+    yields = source_yield(agent, docs("runs"), matches, judgments)
+    good_companies = sorted({m["company"] for mid, m in matches.items() if (judgments.get(mid) or {}).get("verdict") == "accept"})
     task = {
         "agent_version": agent.get("version"),
+        "sources": {"yours": [{"id": y["id"], "company": next((s.get("config", {}).get("company_name") for s in agent["sources"] if s["id"] == y["id"]), None),
+                               **{k: y[k] for k in ("enabled", "collected", "passed", "scored", "good", "nope")}} for y in yields.values()],
+                    "good_companies": good_companies,
+                    "quiet": [{**{k: y[k] for k in ("id", "collected", "counted_runs")}} for y in quiet_sources(yields)]},
         "matcher_instructions": agent.get("matcher_instructions", ""),
         "instructions": (
             f"For each search, propose at most {MAX_PER_SEARCH} changes to its Profile that would make the agent's scores agree better "
@@ -134,11 +185,16 @@ def prepare():
             "Prefer the smallest change that fixes a pattern seen in two or more posts. "
             "Write `why` as one plain sentence to the user, naming the posts' pattern, not the statistic. Cite the posts in `posts` by match_id. "
             "Weight changes are checked in code on the same judged posts and dropped unless they raise agreement. "
-            "If nothing would clearly help, return no suggestions for that search, and say why in `note`: one plain sentence to the user."),
+            "If nothing would clearly help, return no suggestions for that search, and say why in `note`: one plain sentence to the user. "
+            f"Sources: in `add_sources`, name up to {MAX_ADD} companies whose job boards would likely carry more posts like the user's Good ones "
+            "(`sources.good_companies`), and that are not already in `sources.yours`: companies in the same field, stage and kind of role. "
+            "Give each the company name and one plain sentence why. Code looks up and tests each company's board; names it can't find are dropped. "
+            "Boards to turn off are found in code (`sources.quiet`); don't propose those."),
         "searches": out,
         "answer_format": {"file": "work/suggestions.json",
                           "shape": {"suggestions": [{"search_id": "...", "target": "weights | rubric:<key> | target_roles | keywords | industries",
                                                      "proposed": "map, text or list, per target", "why": "one sentence", "posts": ["match_id"]}],
+                                    "add_sources": [{"company": "name", "why": "one sentence"}],
                                     "note": "one sentence, only when there are no suggestions: why not"}},
     }
     (WORK / "suggest.json").write_text(json.dumps(task, indent=1))
@@ -239,6 +295,7 @@ def finish(model=None):
             new = [w for w in sug["proposed"] if w.lower() not in {c.lower() for c in current}]
             item["evidence"] = {w: sum(1 for p in s["posts"] if p["verdict"] == "Nope" and engine.title_has(p["title"], w)) for w in new}
         items.append(item)
+    items += source_items(task, answer, rejected)
     at = now()
     doc_id = "s-" + at[:19].replace(":", "").replace("-", "")
     doc = {"id": doc_id, "at": at, "model": model, "agent_version": task["agent_version"],
@@ -248,6 +305,35 @@ def finish(model=None):
     out.mkdir(exist_ok=True)
     (out / "suggestion.json").write_text(json.dumps(doc, indent=1))
     print(f"suggest: {len(items)} suggestion(s), {len(rejected)} rejected. Write work/out/suggestion.json to suggestions/{doc_id}")
+
+
+def source_items(task, answer, rejected):
+    """Turn off quiet boards (found in code) and add boards for companies the model named (looked up and tested in code)."""
+    from . import boards
+    src = task.get("sources") or {}
+    items = []
+    quiet = src.get("quiet") or []
+    if quiet:
+        items.append({"search_id": None, "target": "sources_off", "label": "Turn off quiet sources", "current": None,
+                      "proposed": [q["id"] for q in quiet], "evidence": {q["id"]: q for q in quiet}, "posts": [], "status": "open",
+                      "why": f"{'These boards' if len(quiet) > 1 else 'This board'} brought in posts in each of the last runs, and none passed your filters. "
+                             "Turning off stops reading them; your filters are unchanged."})
+    have = {y["id"] for y in src.get("yours", [])}
+    for ask in (answer.get("add_sources") or [])[:MAX_ADD]:
+        name = str(ask.get("company") or "").strip()
+        if not name:
+            continue
+        found = [f for f in boards.probe(name) if f"{f['adapter']}:{f['slug']}" not in have]
+        if not found:
+            rejected.append({"suggestion": ask, "errors": [f"no Greenhouse, Lever, Ashby or Workable board found for {name!r}"]})
+            continue
+        f = found[0]
+        sid = f"{f['adapter']}:{f['slug']}"
+        have.add(sid)
+        items.append({"search_id": None, "target": "sources_add", "label": f"Add {name}", "current": None,
+                      "proposed": {"id": sid, "adapter": f["adapter"], "slug": f["slug"], "company": name, "jobs": f["jobs"]},
+                      "why": str(ask.get("why") or "")[:300], "posts": [], "status": "open"})
+    return items
 
 
 def main():

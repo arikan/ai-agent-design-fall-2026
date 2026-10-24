@@ -46,7 +46,7 @@ A run should take few turns: do independent tool calls in the same turn, and nev
 When step 1 finds a pending `suggest` request, the user asked for suggestions. Do only this, then stop:
 
 1. Get the engine as in step 2.
-2. Read, in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `matches` (list), `judgments` (list).
+2. Read, in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `matches` (list), `judgments` (list), `runs` (list).
 3. `uv run jobagent suggest prepare`. If it says there is nothing to suggest, skip to step 6.
 4. Read `work/suggest.json` and follow its `instructions`: propose changes to the user's Profile that would make the agent's scores agree better with their Good and Nope verdicts. Write `work/suggestions.json` in its `answer_format`, in one file write. These are proposals only; never change a search yourself.
 5. `uv run jobagent suggest finish --model <id>` (your model, as in step 6 above). Write `work/out/suggestion.json` with ArtifactData `set` to collection `suggestions` under the document id it prints.
