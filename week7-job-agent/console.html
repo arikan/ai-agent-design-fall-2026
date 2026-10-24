@@ -255,8 +255,8 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgitem.done{gap:2px;padding:8px 0}
 .sgtop{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;min-height:32px}
 .sglabel{font-size:14px;display:inline-flex;align-items:center;gap:8px}
-.sgicon{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:6px;flex:none;color:var(--muted);background:var(--sunk)}
-.sgicon.src{color:var(--surface);background:var(--accent)}
+.sgicon{display:inline-grid;place-items:center;width:18px;height:18px;flex:none;color:var(--muted)}.sgicon svg{width:18px;height:18px}
+.sgicon.src{color:var(--accent)}.sgicon.src svg{stroke-width:1.8}
 .sgstate{font-size:12.5px;color:var(--muted)}
 .sgbody{display:grid;gap:8px;font-size:13.5px}.sgbody p{margin:0}
 .sgdiff{display:grid;grid-template-columns:72px 1fr;gap:6px 10px;padding:8px 10px;border-radius:8px;background:var(--sunk);font-size:13px;line-height:1.45}
@@ -1051,10 +1051,10 @@ function suggestBusy(){
 }
 // Each kind of suggestion has an icon; sources get a filled badge, since they change what the agent reads at all.
 const SG_ICON = {
-  sources_add: ["src", "Add a source", '<path d="M8 3.5v9M3.5 8h9" stroke-width="1.8"/>'],
+  sources_add: ["src", "Add a source", '<circle cx="8" cy="8" r="6"/><path d="M8 5.2v5.6M5.2 8h5.6"/>'],
   sources_off: ["src", "Turn off sources", '<path d="M8 2.5v5"/><path d="M4.6 4.6a5 5 0 1 0 6.8 0"/>'],
   exclude_title_words: ["prof", "Titles to skip", '<path d="M2.5 3.5h11l-4.2 5v4l-2.6 1.2V8.5z"/>'],
-  weights: ["prof", "Weights", '<path d="M3 4.5h10M3 8h10M3 11.5h10"/><circle cx="6" cy="4.5" r="1.4" fill="currentColor"/><circle cx="10.5" cy="8" r="1.4" fill="currentColor"/><circle cx="7.5" cy="11.5" r="1.4" fill="currentColor"/>'],
+  weights: ["prof", "Weights", '<path d="M3 4.5h10M3 8h10M3 11.5h10"/><circle cx="6" cy="4.5" r="1.4" fill="var(--surface)"/><circle cx="10.5" cy="8" r="1.4" fill="var(--surface)"/><circle cx="7.5" cy="11.5" r="1.4" fill="var(--surface)"/>'],
   rubric: ["prof", "Rubric", '<path d="M10.5 2.8l2.7 2.7-7.4 7.4-3.3.6.6-3.3z"/>'],
   list: ["prof", "Profile list", '<path d="M2.8 2.8h5.3l5.1 5.1-5.3 5.3-5.1-5.1z"/><circle cx="5.6" cy="5.6" r="1" fill="currentColor"/>'],
 };
@@ -1065,7 +1065,7 @@ function sgIcon(it){
 function suggestChange(it){
   if (it.target === "sources_off") return `<ul class="sgposts">${it.proposed.map(id => { const e = it.evidence?.[id] || {}; return `<li><span class="mono">${esc(id)}</span> <span class="muted">· ${num(e.collected)} posts in ${e.counted_runs} runs, none passed your filters</span></li>`; }).join("")}</ul>`;
   if (it.target === "sources_add"){ const p = it.proposed, url = boardUrl({adapter:p.adapter, config:{[ADAPTERS[p.adapter].key]: p.slug}});
-    return `${p.about ? `<p style="margin:0">${esc(p.about)}${p.category ? ` <span class="muted">· ${esc(p.category)}</span>` : ""}</p>` : ""}<p class="small" style="margin:0"><span class="mono">${esc(p.id)}</span> <span class="muted">· ${num(p.jobs)} open jobs now, board found and read</span>${url ? ` · <a class="ext" href="${esc(url)}" target="_blank" rel="noopener">Open board ↗</a>` : ""}</p>`; }
+    return `${p.about ? `<p style="margin:0">${esc(p.about)}${p.category ? ` <span class="muted">· ${esc(p.category)}</span>` : ""}</p>` : ""}<p class="small" style="margin:0"><span class="mono">${esc(p.id)}</span> <span class="muted">· ${num(p.jobs)} jobs listed now, board found and read</span>${url ? ` · <a class="ext" href="${esc(url)}" target="_blank" rel="noopener">Open board ↗</a>` : ""}</p>`; }
   if (it.target === "weights"){
     const dims = Object.fromEntries((S.searches.find(x => x.id === it.search_id)?.preferences?.dimensions || []).map(d => [d.key, d.name]));
     const ch = Object.keys(it.proposed).filter(k => it.proposed[k] !== it.current?.[k]).map(k => `<span>${esc(dims[k] || k)}</span><span class="mono">${it.current?.[k]}% → ${it.proposed[k]}%</span>`);
