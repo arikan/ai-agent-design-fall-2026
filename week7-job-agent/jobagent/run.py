@@ -113,6 +113,11 @@ def local(trigger, model=None):
             for rej in t.get("rejections", [])[:8]:
                 print(f"rejected {rej['posting']}: {'; '.join(rej['errors'])[:160]}")
     dbio.apply()
+    # As in the cloud (RUN.md step 10): end the run with fresh suggestions when the setting is on.
+    from . import localdb
+    if ((localdb.read("agent/current") or {}).get("data") or {}).get("settings", {}).get("suggest_after_run"):
+        print("suggest: after the run, as set in Settings")
+        suggest_local(model)
 
 
 def suggest_local(model=None):
