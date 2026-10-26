@@ -270,8 +270,8 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .nm-funnel{width:min(100%,520px);grid-template-columns:repeat(3,minmax(0,1fr)) !important}
 .nm-close{width:min(100%,520px);display:grid;gap:6px;text-align:left}
 .nm-close ul{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:13px}
-.nm-close li{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:baseline;padding:2px 0;color:var(--muted);opacity:.75}
-.nm-rank{font:600 12px var(--font-data);color:var(--muted);text-align:right}
+.nm-close li{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:baseline;padding:2px 0;color:var(--muted);opacity:.75}
+.nm-rank{font-size:12px;white-space:nowrap;text-align:right}
 .nm-acts{display:grid;gap:8px;justify-items:center}
 .src.isnew{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .src.ping{animation:ping 1.4s ease-out}
@@ -515,8 +515,8 @@ function floorNote(){
       <li><b>${num(t.passed)}</b><span>new, passed filters</span></li>
       <li><b>0</b><span>ranked ${t.min_rank_score}+ for the model</span></li>
     </ol>
-    ${best.length ? `<div class="nm-close"><span class="small muted">Top-ranked posts that didn't make it (rank out of 100, ${t.min_rank_score} needed)</span>
-      <ul>${best.map(b => `<li><span class="nm-rank">${b.rank}</span><span>${esc(b.title)} <span class="muted">· ${esc(b.company)}</span></span></li>`).join("")}</ul></div>` : ""}
+    ${best.length ? `<div class="nm-close"><span class="small muted">Top-ranked posts that didn't make it (rank ${t.min_rank_score} needed)</span>
+      <ul>${best.map(b => `<li><span>${esc(b.title)} · ${esc(b.company)}</span><span class="nm-rank">rank ${b.rank} of 100</span></li>`).join("")}</ul></div>` : ""}
     <div class="nm-acts"><span class="small muted">For more matches</span>
       <div class="row" style="justify-content:center;gap:8px"><button type="button" class="btn primary" data-totab="sources">Add sources</button><button type="button" class="btn" data-totab="searches">Add target roles</button><button type="button" class="btn" data-tominrank>Lower the minimum rank</button></div></div>
   </div>`;
