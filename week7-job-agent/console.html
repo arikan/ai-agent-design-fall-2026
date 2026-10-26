@@ -266,6 +266,13 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgfold[open]>summary{margin-bottom:6px}
 .sgposts{margin:0;padding-left:18px;font-size:13px}
 .warn-t{color:var(--warn)}
+.nomatch{gap:14px}.nomatch p{max-width:520px}
+.nm-funnel{width:min(100%,520px);grid-template-columns:repeat(3,minmax(0,1fr)) !important}
+.nm-close{width:min(100%,520px);display:grid;gap:6px;text-align:left}
+.nm-close ul{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:13px}
+.nm-close li{display:grid;grid-template-columns:34px 1fr;gap:8px;align-items:baseline;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.nm-rank{font:600 12px var(--font-data);color:var(--muted);text-align:right}
+.nm-acts{display:grid;gap:8px;justify-items:center}
 .src.isnew{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .src.ping{animation:ping 1.4s ease-out}
 @keyframes ping{0%{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 45%,transparent)}100%{box-shadow:0 0 0 1px var(--accent)}}
@@ -498,11 +505,21 @@ function floorNote(){
   const r = S.runs.find(x => x.status === "ok"); if (!r) return "";
   const f = (r.trace || []).filter(t => t.step === "filter");
   if (!f.length || f.some(t => t.sent_to_judge) || !f.some(t => t.below_min_rank)) return "";
-  const t = f[0], best = t.best_below_min || [];
-  return `<div class="stack" style="gap:8px;justify-items:center;text-align:center"><b style="color:var(--fg)">The last run found no new matches.</b>
-    <span>${num(t.passed)} new posts passed your filters, but none ranked ${t.min_rank_score} or more, the minimum for the model to score it. The rank is high mainly when a post's title has one of your target roles.</span>
-    ${best.length ? `<span class="small">Closest: ${best.map(b => `${esc(b.title)} · ${esc(b.company)} (${b.rank})`).join("; ")}</span>` : ""}
-    <span>For more matches: <button type="button" class="linkbtn" data-tominrank>lower the minimum rank</button>, <button type="button" class="linkbtn" data-totab="searches">add target roles</button>, or <button type="button" class="linkbtn" data-totab="sources">add sources</button> with more jobs like yours.</span></div>`;
+  const t = f[0], best = t.best_below_min || [], listed = (r.trace || []).find(x => x.step === "normalize")?.postings;
+  return `<div class="card emptystate nomatch">
+    <span class="es-icon es-emoji" aria-hidden="true">🔍</span>
+    <h2>No new matches from the last run</h2>
+    <p class="muted">Last run ${esc(when(r.started))}. Every post with a target role in its title is already in Matches, and nothing else ranked high enough for the model to read.</p>
+    <ol class="funnel mini nm-funnel">
+      ${listed != null ? `<li><b>${num(listed)}</b><span>jobs listed</span></li>` : ""}
+      <li><b>${num(t.passed)}</b><span>new, passed filters</span></li>
+      <li><b>0</b><span>ranked ${t.min_rank_score}+ for the model</span></li>
+    </ol>
+    ${best.length ? `<div class="nm-close"><span class="small muted">Closest, by rank</span>
+      <ul>${best.map(b => `<li><span class="nm-rank">${b.rank}</span><span>${esc(b.title)} <span class="muted">· ${esc(b.company)}</span></span></li>`).join("")}</ul></div>` : ""}
+    <div class="nm-acts"><span class="small muted">For more matches</span>
+      <div class="row" style="justify-content:center;gap:8px"><button type="button" class="btn primary" data-totab="sources">Add sources</button><button type="button" class="btn" data-totab="searches">Add target roles</button><button type="button" class="btn" data-tominrank>Lower the minimum rank</button></div></div>
+  </div>`;
 }
 function renderMatches(){
   const sel = $("f-search"), cur = sel.value;
@@ -526,7 +543,7 @@ function renderMatches(){
   const nNew = scope.filter(isNew).length;
   $("m-summary").textContent = nNew ? `${nNew} new from the last run` : "";
   if (!rows.length){
-    if (S.matches.length){ $("matches").innerHTML = `<div class="card empty">${view[0] === "review" ? (floorNote() || `All caught up. New matches arrive with the next run.${runLink(" ", "Run now for more")}`) : view[0] === "good" ? "Nothing marked Good yet." : "Nothing marked Nope yet."}</div>`; return; }
+    if (S.matches.length){ const fn = view[0] === "review" && floorNote(); $("matches").innerHTML = fn || `<div class="card empty">${view[0] === "review" ? `All caught up. New matches arrive with the next run.${runLink(" ", "Run now for more")}` : view[0] === "good" ? "Nothing marked Good yet." : "Nothing marked Nope yet."}</div>`; return; }
     const ready = setupDone(), running = ["starting","running"].includes(runNowPhase());
     $("matches").innerHTML = `<div class="card emptystate">
       <svg class="es-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15.5 15.5L20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
