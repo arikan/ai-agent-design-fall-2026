@@ -515,7 +515,7 @@ function floorNote(){
       <li><b>${num(t.passed)}</b><span>new, passed filters</span></li>
       <li><b>0</b><span>ranked ${t.min_rank_score}+ for the model</span></li>
     </ol>
-    ${best.length ? `<div class="nm-close"><span class="small muted">Closest, by rank</span>
+    ${best.length ? `<div class="nm-close"><span class="small muted">Top-ranked posts that didn't make it (rank out of 100, ${t.min_rank_score} needed)</span>
       <ul>${best.map(b => `<li><span class="nm-rank">${b.rank}</span><span>${esc(b.title)} <span class="muted">· ${esc(b.company)}</span></span></li>`).join("")}</ul></div>` : ""}
     <div class="nm-acts"><span class="small muted">For more matches</span>
       <div class="row" style="justify-content:center;gap:8px"><button type="button" class="btn primary" data-totab="sources">Add sources</button><button type="button" class="btn" data-totab="searches">Add target roles</button><button type="button" class="btn" data-tominrank>Lower the minimum rank</button></div></div>
