@@ -191,6 +191,7 @@ td.num{font-family:var(--font-data);font-variant-numeric:tabular-nums}
 @media (prefers-reduced-motion:reduce){.testbox.live::before{animation:none;width:100%;opacity:.6}}
 .spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin-right:6px;vertical-align:-2px;animation:spin .8s linear infinite}
 .btn.busy{display:inline-flex;align-items:center;cursor:progress;opacity:1;color:var(--muted)}
+.btn.primary.busy{color:var(--surface);background:color-mix(in srgb,var(--accent) 80%,var(--surface));border-color:transparent}.btn.primary.busy .spin{border-color:color-mix(in srgb,var(--surface) 35%,transparent);border-top-color:var(--surface)}
 .bar{height:3px;background:var(--line);border-radius:2px;overflow:hidden}
 .bar i{display:block;width:40%;height:100%;background:var(--accent);animation:slide 1.6s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.spin,.bar i{animation:none}.bar i{width:100%;opacity:.5}}
@@ -1428,7 +1429,7 @@ function qaAdded(id, how){
 // the daily run's task does (RUN.md, "Figure out a source"). Progress arrives in meta/figure.
 async function figureOut(url){
   if (!S.runner?.trigger_id){ S.setup.open = true; renderSetup(); return qaSay(`<p class="qanote warn">Finish the setup above first; the agent needs its run to look at the page.</p>`); }
-  qaSay(`<p class="qanote"><span class="spin" aria-hidden="true"></span>Looking at ${esc(url)} to work out how to read it. ${S.local ? "About a minute: the model reads the page and its guess is tested." : "A cloud run does this; a few minutes."}<span class="small" id="qa-log"></span></p>`, "");
+  qaSay(`<p class="qanote"><span class="spin" aria-hidden="true"></span>Looking at ${esc(url)} to work out how to read it. ${S.local ? "About a minute: the model reads the page and its guess is tested." : "A cloud run does this; usually 3 to 6 minutes, most of it starting the run."}<span class="small" id="qa-log"></span> <span class="mono small" data-elapsed="${new Date().toISOString()}">0:00</span>${S.local ? "" : ` · <a class="ext" href="${taskUrl()}" target="_blank" rel="noopener">Watch it in Claude Code ↗</a>`}</p>`, "");
   S.figuring = url;
   try { await startTask("figure", {url}, "FIGURE_SOURCE " + url); if (S.local) figureLog(url); }
   catch(e){ S.figuring = null; qaSay(`<p class="qanote bad">Could not start: ${esc(mcpMessage(e))}</p>`); }
@@ -1436,7 +1437,7 @@ async function figureOut(url){
 async function findByName(name, note = ""){
   if (!S.local && !S.runner?.trigger_id){ S.setup.open = true; renderSetup(); return qaSay(`<p class="qanote warn">Finish the setup above first; the agent needs its run to look for the board.</p>`); }
   const key = "name:" + name;
-  qaSay(`<p class="qanote"><span class="spin" aria-hidden="true"></span>${esc(note)}Looking for ${esc(name)}'s job board. ${S.local ? "Usually under a minute." : "A cloud run does this, and searches the web if needed; a few minutes."}<span class="small" id="qa-log"></span></p>`, "");
+  qaSay(`<p class="qanote"><span class="spin" aria-hidden="true"></span>${esc(note)}Looking for ${esc(name)}'s job board. ${S.local ? "Usually under a minute." : "A cloud run does this, and searches the web if needed; usually 3 to 6 minutes, most of it starting the run."}<span class="small" id="qa-log"></span> <span class="mono small" data-elapsed="${new Date().toISOString()}">0:00</span>${S.local ? "" : ` · <a class="ext" href="${taskUrl()}" target="_blank" rel="noopener">Watch it in Claude Code ↗</a>`}</p>`, "");
   S.figuring = key;
   try { await startTask("find", {name}, "FIND_SOURCE " + name); if (S.local) figureLog(key); }
   catch(e){ S.figuring = null; qaSay(`<p class="qanote bad">Could not start: ${esc(S.local ? (e.message || "the server is busy") : mcpMessage(e))}</p>`); }
