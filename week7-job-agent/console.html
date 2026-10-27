@@ -267,13 +267,7 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgfold[open]>summary{margin-bottom:6px}
 .sgposts{margin:0;padding-left:18px;font-size:13px}
 .warn-t{color:var(--warn)}
-.nomatch{gap:14px}.nomatch p{max-width:520px}
-.nm-funnel{width:min(100%,520px);grid-template-columns:repeat(3,minmax(0,1fr)) !important}
-.nm-close{width:min(100%,520px);display:grid;gap:6px;text-align:left}
-.nm-close ul{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:13px}
-.nm-close li{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:baseline;padding:2px 0;color:var(--muted);opacity:.75}
-.nm-rank{font-size:12px;white-space:nowrap;text-align:right}
-.nm-acts{display:grid;gap:8px;justify-items:center}
+.nomatch{display:grid;gap:8px;font-size:14px;line-height:1.55}.nomatch p{margin:0}.nomatch .linkbtn{font:inherit;font-weight:600}
 .src.isnew{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .src.ping{animation:ping 1.4s ease-out}
 @keyframes ping{0%{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 45%,transparent)}100%{box-shadow:0 0 0 1px var(--accent)}}
@@ -506,20 +500,12 @@ function floorNote(){
   const r = S.runs.find(x => x.status === "ok"); if (!r) return "";
   const f = (r.trace || []).filter(t => t.step === "filter");
   if (!f.length || f.some(t => t.sent_to_judge) || !f.some(t => t.below_min_rank)) return "";
-  const t = f[0], best = t.best_below_min || [], listed = (r.trace || []).find(x => x.step === "normalize")?.postings;
-  return `<div class="card emptystate nomatch">
-    <span class="es-icon es-emoji" aria-hidden="true">🔍</span>
-    <h2>No new matches from the last run</h2>
-    <p class="muted">Last run ${esc(when(r.started))}. Every post with a target role in its title is already in Matches, and nothing else ranked high enough for the model to read.</p>
-    <ol class="funnel mini nm-funnel">
-      ${listed != null ? `<li><b>${num(listed)}</b><span>jobs listed</span></li>` : ""}
-      <li><b>${num(t.passed)}</b><span>new, passed filters</span></li>
-      <li><b>0</b><span>ranked ${t.min_rank_score}+ for the model</span></li>
-    </ol>
-    ${best.length ? `<div class="nm-close"><span class="small muted">Top-ranked posts that didn't make it (rank ${t.min_rank_score} needed)</span>
-      <ul>${best.map(b => `<li><span>${esc(b.title)} · ${esc(b.company)}</span><span class="nm-rank">rank ${b.rank} of 100</span></li>`).join("")}</ul></div>` : ""}
-    <div class="nm-acts"><span class="small muted">For more matches</span>
-      <div class="row" style="justify-content:center;gap:8px"><button type="button" class="btn primary" data-totab="sources">Add sources</button><button type="button" class="btn" data-totab="searches">Add target roles</button><button type="button" class="btn" data-tominrank>Lower the minimum rank</button></div></div>
+  const t = f[0], b = (t.best_below_min || [])[0];
+  // One size, one weight for the heading, plain links: what happened, why, what to do.
+  return `<div class="card nomatch">
+    <p><b>No new matches from the last run</b> <span class="muted">· ${esc(when(r.started))}</span></p>
+    <p class="muted">${num(t.passed)} new posts passed your filters, but none ranked ${t.min_rank_score} or more, so the model scored none.${b ? ` The closest was ${esc(b.title)} at ${esc(b.company)}, ranked ${b.rank}.` : ""}</p>
+    <p>For more matches: <button type="button" class="linkbtn" data-totab="sources">add sources</button> · <button type="button" class="linkbtn" data-totab="searches">add target roles</button> · <button type="button" class="linkbtn" data-tominrank>lower the minimum rank</button></p>
   </div>`;
 }
 function renderMatches(){
