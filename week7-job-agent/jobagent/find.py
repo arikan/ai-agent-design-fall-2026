@@ -46,7 +46,7 @@ def candidates(name):
 def fetch(url):
     from urllib.parse import urlparse
     from .adapters.http import Http
-    return Http([urlparse(url).hostname], timeout=8).get(url, headers={"Accept": "text/html,*/*;q=0.5"})
+    return Http([urlparse(url).hostname], timeout=8).page(url)
 
 
 def find(name, model=None, log=print):

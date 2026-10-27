@@ -29,7 +29,7 @@ class HtmlScraper(BaseSource):
         sel = self.config.get("selectors", {})
         if not sel.get("job_card"):
             raise ValueError("no job_card selector")
-        soup = BeautifulSoup(self.http.get(self.config["url"]), "html.parser")
+        soup = BeautifulSoup(self.http.page(self.config["url"]), "html.parser")
         cards = soup.select(sel["job_card"])
         if not cards:
             raise ValueError(f"job_card selector '{sel['job_card']}' matched nothing; the page may have changed or need JavaScript")

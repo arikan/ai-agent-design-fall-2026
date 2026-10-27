@@ -35,7 +35,7 @@ SKIP_SLUGS = {"embed", "jobs", "api", "job", "careers", "en", "en-us", "v1"}
 
 def fetch_page(url):
     host = urlparse(url).hostname
-    return Http([host], timeout=25).get(url, headers={"Accept": "text/html,*/*;q=0.5"})
+    return Http([host], timeout=25).page(url)
 
 
 def company_from(url):
@@ -68,7 +68,16 @@ def trim_html(html, limit=30000):
     h = re.sub(r"""(?is)\s(?!class=|id=|href=)[a-z:-]+=("[^"]*"|'[^']*'|[^\s>]+)""", "", h)   # keep class, id, href
     h = re.sub(r"[ \t]+", " ", h)
     h = re.sub(r"\n\s*\n+", "\n", h)
-    if len(h) > limit:      # keep the middle too: job lists often sit after a long header
+    if len(h) > limit:      # keep the part with the most job links: lists often sit after long headers and filters
+        marks = [m.start() for m in re.finditer(r'href=["\']?[^"\'\s>]*(?:job|career|position|opening)', h, re.I)]
+        if len(marks) >= 3:
+            best, start, j = 0, 0, 0
+            for i, m in enumerate(marks):
+                while marks[j] < m - limit + 2000:
+                    j += 1
+                if i - j + 1 > best:
+                    best, start = i - j + 1, max(0, marks[j] - 2000)
+            return h[start: start + limit]
         h = h[: limit * 2 // 3] + "\n…\n" + h[-limit // 3:]
     return h
 

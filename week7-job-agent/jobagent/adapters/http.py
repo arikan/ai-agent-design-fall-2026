@@ -21,6 +21,33 @@ class BlockedDomain(Exception):
     pass
 
 
+class RobotsDisallowed(Exception):
+    pass
+
+
+_ROBOTS = {}
+
+
+def robots_allows(url, ctx=None, timeout=8):
+    """Whether the site's robots.txt lets automated readers fetch this page. Job board APIs are made for programs;
+    web pages are made for people, and a site may ask programs to stay off some of them (search results, often).
+    If robots.txt can't be read, the page is allowed."""
+    import urllib.robotparser
+    p = urllib.parse.urlparse(url)
+    base = f"{p.scheme}://{p.netloc}"
+    if base not in _ROBOTS:
+        rp = urllib.robotparser.RobotFileParser()
+        try:
+            req = urllib.request.Request(base + "/robots.txt", headers={"User-Agent": USER_AGENT})
+            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
+                rp.parse(r.read().decode("utf-8", "replace").splitlines())
+        except Exception:
+            rp = None
+        _ROBOTS[base] = rp
+    rp = _ROBOTS[base]
+    return True if rp is None else rp.can_fetch(USER_AGENT, url)
+
+
 class Http:
     def __init__(self, allowed, fixtures=None, timeout=20):
         self.allowed = [d.lower() for d in allowed]
@@ -34,6 +61,12 @@ class Http:
         host = (urllib.parse.urlparse(url).hostname or "").lower()
         if not any(host == d or host.endswith("." + d) for d in self.allowed):
             raise BlockedDomain(f"{host} is not one of this source's domains ({', '.join(self.allowed)})")
+
+    def page(self, url):
+        """A web page meant for people: fetched only if the site's robots.txt allows it."""
+        if self.fixtures is None and not robots_allows(url, self.ctx):
+            raise RobotsDisallowed(f"the site's robots.txt asks automated readers not to read {url}")
+        return self.get(url, headers={"Accept": "text/html,*/*;q=0.5"})
 
     def _url(self, url, params):
         return url + ("?" + urllib.parse.urlencode(params) if params else "")
