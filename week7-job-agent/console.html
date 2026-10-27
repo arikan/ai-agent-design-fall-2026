@@ -259,6 +259,14 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgicon{display:inline-grid;place-items:center;width:18px;height:18px;flex:none;color:var(--muted)}.sgicon svg{width:18px;height:18px}
 .sgicon.src{color:var(--fg)}.sgicon.src svg{stroke-width:1.8}
 .sgstate{font-size:12.5px;color:var(--muted)}
+.oc{font-weight:600}.oc.helped{color:var(--accent)}.oc.hurt,.oc.only_nope{color:var(--bad)}.oc.no_change,.oc.nothing{color:var(--warn)}
+.chg{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line);font-size:13px}
+.chg .sgicon{grid-row:span 2}.chg .chgwhen{color:var(--muted);font-size:12.5px;white-space:nowrap}.chg .chgtext{grid-column:2 / 4;color:var(--muted)}
+.loop{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0;padding:0;list-style:none;font-size:13px}
+.loop li{display:flex;align-items:center;gap:6px}.loop li+li::before{content:"→";color:var(--muted)}
+.loop b{font-weight:600}.loop .who{font:500 11px var(--font-ui);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.arch td:first-child{white-space:nowrap;font-weight:600}.arch td{vertical-align:top;padding:6px 10px 6px 0}
+@media (max-width:560px){.arch tr{display:block;padding:6px 0;border-bottom:1px solid var(--line)}.arch td{display:block;padding:0;border:0}}
 .sgbody{display:grid;gap:8px;font-size:13.5px}.sgbody p{margin:0}
 .sgdiff{display:grid;grid-template-columns:72px 1fr;gap:6px 10px;padding:8px 10px;border-radius:8px;background:var(--sunk);font-size:13px;line-height:1.45}
 .sgw{grid-template-columns:max-content 1fr;gap:4px 16px}
@@ -1086,7 +1094,7 @@ function sgIcon(it){
   return `<span class="sgicon ${cls}" title="${label}" aria-hidden="true"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${path}</svg></span>`;
 }
 function suggestChange(it){
-  if (it.target === "sources_off") return `<ul class="sgposts">${it.proposed.map(id => { const e = it.evidence?.[id] || {}; return `<li><span class="mono">${esc(id)}</span> <span class="muted">· ${num(e.collected)} posts in ${e.counted_runs} runs, none passed your filters</span></li>`; }).join("")}</ul>`;
+  if (it.target === "sources_off") return `<ul class="sgposts">${it.proposed.map(id => { const e = it.evidence?.[id] || {}; return `<li><span class="mono">${esc(id)}</span> <span class="muted">· ${e.nope != null && e.counted_runs == null ? `${e.nope} judged, all Nope` : `${num(e.collected)} posts in ${e.counted_runs} runs, none passed your filters`}</span></li>`; }).join("")}</ul>`;
   if (it.target === "sources_add"){ const p = it.proposed, url = boardUrl({adapter:p.adapter, config:{[ADAPTERS[p.adapter].key]: p.slug}});
     return `${p.about ? `<p style="margin:0">${esc(p.about)}${p.category ? ` <span class="muted">· ${esc(p.category)}</span>` : ""}</p>` : ""}<p class="small" style="margin:0"><span class="mono">${esc(p.id)}</span> <span class="muted">· ${num(p.jobs)} jobs listed${p.passed != null ? ` · ${num(p.passed)} pass your filters · ${p.ranked ? `<b style="color:var(--fg)">${num(p.ranked)} would reach the model</b>` : "none rank high enough for the model yet"}` : ""}</span>${url ? ` · <a class="ext" href="${esc(url)}" target="_blank" rel="noopener">Open board ↗</a>` : ""}</p>${p.top?.length ? `<p class="small muted" style="margin:0">For example: ${p.top.map(esc).join("; ")}</p>` : ""}`; }
   if (it.target === "weights"){
@@ -1142,7 +1150,7 @@ function agentSuggest(){
     ${open.map(({it, i}) => {
       const posts = !it.posts?.length ? "" : `<details class="sgfold"><summary>Based on ${it.posts.length} post${it.posts.length === 1 ? "" : "s"}</summary><ul class="sgposts">${it.posts.map(p => `<li>${esc(titles[p] || p)}</li>`).join("")}</ul></details>`;
       if (it.status === "applied") return `<div class="sgitem done">
-        <div class="sgtop"><span class="sglabel">${sgIcon(it)}${esc(it.label)}</span><span class="sgstate" title="${it.applied_agent_version ? `Saved as agent v${esc(it.applied_agent_version)}.` : `Saved as profile v${esc(it.applied_version)}.`} Posts scored before stay as they are.">✓ Applied · used from the next run</span></div>
+        <div class="sgtop"><span class="sglabel">${sgIcon(it)}${esc(it.label)}</span><span class="sgstate" title="${it.applied_agent_version ? `Saved as agent v${esc(it.applied_agent_version)}.` : `Saved as profile v${esc(it.applied_version)}.`} ${esc(changeOutcome(it).text)}">✓ Applied · <span class="oc ${changeOutcome(it).verdict}">${OC_LABEL[changeOutcome(it).verdict]}</span></span></div>
         <details class="sgfold"><summary>What changed</summary><div class="sgbody"><p>${esc(it.why)}</p>${suggestChange(it)}</div></details>
       </div>`;
       return `<div class="sgitem">
@@ -1160,6 +1168,55 @@ function sgNone(doc){
   const next = s && (s.good < 5 || s.nope < 5) ? ` With only ${Math.min(s.good, s.nope)} ${s.good < s.nope ? "Good" : "Nope"} post${Math.min(s.good, s.nope) === 1 ? "" : "s"}, judge more first.`
     : s?.agreement === 100 ? " Try again after you judge posts where the agent's score surprises you." : "";
   return `<div class="testbox small stack" style="gap:4px"><b>No changes suggested</b><span>${esc(doc.note || stats)}${esc(doc.note ? "" : next)}</span>${doc.note && stats ? `<span class="muted">${esc(stats)}</span>` : ""}</div>`;
+}
+// What an applied suggestion did since, from your verdicts. The same rules as jobagent/outcomes.py, which hands
+// these results to the next round of suggestions: that is what closes the loop.
+const OC_MIN = 3, OC_CLEAR = 10;
+const OC_LABEL = {waiting:"Waiting for a run", too_early:"Too early to tell", helped:"Helped", no_change:"No clear change", hurt:"Hurt", nothing:"Nothing reached the model", only_nope:"Only Nope so far", na:"Done"};
+function pairAgree(rows){
+  const g = rows.filter(x => x.v === "accept").map(x => x.m.total), n = rows.filter(x => x.v === "dismiss").map(x => x.m.total);
+  if (!g.length || !n.length) return null;
+  let w = 0; for (const a of g) for (const b of n) w += a > b ? 1 : a === b ? .5 : 0;
+  return Math.round(w / (g.length * n.length) * 100);
+}
+function changeOutcome(it){
+  const at = new Date(it.applied_at), runs = S.runs.filter(r => r.status === "ok" && new Date(r.started) > at).length;
+  if (it.target === "sources_off") return {verdict:"na", text:"Not read since, so there is nothing to measure."};
+  if (!runs) return {verdict:"waiting", text:"No run since it was applied."};
+  const vOf = m => S.judgments[m.id]?.verdict, judged = m => ["accept","dismiss"].includes(vOf(m));
+  if (it.target === "sources_add"){
+    const id = it.proposed.id, mine = S.matches.filter(m => (m.sources || [m.posting_id?.replace(/:[^:]*$/, "")]).includes(id) && new Date(m.first_seen_at) > at);
+    const j = mine.filter(judged), g = j.filter(m => vOf(m) === "accept").length;
+    if (g) return {verdict:"helped", text:`${g} Good of ${mine.length} post${mine.length === 1 ? "" : "s"} it brought to the model.`};
+    if (!mine.length && runs >= 3) return {verdict:"nothing", text:`No post from it reached the model in ${runs} runs.`};
+    if (j.length >= OC_MIN) return {verdict:"only_nope", text:`All ${j.length} posts you judged from it were Nope.`};
+    return {verdict:"too_early", text:`${mine.length} post${mine.length === 1 ? "" : "s"} from it reached the model; ${j.length} judged so far.`};
+  }
+  const v = it.applied_version || 0, rows = S.matches.filter(m => m.search_id === it.search_id && judged(m)).map(m => ({m, v:vOf(m)}));
+  const before = rows.filter(x => (x.m.prefs_version || 0) < v), after = rows.filter(x => (x.m.prefs_version || 0) >= v);
+  const byOrder = it.target === "weights" || it.target.startsWith("rubric:");
+  const share = xs => xs.length ? Math.round(xs.filter(x => x.v === "accept").length / xs.length * 100) : null;
+  const measure = byOrder ? pairAgree : share, name = byOrder ? "agreement" : "share marked Good";
+  const b = measure(before), a = measure(after);
+  if (b == null) return {verdict:"too_early", text:`No posts judged before it to compare with; ${after.length} judged since.`};
+  if (after.length < OC_MIN || a == null) return {verdict:"too_early", text:`${after.length} post${after.length === 1 ? "" : "s"} judged since; it needs ${OC_MIN} or more${byOrder ? ", with Good and Nope among them" : ""}.`};
+  const d = a - b;
+  return {verdict: d >= OC_CLEAR ? "helped" : d <= -OC_CLEAR ? "hurt" : "no_change",
+          text:`${name[0].toUpperCase() + name.slice(1)} ${b}% before, ${a}% after, on ${before.length} and ${after.length} judged posts.`};
+}
+// Every change you applied, newest first, with what it did. Suggestions read this same record next time.
+function changeRecord(){
+  const rows = S.suggestions.flatMap(d => d.items.filter(x => x.status === "applied" && x.applied_at)).sort((a,b) => String(b.applied_at).localeCompare(String(a.applied_at)));
+  const nDis = S.suggestions.reduce((n, d) => n + d.items.filter(x => x.status === "dismissed").length, 0);
+  if (!rows.length) return "";
+  const all = S.chgAll, shown = all ? rows : rows.slice(0, 5);
+  const oc = rows.map(changeOutcome), tally = ["helped","no_change","hurt"].map(k => [k, oc.filter(o => o.verdict === k).length]).filter(x => x[1]);
+  return `<div class="stack" style="gap:0">
+    <div class="row between"><h3 class="sechead" style="margin:0">What your changes did <button type="button" class="tip" aria-label="How this is measured" data-tip="After each change, code compares the posts scored before it with those scored after, using your verdicts. Weights and rubrics are read by agreement; roles, keywords, industries and titles to skip by the share you marked Good; an added board by the Good posts it brought. Counts are small, and later changes overlap earlier ones, so read these as hints. The next suggestions read this record: they skip what you dismissed, favor what helped, and propose undoing a change that hurt.">i</button></h3>
+      <span class="small muted">${rows.length} applied${tally.length ? ": " + tally.map(([k, n]) => `${n} ${OC_LABEL[k].toLowerCase()}`).join(", ") : ""}${nDis ? ` · ${nDis} dismissed` : ""}</span></div>
+    ${shown.map((it, i) => { const o = changeOutcome(it); return `<div class="chg">${sgIcon(it)}<span>${esc(it.label)} <span class="oc ${o.verdict}">· ${OC_LABEL[o.verdict]}</span></span><span class="chgwhen">${esc(when(it.applied_at))}</span><span class="chgtext">${esc(o.text)}</span></div>`; }).join("")}
+    ${rows.length > 5 ? `<button type="button" class="linkbtn small" data-chgall style="justify-self:start;margin-top:6px">${all ? "Show fewer" : `Show all ${rows.length}`}</button>` : ""}
+  </div>`;
 }
 async function applySuggestion(docId, i){
   const doc = S.suggestions.find(d => d.id === docId), it = doc?.items[i], s = S.searches.find(x => x.id === it?.search_id);
@@ -1235,6 +1292,40 @@ function agentVersions(){
     </div></div>`;
 }
 
+// The two folds stay open across redraws (the page redraws whenever the database changes).
+S.howFolds = new Set();
+document.addEventListener("toggle", e => { const k = e.target?.dataset?.howfold; if (k) e.target.open ? S.howFolds.add(k) : S.howFolds.delete(k); }, true);
+// The improvement loop, with this agent's own counts: what changes, who changes it, and how the result comes back.
+function howImproves(){
+  const items = S.suggestions.flatMap(d => d.items), applied = items.filter(x => x.status === "applied" && x.applied_at);
+  const measured = applied.map(changeOutcome).filter(o => ["helped","no_change","hurt","nothing","only_nope"].includes(o.verdict)).length;
+  const judged = Object.values(S.judgments).filter(j => j.verdict).length;
+  const step = (who, name, n) => `<li><span><span class="who">${who}</span> <b>${name}</b>${n != null ? ` <span class="muted mono">${num(n)}</span>` : ""}</span></li>`;
+  return `<details class="fold"${S.howFolds.has("improve") ? " open" : ""} data-howfold="improve"><summary>How it improves</summary><div class="stack small" style="gap:8px;padding:4px 0 8px">
+    <ol class="loop" aria-label="The improvement loop">${step("code + model", "Run", S.runs.filter(r => r.status === "ok").length)}${step("you", "Judge", judged)}${step("model", "Suggest", items.length)}${step("code", "Check", null)}${step("you", "Apply", applied.length)}${step("code", "Measure", measured)}<li><span class="muted">back to Suggest</span></li></ol>
+    <p style="margin:0">The model never changes. What changes is what it reads: your Profile (roles, keywords, rubrics, weights, titles to skip) and the boards it collects from. The model proposes changes from your verdicts, code tests each one, and you apply it or not; each applied change is a new version.</p>
+    <p style="margin:0">Then code measures it on the posts scored after it, and the next suggestions read those results: they skip what you dismissed, build on what helped, and propose undoing what hurt. That return path is what makes it a loop rather than a list of tips. <button type="button" class="linkbtn small" data-jump="a-eval">What your changes did ↓</button></p>
+  </div></details>`;
+}
+// The course's agent architecture, located in this agent.
+function howBuilt(){
+  const go = (v, label) => v.startsWith("a-") ? `<button type="button" class="linkbtn small" data-jump="${v}">${label} ↓</button>` : v.startsWith("http") ? `<a class="ext small" href="${v}" target="_blank" rel="noopener">${label} ↗</a>` : `<button type="button" class="linkbtn small" data-goview="${v}">${label} →</button>`;
+  const spec = COURSE_REPO + "/blob/main/week7-job-agent/RUN.md";
+  const rows = [
+    ["Model", "Scores the top posts and drafts suggestions. Nothing else.", go("a-sample", "What the model sees")],
+    ["Tools", "Readers for each kind of job board (Greenhouse, Lever, Ashby, Workable, web pages, feeds) and the database this page reads and writes.", go("sources", "Sources")],
+    ["Memory", "Your Profile, your sources, your verdicts and the record of changes, all versioned. It is what each run reads.", go("searches", "Profile")],
+    ["Loop and harness", "A scheduled Claude Code session runs every morning; Run now starts one. The harness gives it the repository, the database and a budget.", go("runs", "Runs")],
+    ["Specification", "RUN.md tells the session what to do, in what order, and what it must not do. Your Profile says what a good job is.", go(spec, "RUN.md")],
+    ["Workflow before loop", "Collect, filter and rank are plain code. The model only reads what ranks high enough.", ""],
+    ["Supervisor and workers", "The session hands narrow jobs to code and to the model: score posts, repair a board, find a board by name, suggest changes.", go("runs", "Runs")],
+    ["Verification", "Code checks the model's work before it counts: quotes must appear in the post, a board must return posts, a weight change must raise agreement.", ""],
+    ["Human in the loop", "You judge and you apply. The agent proposes; it never changes its own settings.", go("a-eval", "Feedback")],
+    ["Trace", "Each run keeps its steps, drops and costs; each change a version and a note; each score its model and versions.", go("a-versions", "Versions")],
+    ["Boundary", "Job boards belong to others: robots.txt, pages built with JavaScript, boards that move or close. Some can only be checked by hand.", go("sources", "Sources")],
+  ];
+  return `<details class="fold"${S.howFolds.has("built") ? " open" : ""} data-howfold="built"><summary>How it's built</summary><div class="scroll"><table class="arch small"><tbody>${rows.map(([k, what, where]) => `<tr><td>${k}</td><td>${what} ${where}</td></tr>`).join("")}</tbody></table></div></details>`;
+}
 // "How your agent works" opens by default; once someone closes or opens it, this browser remembers.
 const howOpen = () => { try { return localStorage.getItem("how-open") !== "0"; } catch(e){ return true; } };
 function renderAgent(){
@@ -1253,6 +1344,8 @@ function renderAgent(){
           <span class="pwho">${x.who}</span><span class="pname">${x.name}</span><span class="pnum">${x.n}</span><span class="pwhat">${x.what}</span></button>`).join("")}</div>
       <div class="pdetail"><p style="margin:0">${cur.how}${cur.from ? ` <span class="muted">Last run: ${esc(cur.from)}.</span>` : ""}</p>
         <button type="button" class="linkbtn small" ${cur.go[0].startsWith("a-") ? `data-jump="${cur.go[0]}"` : `data-goview="${cur.go[0]}"`}>${cur.go[1]} ${cur.go[0].startsWith("a-") ? "↓" : "→"}</button></div>
+      ${howImproves()}
+      ${howBuilt()}
       </div>
     </section>
     <section class="card stack" id="a-eval">
@@ -1260,6 +1353,7 @@ function renderAgent(){
       <p class="small muted" style="margin:0">Your verdicts measure the agent and update what it reads. <button type="button" class="tip" aria-label="How feedback works" data-tip="Agreement measures how well the agent's scores match your verdicts. Suggested changes are edits to your Profile, the text the agent reads every run, so applying one works like updating its memory. The model itself doesn't change. You decide what to apply, and agreement by version shows whether it helped.">i</button></p>
       ${agentEval()}
       ${sgHtml}
+      ${changeRecord()}
     </section>
     <form class="card stack" id="aform">
       <div class="row between"><h2>Settings</h2><span class="small muted">Version ${a.version}</span></div>
@@ -1284,12 +1378,13 @@ function renderAgent(){
       <h2>What the model sees</h2>
       ${agentSample(run)}
     </section>
-    <section class="asec">
+    <section class="asec" id="a-versions">
       <h2>Versions and cost</h2>
       ${agentVersions()}
     </section></div>`;
   $("agent-editor").onclick = e => {
     const st = e.target.closest("[data-astep]"); if (st){ S.agentStep = st.dataset.astep; renderAgent(); return; }
+    if (e.target.closest("[data-chgall]")){ S.chgAll = !S.chgAll; renderAgent(); return; }
     const ht = e.target.closest("#how-toggle"); if (ht){ const open = !howOpen(); try { localStorage.setItem("how-open", open ? "1" : "0"); } catch(err){} $("how-body").hidden = !open; ht.setAttribute("aria-expanded", String(open)); ht.title = open ? "Collapse" : "Expand"; return; }
     const g = e.target.closest("[data-goview]"); if (g){ goTab(g.dataset.goview); window.scrollTo({top:0}); return; }
     const j = e.target.closest("[data-jump]"); if (j){ $(j.dataset.jump)?.scrollIntoView({behavior:"smooth", block:"start"}); return; }

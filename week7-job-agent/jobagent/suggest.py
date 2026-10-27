@@ -14,7 +14,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import engine
+from . import engine, outcomes
 
 HERE = Path(__file__).resolve().parents[1]     # the project folder: work/, defaults/, caps.json
 WORK = HERE / "work"
@@ -121,6 +121,14 @@ def quiet_sources(yields):
             and y["counted_runs"] >= MIN_RUNS_OFF and y["collected"] > 0 and y["passed"] == 0 and y["good"] == 0]
 
 
+def always_nope(yields):
+    """Boards whose posts you judged MIN_NOPE or more times and never marked Good: reading them costs scoring and finds nothing."""
+    return [y for y in yields.values() if y["enabled"] and y["adapter"] not in ("corpus", "manual") and y["good"] == 0 and y["nope"] >= MIN_NOPE]
+
+
+MIN_NOPE = 4
+
+
 def prepare():
     searches, matches, judgments = docs("searches"), docs("matches"), docs("judgments")
     agent = body(WORK / "db" / "agent" / "current.json")
@@ -163,14 +171,28 @@ def prepare():
                                 "exclude_title_words": (prefs.get("deal_breakers") or {}).get("exclude_title_words", [])},
                     "nope_only_title_words": nope_only_words(good, nope),
                     "posts": posts})
-    yields = source_yield(agent, docs("runs"), matches, judgments)
+    runs = docs("runs")
+    yields = source_yield(agent, runs, matches, judgments)
+    # The loop's memory: what was applied or dismissed before, and what each applied change did since (outcomes.py).
+    track = outcomes.record(docs("suggestions"), matches, judgments, runs)
+    current = {s["search_id"]: s["profile"] for s in out}
+    for r in track:
+        p = current.get(r.get("search_id"))
+        if r["status"] == "applied" and p and r["target"] != "weights" and not r["target"].startswith("rubric:"):
+            r["still_current"] = r["target"] in p and p[r["target"]] == r["proposed"]
+        elif r["status"] == "applied" and p and r["target"].startswith("rubric:"):
+            r["still_current"] = any(d["key"] == r["target"][7:] and d.get("rubric") == r["proposed"] for d in p["dimensions"])
+        elif r["status"] == "applied" and p and r["target"] == "weights":
+            r["still_current"] = {d["key"]: d["weight"] for d in p["dimensions"]} == r["proposed"]
     good_companies = sorted({m["company"] for mid, m in matches.items() if (judgments.get(mid) or {}).get("verdict") == "accept"})
     task = {
         "agent_version": agent.get("version"),
         "sources": {"yours": [{"id": y["id"], "company": next((s.get("config", {}).get("company_name") for s in agent["sources"] if s["id"] == y["id"]), None),
                                **{k: y[k] for k in ("enabled", "collected", "passed", "scored", "good", "nope")}} for y in yields.values()],
                     "good_companies": good_companies,
-                    "quiet": [{**{k: y[k] for k in ("id", "collected", "counted_runs")}} for y in quiet_sources(yields)]},
+                    "quiet": [{**{k: y[k] for k in ("id", "collected", "counted_runs")}} for y in quiet_sources(yields)],
+                    "always_nope": [{k: y[k] for k in ("id", "scored", "nope")} for y in always_nope(yields) if y["id"] not in {q["id"] for q in quiet_sources(yields)}]},
+        "track_record": track,
         "matcher_instructions": agent.get("matcher_instructions", ""),
         "instructions": (
             f"For each search, propose at most {MAX_PER_SEARCH} changes to its Profile that would make the agent's scores agree better "
@@ -189,7 +211,12 @@ def prepare():
             f"Sources: in `add_sources`, name up to {MAX_ADD} companies whose job boards would likely carry more posts like the user's Good ones "
             "(`sources.good_companies`), and that are not already in `sources.yours`: companies in the same field, stage and kind of role. "
             "Give each the company name, `about` (what the company does, a few words, like 'Banking for startups'), `category` (one or two words, like those in `sources.yours`) and one plain sentence why. Code looks up and tests each company's board; names it can't find are dropped. "
-            "Boards to turn off are found in code (`sources.quiet`); don't propose those."),
+            "Boards to turn off are found in code (`sources.quiet`, `sources.always_nope`); don't propose those. "
+            "`track_record` is what happened to earlier suggestions: each one the user applied or dismissed, and for applied ones an "
+            "`outcome` measured in code since (helped, no_change, hurt, too_early, waiting; for boards also nothing or only_nope). "
+            "Learn from it: never propose again what the user dismissed; prefer the kind of change that helped; when a kind made no clear "
+            "change or hurt, try a different lever rather than more of the same; don't name a company like a board that brought only Nope. "
+            "Code proposes undoing a change that hurt; don't propose that yourself. Mention in `why` when a suggestion builds on an earlier result."),
         "searches": out,
         "answer_format": {"file": "work/suggestions.json",
                           "shape": {"suggestions": [{"search_id": "...", "target": "weights | rubric:<key> | target_roles | keywords | industries",
@@ -253,6 +280,12 @@ def finish(model=None):
     matches, judgments = docs("matches"), docs("judgments")
     by_id = {s["search_id"]: s for s in task["searches"]}
     items, rejected, count = [], [], {}
+    track = task.get("track_record") or []
+    dismissed = {}           # target -> lowercased words or ids the user dismissed before
+    for r in track:
+        if r["status"] == "dismissed" and isinstance(r.get("proposed"), list):
+            dismissed.setdefault((r.get("search_id"), r["target"]), set()).update(
+                x.lower() for x in r["proposed"] if x.lower() not in {c.lower() for c in (r.get("current") or [])})
     for sug in answer.get("suggestions", []):
         s = by_id.get(sug.get("search_id"))
         if not s:
@@ -275,6 +308,11 @@ def finish(model=None):
                     errs.append(f"{w!r} is part of your target role {role!r}")
                 elif len(hits_nope) < 2:
                     errs.append(f"{w!r} is in fewer than two Nope titles")
+        if not errs and sug["target"] in LIST_TARGETS:
+            new = {x.lower() for x in sug["proposed"]} - {c.lower() for c in current}
+            again = new & dismissed.get((s["search_id"], sug["target"]), set())
+            if new and new <= again:
+                errs.append(f"you dismissed {', '.join(sorted(again))} before")
         if not errs and count.get(s["search_id"], 0) >= MAX_PER_SEARCH:
             errs.append(f"more than {MAX_PER_SEARCH} for this search")
         if errs:
@@ -295,6 +333,7 @@ def finish(model=None):
             new = [w for w in sug["proposed"] if w.lower() not in {c.lower() for c in current}]
             item["evidence"] = {w: sum(1 for p in s["posts"] if p["verdict"] == "Nope" and engine.title_has(p["title"], w)) for w in new}
         items.append(item)
+    items = undo_items(task) + items
     items += source_items(task, answer, rejected)
     at = now()
     doc_id = "s-" + at[:19].replace(":", "").replace("-", "")
@@ -305,6 +344,23 @@ def finish(model=None):
     out.mkdir(exist_ok=True)
     (out / "suggestion.json").write_text(json.dumps(doc, indent=1))
     print(f"suggest: {len(items)} suggestion(s), {len(rejected)} rejected. Write work/out/suggestion.json to suggestions/{doc_id}")
+
+
+def undo_items(task):
+    """A Profile change that measurably hurt, and is still in place, gets a suggestion to undo it: the loop correcting itself."""
+    by_id = {s["search_id"]: s for s in task["searches"]}
+    out = []
+    for r in task.get("track_record") or []:
+        o = r.get("outcome") or {}
+        if r["status"] != "applied" or o.get("verdict") != "hurt" or not r.get("still_current") or r.get("search_id") not in by_id:
+            continue
+        if any(x["target"] == r["target"] for x in out):
+            continue
+        out.append({"search_id": r["search_id"], "target": r["target"], "label": f"Undo: {r['label']}", "current": r["proposed"],
+                    "proposed": r["current"], "posts": [], "status": "open", "undo_of": r["at"], "outcome": o,
+                    "why": f"Since you applied this, {o['metric']} went from {o['before']}% to {o['after']}% "
+                           f"({o['judged_before']} posts judged before, {o['judged']} after). Undoing it restores the earlier version."})
+    return out
 
 
 def source_items(task, answer, rejected):
@@ -318,7 +374,17 @@ def source_items(task, answer, rejected):
                       "proposed": [q["id"] for q in quiet], "evidence": {q["id"]: q for q in quiet}, "posts": [], "status": "open",
                       "why": f"{'These boards' if len(quiet) > 1 else 'This board'} brought in posts in each of the last runs, and none passed your filters. "
                              "Turning off stops reading them; your filters are unchanged."})
+    nope = src.get("always_nope") or []
+    if nope:
+        items.append({"search_id": None, "target": "sources_off", "label": "Turn off boards you always reject", "current": None,
+                      "proposed": [q["id"] for q in nope], "evidence": {q["id"]: q for q in nope}, "posts": [], "status": "open",
+                      "why": f"You marked every post you judged from {'these boards' if len(nope) > 1 else 'this board'} Nope. "
+                             "Turning off frees the model's scoring for other boards."})
     have = {y["id"] for y in src.get("yours", [])}
+    # Boards the user dismissed, or added and later turned off, aren't suggested again.
+    seen = {r["proposed"]["id"] for r in task.get("track_record") or []
+            if r["target"] == "sources_add" and isinstance(r.get("proposed"), dict) and (r["status"] == "dismissed" or r["proposed"]["id"] not in have)}
+    seen |= {x for r in task.get("track_record") or [] if r["target"] == "sources_off" and r["status"] == "applied" for x in r["proposed"]}
     asks = [a for a in (answer.get("add_sources") or [])[:MAX_ADD] if str(a.get("company") or "").strip()]
     search, floor = active_search(), min_rank()
     # Each board is found and measured the way a run would see it, in parallel: what it lists, what passes your filters,
@@ -340,6 +406,8 @@ def source_items(task, answer, rejected):
             rejected.append({"suggestion": ask, "errors": [f"no Greenhouse, Lever, Ashby or Workable board found for {name!r}"]})
         elif not y["passed"]:
             rejected.append({"suggestion": ask, "errors": [f"{y['id']} lists {y['listed']} jobs, none pass your filters"]})
+        elif y["id"] in seen:
+            rejected.append({"suggestion": ask, "errors": [f"{y['id']} was dismissed or turned off before"]})
         elif y["id"] not in have:
             have.add(y["id"])
             found.append((ask, name, y))

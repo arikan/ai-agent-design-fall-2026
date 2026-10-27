@@ -28,7 +28,7 @@ A run should take few turns: do independent tool calls in the same turn, and nev
    - `kind: "run"`: the user asked for a run now; continue.
    Set its `status` to `"started"` (pass the version you read). Otherwise this is the daily run; continue. An extra message `TEST_SOURCE <id>`, `FIGURE_SOURCE <url>`, `FIND_SOURCE <name>` or `CHECK_SETUP` means the same as a request of that kind.
 2. **Get the engine.** In one command: shallow clone the course repo, `cd` into `week7-job-agent`, and run `pip install -q uv` if `uv` is missing.
-3. **Read the database**, all in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `runs` (list), `matches` (list), `judgments` (list), `rescore` (list; postings the user asked to score again), `meta` / `progress`, `meta` / `console` and `meta` / `postings` (get; any may not exist).
+3. **Read the database**, all in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `runs` (list), `matches` (list), `judgments` (list), `suggestions` (list; earlier suggestions and what was applied or dismissed, for step 10), `rescore` (list; postings the user asked to score again), `meta` / `progress`, `meta` / `console` and `meta` / `postings` (get; any may not exist).
 4. **Collect, filter and rank:** `uv run jobagent prepare`, or `uv run jobagent prepare manual` when step 1 found a `run` request (the user pressed Run now; those runs are capped at a few a day, the morning run is not). It prints how long each stage took.
    - If it says the run stopped on the course cap, go to step 7.
    - Otherwise set `meta` / `progress` from `work/out/progress.json` (`file_path`, with the version from step 3; keep the version the write returns).
@@ -50,7 +50,7 @@ A run should take few turns: do independent tool calls in the same turn, and nev
 When step 1 finds a pending `suggest` request, the user asked for suggestions. Do only this, then stop:
 
 1. Get the engine as in step 2.
-2. Read, in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `matches` (list), `judgments` (list), `runs` (list).
+2. Read, in one turn, each with `out_dir: work/db`: `searches` (list), `agent` / `current` (get), `matches` (list), `judgments` (list), `runs` (list), `suggestions` (list).
 3. `uv run jobagent suggest prepare`. If it says there is nothing to suggest, skip to step 6.
 4. Read `work/suggest.json` and follow its `instructions`: propose changes to the user's Profile that would make the agent's scores agree better with their Good and Nope verdicts. Write `work/suggestions.json` in its `answer_format`, in one file write. These are proposals only; never change a search yourself.
 5. `uv run jobagent suggest finish --model <id>` (your model, as in step 6 above). Write `work/out/suggestion.json` with ArtifactData `set` to collection `suggestions` under the document id it prints.

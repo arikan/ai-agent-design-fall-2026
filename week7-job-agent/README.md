@@ -93,6 +93,7 @@ Any model name the provider accepts works. Small local models fail the quote che
 | **Engine** (`jobagent/engine.py`) | Deterministic code, never a model. Collects postings, removes duplicates, skips postings already seen, applies your filters and the limits, prepares the batch for judging, checks every judgment, and computes the weighted totals. |
 | **Claude** | The only step that needs judgment: scores each posting on each of your dimensions, 1 to 5 or unknown, with a reason and a quote from the posting as evidence. |
 | **Suggestions** (`jobagent/suggest.py`) | On request, or after every run if turned on: code gathers your Good and Nope verdicts and which dimensions disagree with them, the model proposes up to three Profile changes, and code checks them (a weight change must raise agreement on your judged posts). You apply them or not on the Agent tab. |
+| **What your changes did** (`jobagent/outcomes.py`) | Closes the loop. After each applied change, code compares the posts scored before and after it with your verdicts (agreement for weights and rubrics, the share marked Good for lists, Good posts for an added board) and shows the result on the Agent tab. The next suggestions read this record: they skip what you dismissed, favor what helped, propose undoing a change that hurt, and propose turning off boards you always reject. |
 | **Job Agent artifact** | Where you set up searches (your CV and preferences), manage sources, judge matches, and read what every run did. |
 
 Everything the engine decides is written to a trace, so any match can be traced back to the postings, settings and versions that produced it.
@@ -124,6 +125,7 @@ From then on, your runs use your code and your artifact updates from your fork's
 | Command | What it does |
 |---|---|
 | `uv run jobagent engine rank-fixture` then `node tests/rank_test.js` | Check that the artifact's in-browser ranking matches the engine's |
+| `uv run python tests/outcomes_test.py` | Check how an applied change is measured, on made-up posts |
 | `uv run jobagent usage` | Token usage of the Claude session running it, from its transcript (each run records this) |
 | `uv run jobagent` | Lists every command |
 | `uv run jobagent serve` | The Job Agent page on your computer |
@@ -185,13 +187,14 @@ week7-job-agent/
 │   ├── engine.py            filter, rank, prepare the batch, check scores, total them
 │   ├── judge.py, model.py   scoring with the model you choose
 │   ├── suggest.py           suggested Profile changes from your verdicts
+│   ├── outcomes.py          what each applied change did, read by the next suggestions
 │   ├── dbio.py, localdb.py  the database <-> the run's files
 │   ├── usage.py             a Claude session's token use
 │   └── adapters/            one file per kind of job board, plus fixtures/
 ├── defaults/                starting agent settings and first search
 ├── corpus/postings.jsonl    20 fictional postings for repeatable tests
 ├── examples/                a sample config and a sample source
-├── tests/                   the page's ranking checked against the engine's
+├── tests/                   the page's ranking checked against the engine's; how changes are measured
 ├── caps.json                course limits
 └── pyproject.toml, uv.lock
 ```

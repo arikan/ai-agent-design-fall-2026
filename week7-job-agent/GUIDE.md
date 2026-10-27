@@ -44,9 +44,10 @@ Everything the agent reads is yours to change. Each change is saved as a new ver
 1. **Judge at least 10 posts**, with both Good and Nope among them. Under Agent → Feedback, write down your agreement.
 2. **Press Suggest changes.** The model reads where you and the agent disagree and proposes up to three changes to your profile. Apply the ones you agree with and dismiss the rest. Write one line on each: why you applied or dismissed it.
 3. **Run again** (Run now, or wait for the morning run), then **judge at least 5 new posts**, again with both Good and Nope.
-4. **Compare.** "By version" shows agreement for the posts scored before and after your change. Did it go up? Is that enough posts to tell?
+4. **Read the result.** Under Agent → Feedback, "What your changes did" shows each change you applied and what it did since: helped, no clear change, hurt, or too early to tell, with the counts behind it. Is that enough posts to tell?
+5. **Close the loop.** Press Suggest changes again. The new suggestions read that record: did they skip what you dismissed, build on what helped, or propose undoing what hurt? Under Agent → How your agent works, "How it improves" shows the loop and "How it's built" places each part of the course's agent architecture in this agent.
 
-Note what you applied, what you dismissed, agreement before and after, and one thing the suggestions missed.
+Note what you applied, what you dismissed, each result and its counts, and one thing the loop missed.
 
 ## Good to know
 
