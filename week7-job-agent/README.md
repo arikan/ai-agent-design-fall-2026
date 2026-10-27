@@ -135,6 +135,7 @@ From then on, your runs use your code and your artifact updates from your fork's
 | `uv run jobagent sources try <source.json> [out.json]` | Run one source live and show a sample |
 | `uv run jobagent find "<company>"` | Find a company's job board from its name, and test it |
 | `uv run jobagent figure <url>` | Work out how to read a careers page, and test it |
+| `uv run jobagent scout [--n 12]` | Experiment: one agent or a team of three scouts naming companies, each board found and measured against your profile |
 | `uv run jobagent sources fetch <config.json>` | Fetch every enabled source into `work/fetched/` |
 | `uv run jobagent sources domains <config.json>` | List the domains the enabled sources need |
 | `uv run jobagent engine prepare <config.json>` | Collect, filter and prepare `work/batch.json` |

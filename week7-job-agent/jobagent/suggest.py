@@ -77,7 +77,7 @@ def judged(search_id, matches, judgments):
 
 
 MIN_RUNS_OFF = 3      # runs with per-source counts before a board can be called quiet
-MAX_ADD = 3
+MAX_ADD = 10      # companies the model may name; each board is found and measured in code, the best shown
 
 
 def source_of(posting_id):
@@ -319,22 +319,42 @@ def source_items(task, answer, rejected):
                       "why": f"{'These boards' if len(quiet) > 1 else 'This board'} brought in posts in each of the last runs, and none passed your filters. "
                              "Turning off stops reading them; your filters are unchanged."})
     have = {y["id"] for y in src.get("yours", [])}
-    for ask in (answer.get("add_sources") or [])[:MAX_ADD]:
-        name = str(ask.get("company") or "").strip()
-        if not name:
-            continue
-        found = [f for f in boards.probe(name) if f"{f['adapter']}:{f['slug']}" not in have]
-        if not found:
+    asks = [a for a in (answer.get("add_sources") or [])[:MAX_ADD] if str(a.get("company") or "").strip()]
+    search, floor = active_search(), min_rank()
+    # Each board is found and measured the way a run would see it, in parallel: what it lists, what passes your filters,
+    # and what ranks high enough for the model. Boards that would add nothing for you are not suggested.
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        ys = list(pool.map(lambda a: boards.board_yield(str(a["company"]).strip(), search, have, floor), asks))
+    found = []
+    for ask, y in zip(asks, ys):
+        name = str(ask["company"]).strip()
+        if not y:
             rejected.append({"suggestion": ask, "errors": [f"no Greenhouse, Lever, Ashby or Workable board found for {name!r}"]})
-            continue
-        f = found[0]
-        sid = f"{f['adapter']}:{f['slug']}"
-        have.add(sid)
+        elif not y["passed"]:
+            rejected.append({"suggestion": ask, "errors": [f"{y['id']} lists {y['listed']} jobs, none pass your filters"]})
+        elif y["id"] not in have:
+            have.add(y["id"])
+            found.append((ask, name, y))
+    found.sort(key=lambda t: (-t[2]["ranked"], -t[2]["passed"]))
+    for ask, name, y in found:
         items.append({"search_id": None, "target": "sources_add", "label": f"Add {name}", "current": None,
-                      "proposed": {"id": sid, "adapter": f["adapter"], "slug": f["slug"], "company": name, "jobs": f["jobs"],
+                      "proposed": {"id": y["id"], "adapter": y["adapter"], "slug": y["slug"], "company": name, "jobs": y["listed"],
+                                   "passed": y["passed"], "ranked": y["ranked"], "top": y["top"],
                                    "about": str(ask.get("about") or "")[:120], "category": str(ask.get("category") or "")[:40]},
                       "why": str(ask.get("why") or "")[:300], "posts": [], "status": "open"})
     return items
+
+
+def active_search():
+    return next((s for s in docs("searches").values() if s.get("active", True)), None)
+
+
+def min_rank():
+    try:
+        return min(max(int(body(WORK / "db" / "agent" / "current.json").get("settings", {}).get("min_rank_score", 0)), 0), 100) / 100
+    except Exception:
+        return 0
 
 
 def main():

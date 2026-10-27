@@ -1082,7 +1082,7 @@ function sgIcon(it){
 function suggestChange(it){
   if (it.target === "sources_off") return `<ul class="sgposts">${it.proposed.map(id => { const e = it.evidence?.[id] || {}; return `<li><span class="mono">${esc(id)}</span> <span class="muted">· ${num(e.collected)} posts in ${e.counted_runs} runs, none passed your filters</span></li>`; }).join("")}</ul>`;
   if (it.target === "sources_add"){ const p = it.proposed, url = boardUrl({adapter:p.adapter, config:{[ADAPTERS[p.adapter].key]: p.slug}});
-    return `${p.about ? `<p style="margin:0">${esc(p.about)}${p.category ? ` <span class="muted">· ${esc(p.category)}</span>` : ""}</p>` : ""}<p class="small" style="margin:0"><span class="mono">${esc(p.id)}</span> <span class="muted">· ${num(p.jobs)} jobs listed now, board found and read</span>${url ? ` · <a class="ext" href="${esc(url)}" target="_blank" rel="noopener">Open board ↗</a>` : ""}</p>`; }
+    return `${p.about ? `<p style="margin:0">${esc(p.about)}${p.category ? ` <span class="muted">· ${esc(p.category)}</span>` : ""}</p>` : ""}<p class="small" style="margin:0"><span class="mono">${esc(p.id)}</span> <span class="muted">· ${num(p.jobs)} jobs listed${p.passed != null ? ` · ${num(p.passed)} pass your filters · ${p.ranked ? `<b style="color:var(--fg)">${num(p.ranked)} would reach the model</b>` : "none rank high enough for the model yet"}` : ""}</span>${url ? ` · <a class="ext" href="${esc(url)}" target="_blank" rel="noopener">Open board ↗</a>` : ""}</p>${p.top?.length ? `<p class="small muted" style="margin:0">For example: ${p.top.map(esc).join("; ")}</p>` : ""}`; }
   if (it.target === "weights"){
     const dims = Object.fromEntries((S.searches.find(x => x.id === it.search_id)?.preferences?.dimensions || []).map(d => [d.key, d.name]));
     const ch = Object.keys(it.proposed).filter(k => it.proposed[k] !== it.current?.[k]).map(k => `<span>${esc(dims[k] || k)}</span><span class="mono">${it.current?.[k]}% → ${it.proposed[k]}%</span>`);
@@ -1120,10 +1120,11 @@ function agentSuggest(){
   // What it learns from, and how much it needs: shown before the first run and folded after.
   const enough = (n, k) => n >= 5 ? `<b>${n}</b>` : `<b class="warn-t">${n}</b>`;
   const learn = `<details class="sgfold"${doc ? "" : " open"}><summary>How suggestions learn from your verdicts</summary><div class="sgbody small">
-      <p>Both verdicts teach. <b>Nope posts</b> show what to skip: a word in two or more Nope titles and no Good one can become a title to skip, and a pattern in your Nope reasons can sharpen a rubric. <b>Good and Nope together</b> show where the scores are off: a dimension that rates Nope posts as high as Good ones gets a new rubric or weight. <b>Your sources</b> adapt too: a board none of whose posts pass your filters for three runs can be turned off, and boards of companies like your Good ones can be added, each found and tested first.</p>
+      <p>Both verdicts teach. <b>Nope posts</b> show what to skip: a word in two or more Nope titles and no Good one can become a title to skip, and a pattern in your Nope reasons can sharpen a rubric. <b>Good and Nope together</b> show where the scores are off: a dimension that rates Nope posts as high as Good ones gets a new rubric or weight. <b>Your sources</b> adapt too: a board none of whose posts pass your filters for three runs can be turned off, and up to ten boards of companies like your Good ones can be added. Each is found and measured first: how many of its jobs pass your filters and would reach the model.</p>
       <p>It needs at least one Good and one Nope; with five of each, the patterns start to mean something. A note on a verdict (“exclude marketing”) is the strongest hint. You have ${enough(nG)} Good and ${enough(nN)} Nope.</p>
       <p class="muted">Nothing changes until you apply a suggestion, and each one you apply is a new profile version.</p></div></details>`;
-  return `<div class="sghead"><h3 class="sechead" style="margin:0">Suggested changes</h3></div>${work}
+  const adds = open.filter(x => x.it.target === "sources_add" && x.it.status !== "applied");
+  return `<div class="sghead row between"><h3 class="sechead" style="margin:0">Suggested changes</h3>${adds.length > 1 && !mine ? `<button type="button" class="btn small" data-addall="${esc(doc.id)}">Add all ${adds.length} boards</button>` : ""}</div>${work}
     ${mine ? "" : !ready ? `<p class="small muted" style="margin:0">Mark at least one post Good and one Nope in Matches; then the model can suggest changes.</p>` : ""}
     ${mine ? "" : learn}
     ${mine ? "" : !doc ? ""
@@ -1175,6 +1176,18 @@ async function applySuggestion(docId, i){
   await S.db.doc("searches/" + id).set(next);
   const items = doc.items.map((x, j) => j === i ? {...x, status:"applied", applied_version:next.prefs_version, applied_at:next.updated} : x);
   await S.db.doc("suggestions/" + docId).set({...doc, items});
+}
+// Every open board suggestion in one agent version, rather than one version per board.
+async function addAllBoards(docId){
+  const doc = S.suggestions.find(d => d.id === docId); if (!doc) return;
+  const picks = doc.items.map((it, i) => ({it, i})).filter(x => x.it.target === "sources_add" && x.it.status === "open");
+  const have = new Set(S.agent.sources.map(x => x.id)), add = [];
+  for (const {it} of picks){ const p = it.proposed; if (have.has(p.id)) continue; have.add(p.id);
+    add.push({id:p.id, adapter:p.adapter, enabled:true, cap:COURSE_CAPS.max_postings_per_source, category:p.category || "", about:p.about || "", note:"Added from a suggestion", config:{[ADAPTERS[p.adapter].key]: p.slug, company_name:p.company}}); }
+  const v = await saveSources([...S.agent.sources, ...add], `Suggested change: added ${add.map(x => x.id).join(", ")}`);
+  const at = new Date().toISOString(), idx = new Set(picks.map(x => x.i));
+  await S.db.doc("suggestions/" + docId).set({...doc, items:doc.items.map((x, j) => idx.has(j) ? {...x, status:"applied", applied_agent_version:v, applied_at:at} : x)});
+  add.forEach(x => S.newIds.add(x.id));
 }
 async function dismissSuggestion(docId, i){
   const doc = S.suggestions.find(d => d.id === docId); if (!doc) return;
@@ -1255,6 +1268,10 @@ function renderAgent(){
     if (sg){ S.sg = {at:new Date().toISOString(), error:""}; renderAgent();
       if (!MCP){ S.sg.error = "this page can't reach your scheduled task."; renderAgent(); return; }
       startTask("suggest", {}).catch(err => { S.sg.error = S.local ? (err.message || "the server is busy") : mcpMessage(err); renderAgent(); }); return; }
+    const aa = e.target.closest("[data-addall]");
+    if (aa){ aa.disabled = true; aa.innerHTML = `<span class="spin" aria-hidden="true"></span>Adding…`;
+      addAllBoards(aa.dataset.addall).catch(() => { aa.textContent = "Could not add"; });
+      return; }
     const ap = e.target.closest("[data-apply]"), dm = e.target.closest("[data-dismiss]");
     if (ap || dm){ const [d, i] = (ap || dm).dataset[ap ? "apply" : "dismiss"].split(/:(?=\d+$)/); (ap || dm).disabled = true;
       (ap ? applySuggestion : dismissSuggestion)(d, Number(i)).catch(err => { (ap || dm).textContent = "Could not save"; }); }

@@ -43,3 +43,39 @@ def probe(name):
     for t in threads:
         t.join(timeout=10)
     return sorted(found, key=lambda x: -x["jobs"])
+
+
+def board_yield(name, search, have=(), floor=0.3, already=()):
+    """Look up a company's board by name and measure it against a search, the way a run would:
+    jobs listed, how many pass the search's filters, and how many rank high enough for the model.
+    Returns None when no board is found. Used by suggestions and by `jobagent scout`."""
+    from . import engine, sources
+    found = [f for f in probe(name) if f"{f['adapter']}:{f['slug']}" not in set(have)]
+    if not found:
+        return None
+    f = found[0]
+    key = {"greenhouse": "board_token", "lever": "company", "ashby": "company", "workable": "account"}[f["adapter"]]
+    src = {"id": f"{f['adapter']}:{f['slug']}", "adapter": f["adapter"], "enabled": True, "cap": 1000,
+           "config": {key: f["slug"], "company_name": name}}
+    try:
+        postings, h = sources.run_source(src)
+    except Exception as e:
+        postings, h = [], {"status": "failed", "error": f"{type(e).__name__}: {e}"[:200]}
+    db = (search or {}).get("preferences", {}).get("deal_breakers", {})
+    passed = ranked = 0
+    top = []
+    if search and postings:
+        for p in engine.normalize_and_dedupe(postings, []):
+            if p["id"] in set(already):
+                continue
+            rp = engine.for_ranking(p)
+            if engine.deal_breaker(rp, db):
+                continue
+            passed += 1
+            sc = engine.prefilter_score(search, rp)
+            if sc >= floor:
+                ranked += 1
+                top.append((sc, p["title"]))
+    top.sort(reverse=True)
+    return {**f, "id": src["id"], "status": h.get("status"), "listed": len(postings), "passed": passed, "ranked": ranked,
+            "top": [t for _, t in top[:3]]}
