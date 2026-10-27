@@ -267,7 +267,7 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgfold[open]>summary{margin-bottom:6px}
 .sgposts{margin:0;padding-left:18px;font-size:13px}
 .warn-t{color:var(--warn)}
-.nomatch{display:grid;gap:8px;font-size:14px;line-height:1.55}.nomatch p{margin:0}.nomatch .linkbtn{font:inherit;font-weight:600}
+.emptystate .nm-links{font-size:14px;max-width:none}.nm-links .linkbtn{font:inherit;font-weight:600}
 .src.isnew{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .src.ping{animation:ping 1.4s ease-out}
 @keyframes ping{0%{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 45%,transparent)}100%{box-shadow:0 0 0 1px var(--accent)}}
@@ -500,12 +500,12 @@ function floorNote(){
   const r = S.runs.find(x => x.status === "ok"); if (!r) return "";
   const f = (r.trace || []).filter(t => t.step === "filter");
   if (!f.length || f.some(t => t.sent_to_judge) || !f.some(t => t.below_min_rank)) return "";
-  const t = f[0], b = (t.best_below_min || [])[0];
-  // One size, one weight for the heading, plain links: what happened, why, what to do.
-  return `<div class="card nomatch">
-    <p><b>No new matches from the last run</b> <span class="muted">· ${esc(when(r.started))}</span></p>
-    <p class="muted">${num(t.passed)} new posts passed your filters, but none ranked ${t.min_rank_score} or more, so the model scored none.${b ? ` The closest was ${esc(b.title)} at ${esc(b.company)}, ranked ${b.rank}.` : ""}</p>
-    <p>For more matches: <button type="button" class="linkbtn" data-totab="sources">add sources</button> · <button type="button" class="linkbtn" data-totab="searches">add target roles</button> · <button type="button" class="linkbtn" data-tominrank>lower the minimum rank</button></p>
+  const t = f[0];
+  return `<div class="card emptystate">
+    <svg class="es-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15.5 15.5L20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    <h2>No new matches from the last run</h2>
+    <p class="muted">${num(t.passed)} new posts passed your filters, but none ranked high enough for the model to score.</p>
+    <p class="nm-links">For more matches: <button type="button" class="linkbtn" data-totab="sources">add sources</button> · <button type="button" class="linkbtn" data-totab="searches">add target roles</button> · <button type="button" class="linkbtn" data-tominrank>lower the minimum rank</button></p>
   </div>`;
 }
 function renderMatches(){
