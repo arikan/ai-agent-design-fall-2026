@@ -267,6 +267,7 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgfold[open]>summary{margin-bottom:6px}
 .sgposts{margin:0;padding-left:18px;font-size:13px}
 .warn-t{color:var(--warn)}
+.rmask{border-top:1px solid var(--line);padding-top:10px;gap:8px 10px}
 .emptystate .nm-links{font-size:14px;max-width:none}.nm-links .linkbtn{font:inherit;font-weight:600}
 .src.isnew{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .src.ping{animation:ping 1.4s ease-out}
@@ -1649,8 +1650,13 @@ $("sources").addEventListener("click", async e => {
     if (slot.firstElementChild){ slot.innerHTML = ""; return; }
     slot.innerHTML = sourceEditor(s, false); wireEditor(slot.firstElementChild);
   } else if (e.target.closest("[data-remove]")){
+    // Asked in the card, not with confirm(): an artifact's frame may block browser dialogs, and the click did nothing.
     card.querySelector(".kebab")?.removeAttribute("open");
-    if (!confirm(`Remove ${id} from your sources?`)) return;
+    card.querySelector(".editor-slot").innerHTML = `<div class="row rmask"><span>Remove <b>${esc(id)}</b> from your sources?</span><button type="button" class="btn danger" data-remove-yes>Remove</button><button type="button" class="btn" data-remove-no>Cancel</button></div>`;
+  } else if (e.target.closest("[data-remove-no]")){
+    card.querySelector(".editor-slot").innerHTML = "";
+  } else if (e.target.closest("[data-remove-yes]")){
+    const yes = e.target.closest("[data-remove-yes]"); yes.disabled = true; yes.innerHTML = `<span class="spin" aria-hidden="true"></span>Removing…`;
     try { const v = await saveSources(S.agent.sources.filter(x => x.id !== id), `Removed ${id}`); S.flash = {id:null, msg:`Removed ${id}. Saved as agent version ${v}.`}; renderSources(); }
     catch(err){ S.flash = {id, msg:"Could not remove: " + (err.message || err.code)}; renderSources(); }
   } else if (e.target.closest("[data-approve]")){
