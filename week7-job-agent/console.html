@@ -1385,17 +1385,19 @@ async function quickAdd(text){
   if (!text || S.figuring) return;
   const go = $("qa-go"); go.disabled = true;
   try {
-    const have = existingFor(text); if (have) return qaHave(have);
+    const have = existingFor(text);
+    if (have && have.adapter !== "manual") return qaHave(have);
+    const note = have ? `${have.id} is in your sources only as a reminder to check by hand. ` : "";
     let u = null; try { u = new URL(/^https?:\/\//i.test(text) ? text : (text.includes(".") && !text.includes(" ") ? "https://" + text : "x:")); } catch(e){}
     if (u && u.protocol.startsWith("http")){
       const host = u.hostname.toLowerCase(), hit = BOARD_HOSTS.find(([re]) => re.test(host));
-      if (hit && slugOf(u)) return await addBoard(hit[1], slugOf(u));
+      if (hit && slugOf(u)) return await findByName(slugOf(u), note);      // checked first: the board must exist and list jobs
       if (hit) return qaSay(`<p class="qanote warn">That is the board's home. Paste a company's own board, such as <span class="mono">${esc(u.origin)}/company</span>.</p>`);
       // Any other address: the agent opens the page and works out how to read it.
       return await figureOut(u.href);
     }
     // A company name: the agent looks for its board (board APIs by name, then the company's own site, then a web search in the cloud).
-    return await findByName(text);
+    return await findByName(text, note);
   } finally { if (!S.figuring){ const g = $("qa-go"); if (g) g.disabled = false; } else renderSources(); }
 }
 // Already in the list? A name matches a board's company or its id; an address matches the board it points to.
@@ -1431,10 +1433,10 @@ async function figureOut(url){
   try { await startTask("figure", {url}, "FIGURE_SOURCE " + url); if (S.local) figureLog(url); }
   catch(e){ S.figuring = null; qaSay(`<p class="qanote bad">Could not start: ${esc(mcpMessage(e))}</p>`); }
 }
-async function findByName(name){
+async function findByName(name, note = ""){
   if (!S.local && !S.runner?.trigger_id){ S.setup.open = true; renderSetup(); return qaSay(`<p class="qanote warn">Finish the setup above first; the agent needs its run to look for the board.</p>`); }
   const key = "name:" + name;
-  qaSay(`<p class="qanote"><span class="spin" aria-hidden="true"></span>Looking for ${esc(name)}'s job board. ${S.local ? "Usually under a minute." : "A cloud run does this, and searches the web if needed; a few minutes."}<span class="small" id="qa-log"></span></p>`, "");
+  qaSay(`<p class="qanote"><span class="spin" aria-hidden="true"></span>${esc(note)}Looking for ${esc(name)}'s job board. ${S.local ? "Usually under a minute." : "A cloud run does this, and searches the web if needed; a few minutes."}<span class="small" id="qa-log"></span></p>`, "");
   S.figuring = key;
   try { await startTask("find", {name}, "FIND_SOURCE " + name); if (S.local) figureLog(key); }
   catch(e){ S.figuring = null; qaSay(`<p class="qanote bad">Could not start: ${esc(S.local ? (e.message || "the server is busy") : mcpMessage(e))}</p>`); }

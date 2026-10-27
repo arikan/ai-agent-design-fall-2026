@@ -33,7 +33,7 @@ def slug(name):
 def board_source(adapter, s, name):
     key = {"greenhouse": "board_token", "lever": "company", "ashby": "company", "workable": "account"}[adapter]
     return {"id": f"{adapter}:{s}", "adapter": adapter, "enabled": True, "category": "", "about": "", "cap": 1000,
-            "note": "", "config": {key: s, "company_name": name}}
+            "note": "", "config": {key: s, "company_name": name if any(c.isupper() for c in name) else name.replace("-", " ").title()}}
 
 
 def candidates(name):
