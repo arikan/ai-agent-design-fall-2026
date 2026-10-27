@@ -510,6 +510,18 @@ function floorNote(){
     <div class="row" style="justify-content:center;gap:8px"><button type="button" class="btn" data-totab="sources">Add sources</button><button type="button" class="btn" data-totab="searches">Add target roles</button><button type="button" class="btn" data-tominrank>Lower the minimum rank</button></div>
   </div>`;
 }
+// Every match has a verdict: say so, and offer the two useful next steps.
+function caughtUp(){
+  const good = S.matches.filter(m => S.judgments[m.id]?.verdict === "accept").length;
+  const canRun = (S.local || S.runner?.trigger_id) && !runActiveSince() && manualRuns().left;
+  const running = !!runActiveSince();
+  return `<div class="card emptystate">
+    <svg class="es-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M5.5 12.5l4 4 9-9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <h2>All caught up</h2>
+    <p class="muted">${running ? "A run is in progress. Its matches will appear here." : "You've judged every match. The next run brings more."}</p>
+    ${canRun || good ? `<div class="row" style="justify-content:center;gap:8px">${canRun ? `<button type="button" class="btn" data-runnow>Run now</button>` : ""}${good ? `<button type="button" class="btn" data-mview="good">See ${good} Good</button>` : ""}</div>` : ""}
+  </div>`;
+}
 function renderMatches(){
   const sel = $("f-search"), cur = sel.value;
   sel.innerHTML = `<option value="">All searches</option>` + S.searches.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
@@ -535,7 +547,7 @@ function renderMatches(){
   const nNew = scope.filter(isNew).length;
   $("m-summary").textContent = nNew ? `${nNew} new from the last run` : "";
   if (!rows.length){
-    if (S.matches.length){ const fn = view[0] === "review" && floorNote(); $("matches").innerHTML = fn || `<div class="card empty">${view[0] === "review" ? `All caught up. New matches arrive with the next run.${runLink(" ", "Run now for more")}` : view[0] === "good" ? "Nothing marked Good yet." : "Nothing marked Nope yet."}</div>`; return; }
+    if (S.matches.length){ const fn = view[0] === "review" && floorNote(); $("matches").innerHTML = fn || (view[0] === "review" ? caughtUp() : `<div class="card empty">${view[0] === "good" ? "Nothing marked Good yet." : "Nothing marked Nope yet."}</div>`); return; }
     const ready = setupDone(), running = ["starting","running"].includes(runNowPhase());
     $("matches").innerHTML = `<div class="card emptystate">
       <svg class="es-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15.5 15.5L20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -674,6 +686,8 @@ async function saveJudgment(id, patch, el){
 }
 $("matches").addEventListener("click", e => {
   if (!S.db) return;
+  const empty = e.target.closest(".emptystate [data-mview]");
+  if (empty){ S.mview = empty.dataset.mview; S.sticky.clear(); renderMatches(); return; }
   const art = e.target.closest("article"); if (!art) return;
   const id = art.dataset.id, cur = S.judgments[id] || {};
   const v = e.target.closest("button[data-act]");
