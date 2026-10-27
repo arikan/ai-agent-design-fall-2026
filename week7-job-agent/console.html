@@ -259,6 +259,7 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgicon{display:inline-grid;place-items:center;width:18px;height:18px;flex:none;color:var(--muted)}.sgicon svg{width:18px;height:18px}
 .sgicon.src{color:var(--fg)}.sgicon.src svg{stroke-width:1.8}
 .sgstate{font-size:12.5px;color:var(--muted)}
+.chgfold>summary b{font-weight:600}.fold.chgfold>summary .muted{font-family:var(--font-ui);font-size:12.5px}
 #how-head{cursor:pointer;user-select:none}#how-head:hover h2{color:var(--accent)}
 .oc{font-weight:600}.oc.helped{color:var(--accent)}.oc.hurt,.oc.only_nope{color:var(--bad)}.oc.no_change,.oc.nothing{color:var(--warn)}
 .chg{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line);font-size:13px}
@@ -1212,12 +1213,13 @@ function changeRecord(){
   if (!rows.length) return "";
   const all = S.chgAll, shown = all ? rows : rows.slice(0, 5);
   const oc = rows.map(changeOutcome), tally = ["helped","no_change","hurt"].map(k => [k, oc.filter(o => o.verdict === k).length]).filter(x => x[1]);
-  return `<div class="stack" style="gap:0">
-    <div class="row between"><h3 class="sechead" style="margin:0">What your changes did <button type="button" class="tip" aria-label="How this is measured" data-tip="After each change, code compares the posts scored before it with those scored after, using your verdicts. Weights and rubrics are read by agreement; roles, keywords, industries and titles to skip by the share you marked Good; an added board by the Good posts it brought. Counts are small, and later changes overlap earlier ones, so read these as hints. The next suggestions read this record: they skip what you dismissed, favor what helped, and propose undoing a change that hurt.">i</button></h3>
-      <span class="small muted">${rows.length} applied${tally.length ? ": " + tally.map(([k, n]) => `${n} ${OC_LABEL[k].toLowerCase()}`).join(", ") : ""}${nDis ? ` · ${nDis} dismissed` : ""}</span></div>
+  return `<details class="fold chgfold"${S.howFolds.has("changes") ? " open" : ""} data-howfold="changes">
+    <summary><b>What your changes did</b> <span class="muted">${rows.length} applied${tally.length ? ": " + tally.map(([k, n]) => `${n} ${OC_LABEL[k].toLowerCase()}`).join(", ") : ""}${nDis ? ` · ${nDis} dismissed` : ""}</span></summary>
+    <div class="stack" style="gap:0">
+    <p class="small muted" style="margin:0 0 4px">After each change, code compares the posts scored before it with those scored after, using your verdicts. Counts are small and later changes overlap earlier ones, so read these as hints. The next suggestions read this record: they skip what you dismissed, favor what helped, and propose undoing a change that hurt.</p>
     ${shown.map((it, i) => { const o = changeOutcome(it); return `<div class="chg">${sgIcon(it)}<span>${esc(it.label)} <span class="oc ${o.verdict}">· ${OC_LABEL[o.verdict]}</span></span><span class="chgwhen">${esc(when(it.applied_at))}</span><span class="chgtext">${esc(o.text)}</span></div>`; }).join("")}
     ${rows.length > 5 ? `<button type="button" class="linkbtn small" data-chgall style="justify-self:start;margin-top:6px">${all ? "Show fewer" : `Show all ${rows.length}`}</button>` : ""}
-  </div>`;
+  </div></details>`;
 }
 async function applySuggestion(docId, i){
   const doc = S.suggestions.find(d => d.id === docId), it = doc?.items[i], s = S.searches.find(x => x.id === it?.search_id);
@@ -1305,7 +1307,7 @@ function howImproves(){
   return `<details class="fold"${S.howFolds.has("improve") ? " open" : ""} data-howfold="improve"><summary>How it improves</summary><div class="stack small" style="gap:8px;padding:4px 0 8px">
     <ol class="loop" aria-label="The improvement loop">${step("code + model", "Run", S.runs.filter(r => r.status === "ok").length)}${step("you", "Judge", judged)}${step("model", "Suggest", items.length)}${step("code", "Check", null)}${step("you", "Apply", applied.length)}${step("code", "Measure", measured)}<li><span class="muted">back to Suggest</span></li></ol>
     <p style="margin:0">The model never changes. What changes is what it reads: your Profile (roles, keywords, rubrics, weights, titles to skip) and the boards it collects from. The model proposes changes from your verdicts, code tests each one, and you apply it or not; each applied change is a new version.</p>
-    <p style="margin:0">Then code measures it on the posts scored after it, and the next suggestions read those results: they skip what you dismissed, build on what helped, and propose undoing what hurt. That return path is what makes it a loop rather than a list of tips. <button type="button" class="linkbtn small" data-jump="a-eval">What your changes did ↓</button></p>
+    <p style="margin:0">Then code measures it on the posts scored after it, and the next suggestions read those results: they skip what you dismissed, build on what helped, and propose undoing what hurt. That return path is what makes it a loop rather than a list of tips. <button type="button" class="linkbtn small" data-openchg>What your changes did ↓</button></p>
   </div></details>`;
 }
 // The course's agent architecture, located in this agent.
@@ -1385,6 +1387,7 @@ function renderAgent(){
     </section></div>`;
   $("agent-editor").onclick = e => {
     const st = e.target.closest("[data-astep]"); if (st){ S.agentStep = st.dataset.astep; renderAgent(); return; }
+    if (e.target.closest("[data-openchg]")){ S.howFolds.add("changes"); renderAgent(); document.querySelector(".chgfold")?.scrollIntoView({behavior:"smooth", block:"center"}); return; }
     if (e.target.closest("[data-chgall]")){ S.chgAll = !S.chgAll; renderAgent(); return; }
     const ht = e.target.closest("#how-toggle") || (e.target.closest("#how-head") && !e.target.closest("a, button:not(#how-toggle)") ? $("how-toggle") : null); if (ht){ const open = !howOpen(); try { localStorage.setItem("how-open", open ? "1" : "0"); } catch(err){} $("how-body").hidden = !open; ht.setAttribute("aria-expanded", String(open)); ht.title = open ? "Collapse" : "Expand"; return; }
     const g = e.target.closest("[data-goview]"); if (g){ goTab(g.dataset.goview); window.scrollTo({top:0}); return; }
