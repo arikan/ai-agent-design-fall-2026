@@ -259,7 +259,7 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgicon{display:inline-grid;place-items:center;width:18px;height:18px;flex:none;color:var(--muted)}.sgicon svg{width:18px;height:18px}
 .sgicon.src{color:var(--fg)}.sgicon.src svg{stroke-width:1.8}
 .sgstate{font-size:12.5px;color:var(--muted)}
-.chgfold>summary b{font-weight:600}.fold.chgfold>summary .muted{font-family:var(--font-ui);font-size:12.5px}
+.chgfold>summary b{font-weight:600}
 #how-head{cursor:pointer;user-select:none}#how-head:hover h2{color:var(--accent)}
 .oc{font-weight:600}.oc.helped{color:var(--accent)}.oc.hurt,.oc.only_nope{color:var(--bad)}.oc.no_change,.oc.nothing{color:var(--warn)}
 .chg{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line);font-size:13px}
@@ -303,6 +303,13 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .runnow{gap:12px;flex-wrap:nowrap}
 details.run[open] > summary .runcounts{display:none}
 .folds{display:grid;gap:2px;border-top:1px solid var(--line);padding-top:6px}
+.subfold{border-top:1px solid var(--line)}
+.subfold>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;cursor:pointer;font-size:14px;font-weight:600;color:var(--fg)}
+.subfold>summary::-webkit-details-marker{display:none}
+.subfold>summary:hover>span:first-child{color:var(--accent)}
+.subfold>summary .muted{font-weight:400;font-size:12.5px;margin-left:8px}
+.subfold .subchev{flex:none;color:var(--muted);transition:transform .15s;transform:rotate(-90deg)}.subfold[open] .subchev{transform:none}
+.subfold>.subbody{padding:0 0 12px}
 .fold > summary{font-size:13px;color:var(--fg);padding:6px 0;cursor:pointer}
 .fold > summary .muted{font-family:var(--font-data);font-size:12px;margin-left:4px}
 .runbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px}
@@ -1213,9 +1220,9 @@ function changeRecord(){
   if (!rows.length) return "";
   const all = S.chgAll, shown = all ? rows : rows.slice(0, 5);
   const oc = rows.map(changeOutcome), tally = ["helped","no_change","hurt"].map(k => [k, oc.filter(o => o.verdict === k).length]).filter(x => x[1]);
-  return `<details class="fold chgfold"${S.howFolds.has("changes") ? " open" : ""} data-howfold="changes">
-    <summary><b>What your changes did</b> <span class="muted">${rows.length} applied${tally.length ? ": " + tally.map(([k, n]) => `${n} ${OC_LABEL[k].toLowerCase()}`).join(", ") : ""}${nDis ? ` · ${nDis} dismissed` : ""}</span></summary>
-    <div class="stack" style="gap:0">
+  return `<details class="subfold chgfold"${S.howFolds.has("changes") ? " open" : ""} data-howfold="changes">
+    <summary><span>What your changes did<span class="muted">${rows.length} applied${tally.length ? ": " + tally.map(([k, n]) => `${n} ${OC_LABEL[k].toLowerCase()}`).join(", ") : ""}${nDis ? ` · ${nDis} dismissed` : ""}</span></span><svg class="subchev" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+    <div class="stack subbody" style="gap:0">
     <p class="small muted" style="margin:0 0 4px">After each change, code compares the posts scored before it with those scored after, using your verdicts. Counts are small and later changes overlap earlier ones, so read these as hints. The next suggestions read this record: they skip what you dismissed, favor what helped, and propose undoing a change that hurt.</p>
     ${shown.map((it, i) => { const o = changeOutcome(it); return `<div class="chg">${sgIcon(it)}<span>${esc(it.label)} <span class="oc ${o.verdict}">· ${OC_LABEL[o.verdict]}</span></span><span class="chgwhen">${esc(when(it.applied_at))}</span><span class="chgtext">${esc(o.text)}</span></div>`; }).join("")}
     ${rows.length > 5 ? `<button type="button" class="linkbtn small" data-chgall style="justify-self:start;margin-top:6px">${all ? "Show fewer" : `Show all ${rows.length}`}</button>` : ""}
@@ -1304,7 +1311,7 @@ function howImproves(){
   const measured = applied.map(changeOutcome).filter(o => ["helped","no_change","hurt","nothing","only_nope"].includes(o.verdict)).length;
   const judged = Object.values(S.judgments).filter(j => j.verdict).length;
   const step = (who, name, n) => `<li><span><span class="who">${who}</span> <b>${name}</b>${n != null ? ` <span class="muted mono">${num(n)}</span>` : ""}</span></li>`;
-  return `<details class="fold"${S.howFolds.has("improve") ? " open" : ""} data-howfold="improve"><summary>How it improves</summary><div class="stack small" style="gap:8px;padding:4px 0 8px">
+  return `<details class="subfold"${S.howFolds.has("improve") ? " open" : ""} data-howfold="improve"><summary><span>How it improves</span><svg class="subchev" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><div class="stack small subbody" style="gap:8px">
     <ol class="loop" aria-label="The improvement loop">${step("code + model", "Run", S.runs.filter(r => r.status === "ok").length)}${step("you", "Judge", judged)}${step("model", "Suggest", items.length)}${step("code", "Check", null)}${step("you", "Apply", applied.length)}${step("code", "Measure", measured)}<li><span class="muted">back to Suggest</span></li></ol>
     <p style="margin:0">The model never changes. What changes is what it reads: your Profile (roles, keywords, rubrics, weights, titles to skip) and the boards it collects from. The model proposes changes from your verdicts, code tests each one, and you apply it or not; each applied change is a new version.</p>
     <p style="margin:0">Then code measures it on the posts scored after it, and the next suggestions read those results: they skip what you dismissed, build on what helped, and propose undoing what hurt. That return path is what makes it a loop rather than a list of tips. <button type="button" class="linkbtn small" data-openchg>What your changes did ↓</button></p>
@@ -1327,7 +1334,7 @@ function howBuilt(){
     ["Trace", "Each run keeps its steps, drops and costs; each change a version and a note; each score its model and versions.", go("a-versions", "Versions")],
     ["Boundary", "Job boards belong to others: robots.txt, pages built with JavaScript, boards that move or close. Some can only be checked by hand.", go("sources", "Sources")],
   ];
-  return `<details class="fold"${S.howFolds.has("built") ? " open" : ""} data-howfold="built"><summary>How it's built</summary><div class="scroll"><table class="arch small"><tbody>${rows.map(([k, what, where]) => `<tr><td>${k}</td><td>${what} ${where}</td></tr>`).join("")}</tbody></table></div></details>`;
+  return `<details class="subfold"${S.howFolds.has("built") ? " open" : ""} data-howfold="built"><summary><span>How it's built</span><svg class="subchev" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></summary><div class="scroll subbody"><table class="arch small"><tbody>${rows.map(([k, what, where]) => `<tr><td>${k}</td><td>${what} ${where}</td></tr>`).join("")}</tbody></table></div></details>`;
 }
 // "How your agent works" opens by default; once someone closes or opens it, this browser remembers.
 const howOpen = () => { try { return localStorage.getItem("how-open") !== "0"; } catch(e){ return true; } };
