@@ -260,7 +260,7 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgicon.src{color:var(--fg)}.sgicon.src svg{stroke-width:1.8}
 .sgstate{font-size:12.5px;color:var(--muted)}
 .chgfold>summary b{font-weight:600}
-#how-head{cursor:pointer;user-select:none}#how-head:hover h2{color:var(--accent)}
+#how-head{cursor:pointer;user-select:none;flex-wrap:nowrap;align-items:flex-start}#how-head>span:first-child{flex:1;min-width:0;row-gap:2px}#how-head:hover h2{color:var(--accent)}
 .oc{font-weight:600}.oc.helped{color:var(--accent)}.oc.hurt,.oc.only_nope{color:var(--bad)}.oc.no_change,.oc.nothing{color:var(--warn)}
 .chg{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line);font-size:13px}
 .chg .sgicon{grid-row:span 2}.chg .chgwhen{color:var(--muted);font-size:12.5px;white-space:nowrap}.chg .chgtext{grid-column:2 / 4;color:var(--muted)}
@@ -1347,7 +1347,7 @@ function renderAgent(){
   const sgHtml = agentSuggest();      // first: it also makes the Suggest changes button for the card's header
   $("agent-editor").innerHTML = `<div class="panel">
     <section class="asec">
-      <div class="row between" id="how-head"><h2>How your agent works</h2><span class="row" style="gap:10px">${run ? `<span class="small muted">Last run ${esc(when(run.started))}</span>` : ""}<button type="button" class="xbtn pchev" id="how-toggle" aria-expanded="${howOpen()}" aria-controls="how-body" aria-label="Show or hide how your agent works" title="${howOpen() ? "Collapse" : "Expand"}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span></div>
+      <div class="row between" id="how-head"><span class="row" style="gap:10px;align-items:baseline;flex-wrap:wrap"><h2>How your agent works</h2>${run ? `<span class="small muted">Last run ${esc(when(run.started))}</span>` : ""}</span><span class="row" style="gap:10px"><button type="button" class="xbtn pchev" id="how-toggle" aria-expanded="${howOpen()}" aria-controls="how-body" aria-label="Show or hide how your agent works" title="${howOpen() ? "Collapse" : "Expand"}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span></div>
       <div class="stack" id="how-body" style="gap:10px"${howOpen() ? "" : " hidden"}>
       <p class="small muted" style="margin:0">Only one step uses a model. Click a step.</p>
       <div class="pipe" role="tablist" aria-label="Agent steps">${steps.map((x, i) => `${i ? `<span class="pipe-arrow" aria-hidden="true">→</span>` : ""}<button type="button" role="tab" class="pstep who-${x.who}" data-astep="${x.key}" aria-selected="${x.key === cur.key}">
