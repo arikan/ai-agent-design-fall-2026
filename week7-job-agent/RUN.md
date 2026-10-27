@@ -34,8 +34,9 @@ A run should take few turns: do independent tool calls in the same turn, and nev
    - Otherwise set `meta` / `progress` from `work/out/progress.json` (`file_path`, with the version from step 3; keep the version the write returns).
 5. **Judge** `work/batch.json`: follow its `matcher_instructions` and each search's dimension rubrics. For every item and every dimension give a score from 1 to 5 or `"unknown"`, a one sentence reason, and evidence copied exactly from the posting's `text`. Keep reasons short. Write the list to `work/judgments.json` in the batch's `answer_format`, in one file write. The engine rejects any score whose evidence is not in the text.
 6. **Rank and package:** `uv run jobagent finish --model <id>`, where `<id>` is the model you are running as, exactly as your system prompt names it (for example `claude-sonnet-4-5`). It is recorded on the run and on every match, so a score can always be traced to the model that gave it. The command also reads this session's token usage from its transcript and records it on the run.
-7. **Write back**, in one turn:
-   - `work/out/writes.json` with ArtifactData `batch` (at most 50 writes per call; pass each entry as it is, with its `file_path` and, for a rescored match or a cleared rescore request, its `if_version`)
+7. **Write back**, in two turns, so the artifact never says "done" before the matches are there:
+   - first: `work/out/writes.json` with ArtifactData `batch` (at most 50 writes per call, all calls in this one turn; pass each entry as it is, with its `file_path` and, for a rescored match or a cleared rescore request, its `if_version`)
+   - then, after every batch has succeeded, in one turn:
    - `meta` / `progress` from `work/out/progress.json` (with the version you kept)
    - `meta` / `postings` from `work/out/postings-index.json`, if that file exists (with the version from step 3): it points the artifact at the day's collected postings, which `writes.json` already carried
    - if this run came from a request, `meta` / `request` `status` `"done"`
