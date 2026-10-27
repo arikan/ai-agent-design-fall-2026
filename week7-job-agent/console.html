@@ -526,7 +526,10 @@ function renderMatches(){
   const lastRun = [...S.runs].filter(r => r.status === "ok").sort((a,b) => String(b.started).localeCompare(String(a.started)))[0];
   const isNew = m => !!lastRun && m.run_id === lastRun.id && S.runs.filter(r => r.status === "ok").length > 1;
   rows = [...rows].sort((a,b) => (isNew(b) - isNew(a)) || (b.total - a.total));
-  $("c-matches").textContent = S.matches.length || "";
+  // The tab counts what needs you: posts without a verdict. Nothing when all are judged.
+  const toReview = S.matches.filter(m => !verdictOf(m)).length;
+  $("c-matches").textContent = toReview || "";
+  $("c-matches").title = toReview ? `${toReview} to review` : "";
   $("m-views").closest(".row.between").hidden = !S.matches.length;
   const nNew = scope.filter(isNew).length;
   $("m-summary").textContent = nNew ? `${nNew} new from the last run` : "";
