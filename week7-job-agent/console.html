@@ -267,6 +267,7 @@ body.installing nav[role=tablist], body.installing .panel, body.installing #setu
 .sgfold[open]>summary{margin-bottom:6px}
 .sgposts{margin:0;padding-left:18px;font-size:13px}
 .warn-t{color:var(--warn)}
+.tabdot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);margin-left:4px;vertical-align:2px}
 .rmask{border-top:1px solid var(--line);padding-top:10px;gap:8px 10px}
 .emptystate .nm-links{font-size:14px;max-width:none}.nm-links .linkbtn{font:inherit;font-weight:600}
 .src.isnew{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
@@ -1339,7 +1340,9 @@ function renderSources(){
   if (!a){ $("sources").innerHTML = `<div class="card empty">Sources appear here once the agent is set up.</div>`; return; }
   clearTimeout(S.flashTimer); if (S.flash) S.flashTimer = setTimeout(() => { S.flash = null; renderSources(); }, 6000);
   const repairs = a.sources.filter(s => s.enabled && srcHealth(s.id).repair).length;
-  $("c-sources").textContent = repairs ? `${repairs} need repair` : a.sources.length;
+  // The count of boards, with a small amber dot when some are failing: often a board recovers by itself, so it's a hint, not an alarm.
+  $("c-sources").innerHTML = `${a.sources.filter(x => x.enabled).length}${repairs ? `<i class="tabdot" aria-label="${repairs} failing"></i>` : ""}`;
+  $("c-sources").title = repairs ? `${repairs} source${repairs === 1 ? " is" : "s are"} failing. Some recover on their own; see their cards.` : "";
   $("sources").innerHTML = `
     <div class="stack srchead">
       <div class="row between"><p class="small muted" style="margin:0">The job boards your agent reads.</p><button type="button" class="linkbtn small" id="add-source">Add by hand</button></div>
