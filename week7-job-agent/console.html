@@ -2016,14 +2016,18 @@ function runNowBlock(context){
   const btn = label => `<button type="button" class="btn primary" data-runnow><span aria-hidden="true">⚡</span> ${label}</button>`;
   if (ph === "not_started") return `<div class="testbox bad small" role="alert"><b>The run didn't start.</b> ${esc(S.runNow.error)}</div>${btn("Try again")}`;
   if (ph === "stale") return `<div class="testbox bad small" role="alert"><b>No result after 30 minutes.</b> Open your scheduled task in Claude Code to see what happened.</div>${btn("Try again")}`;
-  const daily = S.progress && !["done","stopped"].includes(S.progress.stage) && Date.now() - new Date(S.progress.updated_at) < 30 * 60000;
+  // A run that stopped early may leave its progress at a middle step; a finished request after it says it is over.
+  const over = r && r.status === "done" && S.progress && new Date(r.requested_at) >= new Date(S.progress.started_at) - 5 * 60000;
+  const daily = S.progress && !over && !["done","stopped"].includes(S.progress.stage) && Date.now() - new Date(S.progress.updated_at) < 30 * 60000;
+  const stopped = r?.kind === "run" && r.ended && !S.runs.some(x => new Date(x.started) >= new Date(r.requested_at) - 60000)
+    ? `<div class="testbox bad small" role="alert"><b>The last run stopped early.</b> ${esc(r.ended.replace(/\.+$/, ""))}.${r.session_url ? ` <a class="ext" href="${esc(r.session_url)}" target="_blank" rel="noopener">See what the run did ↗</a>` : ""}</div>` : "";
   if (daily) return progressBox(S.progress.started_at, "started");   // the morning run, started by its schedule
   const m = manualRuns();
   const n = Math.min(S.agent?.settings?.max_judged_per_search || COURSE_CAPS.max_judged_per_search, COURSE_CAPS.max_judged_per_search);
   const tip = `Besides the morning run, you can start ${COURSE_CAPS.max_manual_runs_per_day} runs in any 24 hours. Each scores the next ${n} best posts.`;
   if (context !== "first" && !m.left) return `<div class="row runnow"><span class="small muted" title="${esc(tip)}">Next run ${esc(when(m.nextAt))}</span><button type="button" class="btn primary" disabled><span aria-hidden="true">⚡</span> Run now</button></div>`;
-  if (context === "first") return btn("Start my agent");
-  return `<div class="row runnow"><span class="small muted" title="${esc(tip)}">${m.left} left today</span>${btn("Run now")}</div>`;
+  if (context === "first") return stopped + btn("Start my agent");
+  return `${stopped}<div class="row runnow"><span class="small muted" title="${esc(tip)}">${m.left} left today</span>${btn("Run now")}</div>`;
 }
 async function runNow(){
   if (!S.runner?.trigger_id){ S.setup.open = true; renderSetup(); return; }
@@ -2038,7 +2042,8 @@ function runActiveSince(){
   const ph = runNowPhase();
   if (ph === "starting") return S.runNow.at;
   if (ph === "running") return S.request.requested_at;
-  const p = S.progress;
+  const p = S.progress, r = S.request;
+  if (p && r && r.status === "done" && new Date(r.requested_at) >= new Date(p.started_at) - 5 * 60000) return null;   // that run is over
   return p && !["done","stopped"].includes(p.stage) && Date.now() - new Date(p.updated_at) < 30 * 60000 ? p.started_at : null;
 }
 // "Run now" as a small link, where a change was just made. Nothing while a run is going or none are left.

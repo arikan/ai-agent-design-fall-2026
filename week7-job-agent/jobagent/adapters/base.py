@@ -13,6 +13,24 @@ POSTING_FIELDS = ["id", "company", "title", "location", "remote", "pay_min", "pa
 REQUIRED = ["company", "title", "location", "text"]
 
 
+def safe_id(raw):
+    """A posting's own id, usable as a database document id and a file name: letters, digits and _ . ~ : @ + -.
+    Board ids (numbers, uuids) pass unchanged; a web page's id is its address, so the scheme and host are dropped,
+    other characters become dashes, and a long one is shortened with a hash so it stays unique."""
+    import hashlib
+    import re
+    from urllib.parse import urlparse
+    raw = str(raw)
+    s = raw
+    if re.match(r"https?://", s):
+        u = urlparse(s)
+        s = u.path + ("?" + u.query if u.query else "")
+    s = re.sub(r"[^A-Za-z0-9_.~:@+-]+", "-", s).strip("-") or hashlib.sha1(raw.encode()).hexdigest()[:12]
+    if len(s) > 80:
+        s = s[:60].rstrip("-") + "-" + hashlib.sha1(raw.encode()).hexdigest()[:10]
+    return s
+
+
 class BaseSource:
     # Domains this adapter may reach. Subclasses return them from config.
     def __init__(self, name, config, http):
@@ -34,7 +52,7 @@ class BaseSource:
         p = {k: fields.get(k) for k in POSTING_FIELDS}
         p["remote"] = bool(p["remote"]) or "remote" in str(p["location"] or "").lower()
         p["industry"] = p["industry"] or self.config.get("industry")
-        p["id"] = f"{self.name}:{p['id']}" if p["id"] is not None else None
+        p["id"] = f"{self.name}:{safe_id(p['id'])}" if p["id"] is not None else None
         return p
 
     def run(self, cap):
