@@ -1116,7 +1116,9 @@ function agentSuggest(){
         <li>Code checks each one: a title word is kept only if no Good title or target role has it, a weight change only if it raises agreement</li>
       </ol>
       <span class="muted">${S.local ? "Usually under a minute." : "Usually 2 to 4 minutes. You can leave this page; suggestions appear here when they're ready."}</span></div>`
-    : S.sg.error ? `<div class="status err">Could not start: ${esc(S.sg.error)}</div>` : "";
+    : S.sg.error ? `<div class="status err">Could not start: ${esc(S.sg.error)}</div>`
+    : S.request?.kind === "suggest" && S.request.ended && (!doc || new Date(doc.at) < new Date(S.request.requested_at)) ? `<div class="testbox bad small" role="alert"><b>The last try ended without suggestions.</b> ${esc(S.request.ended)}.${S.request.session_url ? ` <a class="ext" href="${esc(S.request.session_url)}" target="_blank" rel="noopener">See what the run did ↗</a>` : ""} Press Suggest changes to try again.</div>` : "";
+  if (mine && !S.local) watchSuggestRun(since);
   // What it learns from, and how much it needs: shown before the first run and folded after.
   const enough = (n, k) => n >= 5 ? `<b>${n}</b>` : `<b class="warn-t">${n}</b>`;
   const learn = `<details class="sgfold"${doc ? "" : " open"}><summary>How suggestions learn from your verdicts</summary><div class="sgbody small">
@@ -1176,6 +1178,27 @@ async function applySuggestion(docId, i){
   await S.db.doc("searches/" + id).set(next);
   const items = doc.items.map((x, j) => j === i ? {...x, status:"applied", applied_version:next.prefs_version, applied_at:next.updated} : x);
   await S.db.doc("suggestions/" + docId).set({...doc, items});
+}
+// A cloud run that stops early never marks the request done, and the page would wait 30 minutes. While waiting,
+// ask the scheduled task about its last run: if it finished after the request without writing, say so now.
+S.sgWatch = null;
+async function watchSuggestRun(since){
+  if (S.sgWatch === since || !MCP || !S.runner?.trigger_id) return;
+  S.sgWatch = since;
+  const check = async () => {
+    if (suggestBusy() !== "suggest" || S.sgWatch !== since) return;
+    try {
+      const res = await MCP.callTool(RUNNER, "list_triggers", {limit:50});
+      const lr = (res.payload?.data || []).find(t => t.id === S.runner.trigger_id)?.last_run;
+      if (lr?.finished_at && new Date(lr.fired_at) >= new Date(since) - 60000 && new Date(lr.finished_at) > new Date(since) && suggestBusy() === "suggest"){
+        const url = lr.session_id ? "https://claude.ai/code/" + lr.session_id.replace(/^cse_/, "session_") : "";
+        await S.db.doc("meta/request").set({...S.request, status:"done", ended:"the run stopped before writing suggestions", session_url:url});
+        return;
+      }
+    } catch(e){}
+    setTimeout(check, 20000);
+  };
+  setTimeout(check, 20000);
 }
 // Every open board suggestion in one agent version, rather than one version per board.
 async function addAllBoards(docId){

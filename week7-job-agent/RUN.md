@@ -15,6 +15,8 @@ Done once from the artifact's setup panel: it creates the scheduled task, asks f
 
 ## Steps
 
+If any step fails and you stop early, first set `meta` / `request` `status` to `"done"` with `ended`: one plain sentence of what failed, and `session_url` (this session's page, as in "Check setup"). The artifact shows it; without it, the person waits for a result that never comes.
+
 A run should take few turns: do independent tool calls in the same turn, and never read the files under `work/db` or `work/out` into the conversation; pass them by path. The artifact shows progress from `meta` / `progress`.
 
 1. **Decide what this run is.** Read `meta` / `request` with ArtifactData. If it exists, its `status` is `"pending"`, and its `requested_at` is less than 30 minutes old:
