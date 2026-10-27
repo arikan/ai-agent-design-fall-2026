@@ -65,7 +65,7 @@ def board_yield(name, search, have=(), floor=0.3, already=()):
     passed = ranked = 0
     top = []
     if search and postings:
-        for p in engine.normalize_and_dedupe(postings, []):
+        for p in engine.normalize_and_dedupe([{**p, "source": src["id"]} for p in postings], []):
             if p["id"] in set(already):
                 continue
             rp = engine.for_ranking(p)

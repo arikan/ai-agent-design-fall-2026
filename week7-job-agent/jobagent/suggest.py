@@ -325,11 +325,18 @@ def source_items(task, answer, rejected):
     # and what ranks high enough for the model. Boards that would add nothing for you are not suggested.
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=5) as pool:
-        ys = list(pool.map(lambda a: boards.board_yield(str(a["company"]).strip(), search, have, floor), asks))
+        def measure(a):       # one board's trouble must not lose the other suggestions
+            try:
+                return boards.board_yield(str(a["company"]).strip(), search, have, floor)
+            except Exception as e:
+                return {"error": f"{type(e).__name__}: {e}"[:200]}
+        ys = list(pool.map(measure, asks))
     found = []
     for ask, y in zip(asks, ys):
         name = str(ask["company"]).strip()
-        if not y:
+        if y and y.get("error"):
+            rejected.append({"suggestion": ask, "errors": [f"couldn't measure {name!r}'s board: {y['error']}"]})
+        elif not y:
             rejected.append({"suggestion": ask, "errors": [f"no Greenhouse, Lever, Ashby or Workable board found for {name!r}"]})
         elif not y["passed"]:
             rejected.append({"suggestion": ask, "errors": [f"{y['id']} lists {y['listed']} jobs, none pass your filters"]})

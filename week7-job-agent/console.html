@@ -1117,7 +1117,7 @@ function agentSuggest(){
       </ol>
       <span class="muted">${S.local ? "Usually under a minute." : "Usually 2 to 4 minutes. You can leave this page; suggestions appear here when they're ready."}</span></div>`
     : S.sg.error ? `<div class="status err">Could not start: ${esc(S.sg.error)}</div>`
-    : S.request?.kind === "suggest" && S.request.ended && (!doc || new Date(doc.at) < new Date(S.request.requested_at)) ? `<div class="testbox bad small" role="alert"><b>The last try ended without suggestions.</b> ${esc(S.request.ended)}.${S.request.session_url ? ` <a class="ext" href="${esc(S.request.session_url)}" target="_blank" rel="noopener">See what the run did ↗</a>` : ""} Press Suggest changes to try again.</div>` : "";
+    : S.request?.kind === "suggest" && S.request.ended && (!doc || new Date(doc.at) < new Date(S.request.requested_at)) ? `<div class="testbox bad small" role="alert"><b>The last try ended without suggestions.</b> ${esc(S.request.ended.replace(/\.+$/, ""))}.${S.request.session_url ? ` <a class="ext" href="${esc(S.request.session_url)}" target="_blank" rel="noopener">See what the run did ↗</a>` : ""} Press Suggest changes to try again.</div>` : "";
   if (mine && !S.local) watchSuggestRun(since);
   // What it learns from, and how much it needs: shown before the first run and folded after.
   const enough = (n, k) => n >= 5 ? `<b>${n}</b>` : `<b class="warn-t">${n}</b>`;
