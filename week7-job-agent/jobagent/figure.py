@@ -115,6 +115,25 @@ def by_model(url, html, model=None, log=print):
     return None, "no selectors found that read this page", tried
 
 
+def templatize(src, roles=None):
+    """A search page whose address names one of the target roles (Built In's ?search=Head+of+Product) becomes a
+    template, {role} in its place, so each run searches it for every target role in the profile."""
+    from urllib.parse import parse_qsl, urlparse, quote_plus
+    if not src or src["adapter"] not in ("html_scraper", "json_api", "rss"):
+        return src
+    url = src["config"].get("url", "")
+    squash = lambda t: re.sub(r"[^a-z0-9]+", "", t.lower())
+    roles = roles if roles is not None else sources.profile_roles()
+    for k, v in parse_qsl(urlparse(url).query):
+        if any(squash(v) == squash(r) for r in roles):
+            for form in (quote_plus(v), v.replace(" ", "%20"), v):
+                if f"{k}={form}" in url:
+                    src["config"]["url_template"] = url.replace(f"{k}={form}", f"{k}={{role}}", 1)
+                    src["note"] = (src.get("note") or "") + (" · " if src.get("note") else "") + "Searched for each of your target roles"
+                    return src
+    return src
+
+
 def figure(url, model=None, log=print):
     result = {"url": url, "source": None, "how": None, "tried": []}
     log(f"figure: opening {url}")
@@ -146,7 +165,7 @@ def figure(url, model=None, log=print):
     if isinstance(how, dict) and how.get("follow"):       # a landing page: say where the jobs are, don't go there
         result["follow"] = how["follow"]
         how = f"this page only links to the job list. Paste that page instead: {how['follow']}"
-    result.update(source=src, how=how)
+    result.update(source=templatize(src), how=how)
     return result
 
 

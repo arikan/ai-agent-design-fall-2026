@@ -1319,7 +1319,7 @@ const ADAPTERS = {
   ashby:{label:"Ashby", key:"company", fields:[["company","Board name","openai"],["company_name","Company name",""]], help:"A company's Ashby board, from jobs.ashbyhq.com/<board name>. One request reads the whole board, with descriptions and pay."},
   getro:{label:"Getro portfolio board", key:"domain", fields:[["domain","Board domain","jobs.example-vc.com"]], help:"Job boards that venture firms run for their portfolio companies. Lists the 20 newest jobs, without descriptions."},
   json_api:{label:"JSON API", key:"url", fields:[["url","API address","https://..."],["items_path","Where the list sits","jobs or data.items, empty for a bare list"],["fields","Where each field sits (JSON)",'{"title":"position","company":"company","location":"location","url":"url","text":"description"}'],["filter_words","Keep only jobs mentioning","design, research"],["company_name","Company name, if items have none",""]], help:"Any API that returns a list of jobs. When it changes shape, fix the paths here; no code needed."},
-  html_scraper:{label:"Web page", key:"url", fields:[["url","Careers page address","https://..."],["sel_job_card","Job card selector","li.job-row"],["sel_title","Title selector",".title"],["sel_company","Company selector",""],["sel_location","Location selector",".location"],["sel_link","Link selector","a"],["detail_text","Description selector on each job page",""],["company_name","Company name, if cards have none",""]], help:"A careers page read with CSS selectors. When it stops working, the selectors usually need updating. Pages built with JavaScript come back empty."},
+  html_scraper:{label:"Web page", key:"url", fields:[["url","Careers page address","https://..."],["url_template","Or search it for each target role (address with {role})","https://www.builtinnyc.com/jobs/product-management?search={role}"],["sel_job_card","Job card selector","li.job-row"],["sel_title","Title selector",".title"],["sel_company","Company selector",""],["sel_location","Location selector",".location"],["sel_link","Link selector","a"],["detail_text","Description selector on each job page",""],["company_name","Company name, if cards have none",""]], help:"A careers page read with CSS selectors. When it stops working, the selectors usually need updating. Pages built with JavaScript come back empty."},
   rss:{label:"RSS feed", key:"url", fields:[["url","Feed address","https://.../feed.xml"],["company_name","Company name, if items have none",""],["default_location","Location, if items have none","Remote"]], help:"Job feeds in RSS or Atom format."},
   workable:{label:"Workable", key:"account", fields:[["account","Account","huggingface"],["company_name","Company name",""]], help:"A company's Workable board, from apply.workable.com/<account>. One request reads the whole board, with descriptions."},
   manual:{label:"Check by hand", fields:[["url","Address","https://..."]], help:"A reminder, not fetched. Use it for sources that block automated access."},
@@ -1481,7 +1481,7 @@ function boardUrl(s){
     case "ashby": return c.company ? `https://jobs.ashbyhq.com/${encodeURIComponent(c.company)}` : "";
     case "workable": return c.account ? `https://apply.workable.com/${encodeURIComponent(c.account)}` : "";
     case "getro": return c.domain ? `https://${c.domain.replace(/^https?:\/\//, "")}` : "";
-    default: return /^https?:\/\//.test(c.url || "") ? c.url : "";
+    default: { const u = c.url || (c.url_template && S.searches[0]?.target_roles?.[0] ? c.url_template.replace("{role}", encodeURIComponent(S.searches[0].target_roles[0]).replace(/%20/g, "+")) : ""); return /^https?:\/\//.test(u) ? u : ""; }
   }
 }
 // What a source gave you over recent runs, from each run's per-source counts and your verdicts.
@@ -1535,7 +1535,7 @@ function runLine(s, h){
     parts.push(`${num(L.collected)} job${L.collected === 1 ? "" : "s"} listed`);
     if (L.counted) parts.push(L.passed ? `${num(L.passed)} passed your filters` : `<span class="warn-t">none passed your filters</span>`, `${num(L.scored)} scored by the model`);
   } else parts.push(h.status === "failed" ? `<span class="warn-t">failed</span>` : `${num(h.kept)} jobs listed`);
-  const worked = h.lastOk && h.status !== "ok" ? ` · last worked ${esc(when(h.lastOk))}` : "";
+  const worked = (h.lastOk && h.status !== "ok" ? ` · last worked ${esc(when(h.lastOk))}` : "") + (s.config?.url_template ? ` · searched for each of your target roles` : "");
   return `<div class="small muted" title="Jobs listed: every job on the board that morning. Passed your filters: left after your locations, pay and title filters. Scored: the ones that ranked high enough for the model to read.">Last run ${esc(when(h.lastAt))}: ${parts.join(" · ")}${worked}</div>`;
 }
 // Your verdicts on this board's posts, all time.
@@ -1608,7 +1608,7 @@ function readEditor(f){
   if (Object.keys(selectors).length) config.selectors = selectors;
   const code = f.querySelector("[data-code]"); if (code) config.code = code.value;
   const common = k => f.querySelector(`[data-common="${k}"]`)?.value.trim();
-  const keyVal = A.key ? (A.key === "url" ? host(config.url) : config[A.key]) : "";
+  const keyVal = A.key ? (A.key === "url" ? host(config.url || String(config.url_template || "").replace("{role}", "x")) : config[A.key]) : "";
   const id = adapter === "corpus" ? "corpus" : adapter === "manual" ? "manual:" + (host(config.url) || slug(common("note"))) : `${adapter}:${keyVal}`;
   if (A.key && !keyVal) throw new Error(`Fill in ${A.fields.find(x=>x[0]===A.key || (A.key==="url"&&x[0]==="url"))?.[1] || A.key}.`);
   return {id, adapter, enabled:true, category:common("category")||"", about:common("about")||"", cap:Math.min(Number(common("cap"))||COURSE_CAPS.max_postings_per_source, COURSE_CAPS.max_postings_per_source), note:common("note")||"", config};

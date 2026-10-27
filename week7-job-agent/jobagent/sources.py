@@ -23,11 +23,76 @@ def safe(source_id):
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", source_id)
 
 
-def run_source(source, fixtures=None):
+def run_source(source, fixtures=None, roles=None):
+    if (source.get("config") or {}).get("url_template"):
+        return run_template(source, fixtures, roles)
     cls = adapter_class(source)
     http = Http(domains_for(source), fixtures=fixtures)
     cap = min(int(source.get("cap", CAPS["max_postings_per_source"])), CAPS["max_postings_per_source"])
     return cls(source["id"], source.get("config", {}), http).run(cap)
+
+
+MAX_TEMPLATE_ROLES = 8
+
+
+def expand(template, role):
+    """An address with {role} in it, for one target role: "Head of Product" goes in as Head+of+Product."""
+    from urllib.parse import quote_plus
+    return template.replace("{role}", quote_plus(role))
+
+
+def run_template(source, fixtures=None, roles=None):
+    """A search page or API whose address takes a role (an aggregator such as Built In): one request per target
+    role from the profile, so the source narrows itself as the profile changes. Posts found by several roles
+    are kept once."""
+    cfg = source["config"]
+    roles = [r for r in (roles or profile_roles()) if r.strip()][:MAX_TEMPLATE_ROLES]
+    if not roles:
+        return [], {"source": source["id"], "status": "failed", "error": "this source searches by your target roles, and the profile has none", "fetched": 0, "kept": 0}
+    seen, postings = set(), []
+    health = {"source": source["id"], "status": "ok", "fetched": 0, "kept": 0, "rejected": 0, "capped": 0, "requests": [], "by_role": {}}
+    errors = []
+    for role in roles:
+        one = {**source, "config": {**{k: v for k, v in cfg.items() if k != "url_template"}, "url": expand(cfg["url_template"], role)}}
+        try:
+            ps, h = run_source(one, fixtures)
+        except Exception as e:
+            ps, h = [], {"status": "failed", "error": f"{type(e).__name__}: {e}"[:200]}
+        health["by_role"][role] = h.get("kept", 0)
+        health["fetched"] += h.get("fetched") or 0
+        health["rejected"] += h.get("rejected") or 0
+        health["requests"] += h.get("requests", [])
+        if h.get("status") == "failed":
+            errors.append(f"{role}: {h.get('error')}")
+        for p in ps:
+            key = p.get("url") or (p.get("company"), p.get("title"), p.get("location"))
+            if key not in seen:
+                seen.add(key)
+                postings.append(p)
+    cap = min(int(source.get("cap", CAPS["max_postings_per_source"])), CAPS["max_postings_per_source"])
+    health["capped"] = max(0, len(postings) - cap)
+    postings = postings[:cap]
+    health["kept"] = len(postings)
+    if errors and not postings:
+        health.update(status="failed", error="; ".join(errors)[:300])
+    elif not postings:
+        health["status"] = "empty"
+    return postings, health
+
+
+def profile_roles():
+    """Target roles of the active searches, from the run's config or the local database."""
+    roles = []
+    cfg = WORK / "config.json"
+    searches = json.loads(cfg.read_text()).get("searches", []) if cfg.exists() else []
+    if not searches and (WORK / "db" / "searches").exists():
+        for p in sorted((WORK / "db" / "searches").glob("*.json")):
+            d = json.loads(p.read_text())
+            searches.append(d.get("data", d))
+    for s in searches:
+        if s.get("active", True):
+            roles += [r for r in s.get("target_roles", []) if r not in roles]
+    return roles
 
 
 def fetch(config_path):
